@@ -19,6 +19,8 @@ model Finca {
   veredaSector    String
   responsable     String
   areaTotalHa     Float
+  latitud         Float?
+  longitud        Float?
   estado          EstadoFinca @default(ACTIVO)
   observaciones   String?  @db.Text
   createdAt       DateTime @default(now())

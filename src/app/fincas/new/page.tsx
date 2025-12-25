@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Save } from "lucide-react"
 import { useState, useEffect } from "react"
+import dynamic from 'next/dynamic'
 import {
     Select,
     SelectContent,
@@ -16,6 +17,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+
+const MapPicker = dynamic(() => import('@/components/ui/MapPicker'), {
+    ssr: false,
+    loading: () => <div className="h-[300px] w-full bg-muted animate-pulse flex items-center justify-center text-sm text-muted-foreground">Cargando Mapa...</div>
+})
 
 export default function NewFincaPage() {
     const [departamentos, setDepartamentos] = useState<any[]>([])
@@ -25,6 +31,11 @@ export default function NewFincaPage() {
     const [selectedDeptId, setSelectedDeptId] = useState("")
     const [selectedDeptName, setSelectedDeptName] = useState("") // To store in DB
     const [selectedMuniName, setSelectedMuniName] = useState("") // To store in DB
+
+    // Location State
+    const [lat, setLat] = useState("")
+    const [lng, setLng] = useState("")
+    const [showMap, setShowMap] = useState(false)
 
     useEffect(() => {
         // Load Depts on mount
@@ -45,6 +56,23 @@ export default function NewFincaPage() {
         // Load Munis
         const res = await getMunicipios(deptId)
         if (res.data) setMunicipios(res.data)
+    }
+
+    const handleGeolocation = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setLat(position.coords.latitude.toString())
+                    setLng(position.coords.longitude.toString())
+                    setShowMap(true) // Show map to confirm
+                },
+                (error) => {
+                    alert("Error obteniendo ubicación: " + error.message)
+                }
+            )
+        } else {
+            alert("Tu navegador no soporta geolocalización.")
+        }
     }
 
     return (
@@ -144,6 +172,43 @@ export default function NewFincaPage() {
                                 <Label htmlFor="areaTotalHa">Área Total (Ha)</Label>
                                 <Input id="areaTotalHa" name="areaTotalHa" type="number" step="0.01" placeholder="0.00" required />
                             </div>
+                        </div>
+
+                        {/* Geolocation Section */}
+                        <div className="space-y-4 pt-2">
+                            <h3 className="text-sm font-medium">Ubicación Geográfica</h3>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="latitud">Latitud</Label>
+                                    <Input id="latitud" name="latitud" type="number" step="any" placeholder="0.000000" value={lat} onChange={(e) => setLat(e.target.value)} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="longitud">Longitud</Label>
+                                    <Input id="longitud" name="longitud" type="number" step="any" placeholder="0.000000" value={lng} onChange={(e) => setLng(e.target.value)} />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <Button type="button" variant="secondary" size="sm" onClick={handleGeolocation}>
+                                    📍 Detectar mi Ubicación
+                                </Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>
+                                    🗺️ {showMap ? 'Ocultar Mapa' : 'Seleccionar en Mapa'}
+                                </Button>
+                            </div>
+
+                            {showMap && (
+                                <div className="rounded-lg border overflow-hidden">
+                                    <MapPicker onLocationSelect={(la, lo) => {
+                                        setLat(la.toString())
+                                        setLng(lo.toString())
+                                    }} />
+                                    <p className="text-xs text-muted-foreground p-2 bg-muted/50">
+                                        Haz clic en el mapa para establecer la ubicación.
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-2">

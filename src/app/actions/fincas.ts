@@ -26,6 +26,9 @@ export async function createFinca(formData: FormData) {
     const areaTotalHa = parseFloat(formData.get("areaTotalHa") as string)
     const observaciones = formData.get("observaciones") as string
 
+    const latitud = formData.get("latitud") ? parseFloat(formData.get("latitud") as string) : null
+    const longitud = formData.get("longitud") ? parseFloat(formData.get("longitud") as string) : null
+
     // Simple validation
     if (!nombre || !areaTotalHa) {
         return { error: "Campos obligatorios faltantes." }
@@ -54,6 +57,8 @@ export async function createFinca(formData: FormData) {
                 veredaSector,
                 responsable,
                 areaTotalHa,
+                latitud,
+                longitud,
                 observaciones,
                 estado: 'ACTIVO'
             }
