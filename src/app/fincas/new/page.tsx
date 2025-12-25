@@ -10,7 +10,14 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, Save } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import dynamic from 'next/dynamic'
-import { MapPickerHandle } from '@/components/ui/MapPicker' // Ensure this is exported
+import { MapPickerHandle } from '@/components/ui/MapPicker'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 
 const MapPicker = dynamic(() => import('@/components/ui/MapPicker'), {
     ssr: false,
