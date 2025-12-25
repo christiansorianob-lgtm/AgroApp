@@ -86,8 +86,9 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({ onLocationSelec
         flyTo: (lat: number, lng: number) => {
             if (map) {
                 const newPos = new L.LatLng(lat, lng)
-                map.flyTo(newPos, 18)
-                setPosition(newPos) // Update internal position state too
+                // Use current zoom instead of forcing 18 to avoid unexpected jumps
+                map.flyTo(newPos, map.getZoom())
+                setPosition(newPos)
             }
         }
     }));
