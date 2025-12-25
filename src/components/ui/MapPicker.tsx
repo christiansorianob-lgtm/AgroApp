@@ -113,7 +113,10 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
 
     return (
         <div className="space-y-2">
-            <div className="h-[300px] w-full rounded-md overflow-hidden border relative group">
+            <div className={`rounded-md overflow-hidden border relative group ${drawingMode
+                    ? 'fixed inset-0 z-[9999] h-screen w-screen bg-background rounded-none border-none'
+                    : 'h-[300px] w-full'
+                }`}>
                 <MapContainer
                     center={position || [4.5709, -74.2973]}
                     zoom={13}
@@ -143,8 +146,8 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
                             type="button"
                             onClick={() => setDrawingMode(!drawingMode)}
                             className={`px-3 py-1.5 text-xs font-bold rounded shadow-lg border transition-colors ${drawingMode
-                                ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700'
-                                : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
+                                    ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700'
+                                    : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
                                 }`}
                         >
                             {drawingMode ? '✅ Finalizar' : '✏️ Dibujar Área'}
