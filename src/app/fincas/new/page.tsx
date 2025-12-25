@@ -68,7 +68,10 @@ export default function NewFincaPage() {
                 (position) => {
                     setLat(position.coords.latitude.toString())
                     setLng(position.coords.longitude.toString())
-                    setShowMap(true) // Show map to confirm
+                    // If map is already open, fly to it
+                    if (showMap && mapRef.current) {
+                        mapRef.current.flyTo(position.coords.latitude, position.coords.longitude)
+                    }
                 },
                 (error) => {
                     alert("Error obteniendo ubicación: " + error.message)
@@ -197,103 +200,103 @@ export default function NewFincaPage() {
                                 <Button type="button" variant="secondary" size="sm" onClick={handleGeolocation}>
                                     📍 Detectar mi Ubicación
                                 </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>
-                                    🗺️ {showMap ? 'Ocultar Mapa' : 'Seleccionar en Mapa'}
+                                <Button type="button" variant="outline" size="sm" onClick={() => setShowMap(true)}>
+                                    🗺️ Abrir Editor de Mapa
                                 </Button>
-
-                                {showMap && (
-                                    <>
-                                        <div className="w-px h-6 bg-border mx-2" /> {/* Separator */}
-
-                                        <Button
-                                            type="button"
-                                            variant={isDrawing ? "default" : "outline"}
-                                            size="sm"
-                                            onClick={() => {
-                                                // Ensure we are centered before drawing
-                                                if (!isDrawing && lat && lng) {
-                                                    mapRef.current?.flyTo(parseFloat(lat.replace(',', '.')), parseFloat(lng.replace(',', '.')))
-                                                }
-                                                mapRef.current?.toggleDrawing()
-                                            }}
-                                            className={isDrawing ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
-                                        >
-                                            {isDrawing ? "✅ Finalizar" : "✏️ Dibujar Área"}
-                                        </Button>
-
-                                        {/* Auto-center button */}
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            title="Centrar en coordenadas"
-                                            onClick={() => {
-                                                if (lat && lng) {
-                                                    mapRef.current?.flyTo(parseFloat(lat.replace(',', '.')), parseFloat(lng.replace(',', '.')))
-                                                } else {
-                                                    alert("Ingrese coordenadas primero")
-                                                }
-                                            }}
-                                        >
-                                            🎯 Centrar
-                                        </Button>
-
-                                        {hasPoints && (
-                                            <>
-                                                <Button
-                                                    type="button"
-                                                    variant="secondary"
-                                                    size="sm"
-                                                    onClick={() => mapRef.current?.undo()}
-                                                >
-                                                    ↩️ Deshacer
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        if (confirm('¿Borrar todo el polígono?')) mapRef.current?.clear()
-                                                    }}
-                                                >
-                                                    🗑️ Borrar
-                                                </Button>
-                                            </>
-                                        )}
-                                    </>
-                                )}
                             </div>
 
+                            {/* Fullscreen Map Editor Modal */}
                             {showMap && (
-                                <div className="rounded-lg border overflow-hidden">
-                                    <MapPicker
-                                        ref={mapRef}
-                                        onLocationSelect={(la, lo) => {
-                                            setLat(la.toString())
-                                            setLng(lo.toString())
-                                        }}
-                                        lat={parseFloat(lat.replace(',', '.'))}
-                                        lng={parseFloat(lng.replace(',', '.'))}
-                                        onAreaCalculated={(areaHa) => {
-                                            const input = document.getElementById('areaTotalHa') as HTMLInputElement
-                                            if (input && areaHa > 0) {
-                                                input.value = areaHa.toString()
-                                            }
-                                        }}
-                                        onPolygonChange={(points) => {
-                                            const input = document.getElementById('poligono') as HTMLInputElement
-                                            if (input) {
-                                                input.value = JSON.stringify(points)
-                                            }
-                                        }}
-                                        onStatusChange={(drawing, points) => {
-                                            setIsDrawing(drawing)
-                                            setHasPoints(points)
-                                        }}
-                                    />
-                                    <input type="hidden" id="poligono" name="poligono" />
+                                <div className="fixed inset-0 z-50 bg-background flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                                    {/* Modal Header */}
+                                    <div className="flex items-center justify-between p-4 border-b bg-card shadow-sm z-10 w-full shrink-0">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <h3 className="font-semibold text-lg whitespace-nowrap hidden md:block">Editor de Finca</h3>
+
+                                            {/* Toolbar */}
+                                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar mask-gradient">
+                                                <Button
+                                                    type="button"
+                                                    variant={isDrawing ? "default" : "outline"}
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        mapRef.current?.toggleDrawing()
+                                                        // Ensure center if just starting
+                                                        if (!isDrawing && lat && lng) {
+                                                            mapRef.current?.flyTo(parseFloat(lat.replace(',', '.')), parseFloat(lng.replace(',', '.')))
+                                                        }
+                                                    }}
+                                                    className={isDrawing ? "bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap" : "whitespace-nowrap"}
+                                                >
+                                                    {isDrawing ? "✅ Finalizar" : "✏️ Dibujar"}
+                                                </Button>
+
+                                                {hasPoints && (
+                                                    <>
+                                                        <Button type="button" variant="secondary" size="sm" onClick={() => mapRef.current?.undo()}>
+                                                            ↩️ Deshacer
+                                                        </Button>
+                                                        <Button type="button" variant="destructive" size="sm" onClick={() => { if (confirm('¿Borrar?')) mapRef.current?.clear() }}>
+                                                            🗑️ Borrar
+                                                        </Button>
+                                                    </>
+                                                )}
+
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        if (lat && lng) mapRef.current?.flyTo(parseFloat(lat.replace(',', '.')), parseFloat(lng.replace(',', '.')))
+                                                        else alert('Sin coordenadas')
+                                                    }}
+                                                >
+                                                    🎯 Centrar
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 shrink-0 ml-2">
+                                            <Button type="button" onClick={() => setShowMap(false)}>
+                                                💾 Guardar
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* Map Container */}
+                                    <div className="flex-1 relative bg-muted/20 w-full min-h-0">
+                                        <MapPicker
+                                            ref={mapRef}
+                                            lat={parseFloat(lat.replace(',', '.'))}
+                                            lng={parseFloat(lng.replace(',', '.'))}
+                                            onLocationSelect={(la, lo) => {
+                                                setLat(la.toString())
+                                                setLng(lo.toString())
+                                            }}
+                                            onAreaCalculated={(areaHa) => {
+                                                const input = document.getElementById('areaTotalHa') as HTMLInputElement
+                                                if (input && areaHa > 0) input.value = areaHa.toString()
+                                            }}
+                                            onPolygonChange={(points) => {
+                                                const input = document.getElementById('poligono') as HTMLInputElement
+                                                if (input) input.value = JSON.stringify(points)
+                                            }}
+                                            onStatusChange={(drawing, points) => {
+                                                setIsDrawing(drawing)
+                                                setHasPoints(points)
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* Footer Info */}
+                                    <div className="p-2 text-center text-xs text-muted-foreground border-t bg-card shrink-0">
+                                        Use el mouse o dedos para mover el mapa. Click para agregar puntos del lindero.
+                                    </div>
                                 </div>
                             )}
+
+                            {/* Hidden Inputs for Persistence */}
+                            <input type="hidden" id="poligono" name="poligono" />
                         </div>
 
                         <div className="space-y-2">
@@ -307,7 +310,7 @@ export default function NewFincaPage() {
                             </Button>
                             <Button type="submit">
                                 <Save className="mr-2 w-4 h-4" />
-                                Guardar Finca
+                                <Guardar Finca
                             </Button>
                         </div>
                     </form>
