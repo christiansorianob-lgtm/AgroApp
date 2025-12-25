@@ -83,6 +83,8 @@ export default function NewFincaPage() {
     }
 
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [showErrorModal, setShowErrorModal] = useState(false)
+    const [errorDetail, setErrorDetail] = useState("")
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -108,18 +110,38 @@ export default function NewFincaPage() {
             formData.set('departamento', selectedDeptName)
             formData.set('municipio', selectedMuniName)
 
-            const res = await createFinca(formData)
-            if (res && res.error) {
-                alert(res.error)
-                setIsSubmitting(false)
-            } else {
-                // Success - Redirect happens on server, but we can also push here if needed
-                // Server action redirect usually throws, so we might not reach here if strictly redirecting.
-                // But createFinca catches error? No, redirect is outside try/catch.
+            // Use fetch instead of Server Action to avoid Turbopack proxy errors
+            const res = await fetch('/api/fincas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nombre: formData.get('nombre'),
+                    departamento: selectedDeptName,
+                    municipio: selectedMuniName,
+                    veredaSector: formData.get('veredaSector'),
+                    responsable: formData.get('responsable'),
+                    areaTotalHa: formData.get('areaTotalHa'),
+                    latitud: formData.get('latitud'),
+                    longitud: formData.get('longitud'),
+                    poligono: formData.get('poligono'),
+                    observaciones: formData.get('observaciones')
+                })
+            })
+
+            if (!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || "Error desconocido al guardar")
             }
+
+            // Success
+            alert("Finca creada exitosamente")
+            window.location.href = "/fincas"
+
         } catch (error: any) {
             console.error(error)
-            alert(error.message || "Error al guardar")
+            setErrorDetail(String(error.message))
+            setShowErrorModal(true)
+        } finally {
             setIsSubmitting(false)
         }
     }
@@ -137,6 +159,41 @@ export default function NewFincaPage() {
                     <p className="text-muted-foreground">Registre una nueva unidad productiva</p>
                 </div>
             </div>
+
+            {/* ERROR MODAL */}
+            {showErrorModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-full max-w-lg overflow-hidden border border-red-500">
+                        <div className="bg-red-500 text-white px-4 py-2 font-bold flex justify-between items-center">
+                            <span>Error al Guardar</span>
+                            <button onClick={() => setShowErrorModal(false)} className="text-white hover:text-red-200">✕</button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                                Ocurrió un error técnico. Por favor comparte este mensaje con soporte:
+                            </p>
+                            <textarea
+                                readOnly
+                                className="w-full h-32 p-2 text-xs font-mono bg-gray-100 dark:bg-slate-800 border rounded resize-none"
+                                value={errorDetail}
+                            />
+                            <div className="flex justify-end gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(errorDetail)
+                                        alert("Copiado al portapapeles")
+                                    }}
+                                >
+                                    📋 Copiar Error
+                                </Button>
+                                <Button type="button" onClick={() => setShowErrorModal(false)}>Cerrar</Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <Card>
                 <CardHeader>
