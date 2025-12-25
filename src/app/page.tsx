@@ -1,39 +1,87 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, AlertTriangle, Calendar, Tractor } from "lucide-react"
+import { Activity, AlertTriangle, Calendar, Tractor, Package, ArrowRight } from "lucide-react"
+import { db } from "@/lib/db"
+import Link from "next/link"
 
-// Mock Data for UI demonstration
-const stats = [
-  {
-    title: "Tareas Pendientes",
-    value: "12",
-    description: "4 de prioridad alta",
-    icon: Calendar,
-    color: "text-blue-500"
-  },
-  {
-    title: "Tareas Atrasadas",
-    value: "2",
-    description: "Requieren atención inmediata",
-    icon: AlertTriangle,
-    color: "text-red-500"
-  },
-  {
-    title: "Maquinaria en Mantenimiento",
-    value: "1",
-    description: "Tractor John Deere",
-    icon: Tractor,
-    color: "text-yellow-500"
-  },
-  {
-    title: "Alertas de Stock",
-    value: "3",
-    description: "Insumos bajo mínimo",
-    icon: Activity, // Using Activity generic
-    color: "text-orange-500"
-  }
-]
+export const revalidate = 0; // Ensure dynamic data fetching
 
-export default function Home() {
+export default async function Home() {
+  // 1. Fetch Key Metrics
+  const pendingTasks = await db.tarea.count({
+    where: {
+      estado: { in: ['PROGRAMADA', 'EN_PROCESO'] }
+    }
+  })
+
+  const highPriorityTasks = await db.tarea.count({
+    where: {
+      estado: 'PROGRAMADA',
+      prioridad: 'ALTA'
+    }
+  })
+
+  const delayedTasks = await db.tarea.count({
+    where: {
+      estado: 'PROGRAMADA',
+      fechaProgramada: {
+        lt: new Date()
+      }
+    }
+  })
+
+  const maintenanceMachines = await db.maquinaria.count({
+    where: {
+      estado: 'EN_MANTENIMIENTO'
+    }
+  })
+
+  // Specific machine name example or generic text
+  const maintenanceText = maintenanceMachines > 0
+    ? `${maintenanceMachines} equipos detenidos`
+    : "Flota 100% operativa"
+
+  const totalInsumos = await db.insumo.count({
+    where: { activo: true }
+  })
+
+  // 2. Fetch Recent Activity (Last 5 created/updated tasks)
+  const recentActivity = await db.tarea.findMany({
+    take: 5,
+    orderBy: { updatedAt: 'desc' },
+    include: { finca: true, lote: true }
+  })
+
+  const stats = [
+    {
+      title: "Tareas Pendientes",
+      value: pendingTasks.toString(),
+      description: `${highPriorityTasks} de prioridad alta`,
+      icon: Calendar,
+      color: "text-blue-500"
+    },
+    {
+      title: "Tareas Atrasadas",
+      value: delayedTasks.toString(),
+      description: "Requieren atención inmediata",
+      icon: AlertTriangle,
+      color: "text-red-500"
+    },
+    {
+      title: "Maquinaria en Taller",
+      value: maintenanceMachines.toString(),
+      description: maintenanceText,
+      icon: Tractor,
+      color: "text-yellow-500"
+    },
+    {
+      title: "Catálogo de Insumos",
+      value: totalInsumos.toString(),
+      description: "Productos registrados",
+      icon: Package,
+      color: "text-green-500"
+    }
+  ]
+
   return (
     <div className="space-y-6">
       <div>
@@ -45,24 +93,60 @@ export default function Home() {
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
-            <div key={stat.title} className="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
-              <div className="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-                <h3 className="tracking-tight text-sm font-medium">{stat.title}</h3>
+            <Card key={stat.title}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {stat.title}
+                </CardTitle>
                 <Icon className={`h-4 w-4 ${stat.color}`} />
-              </div>
-              <div className="p-6 pt-0">
+              </CardHeader>
+              <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">{stat.description}</p>
-              </div>
-            </div>
+                <p className="text-xs text-muted-foreground">
+                  {stat.description}
+                </p>
+              </CardContent>
+            </Card>
           )
         })}
       </div>
 
-      {/* Todo: Add recent activity table or charts (textual) */}
       <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-6">
         <h3 className="font-semibold text-lg mb-4">Actividad Reciente</h3>
-        <p className="text-muted-foreground text-sm">No hay actividad reciente registrada en el sistema.</p>
+
+        {recentActivity.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No hay actividad reciente registrada en el sistema.</p>
+            <Link href="/tareas/new" className="text-primary hover:underline text-sm font-medium mt-2 inline-block">
+              + Crear primera tarea
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {recentActivity.map(item => (
+              <div key={item.id} className="flex items-center justify-between border-b border-border/50 pb-4 last:border-0 last:pb-0">
+                <div className="grid gap-1">
+                  <p className="text-sm font-medium leading-none">
+                    {item.tipo} - <span className="text-muted-foreground">{item.codigo}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.finca.nombre} {item.lote && `• Lote ${item.lote.nombre}`} • {new Date(item.updatedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.estado === 'PROGRAMADA' ? 'bg-blue-100 text-blue-800' :
+                      item.estado === 'EN_PROCESO' ? 'bg-yellow-100 text-yellow-800' :
+                        item.estado === 'EJECUTADA' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-800'
+                    }`}>
+                    {item.estado}
+                  </span>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
