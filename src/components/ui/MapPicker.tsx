@@ -110,6 +110,15 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
         }
     }, [polygonPoints])
 
+    // Handle Resize on Fullscreen Toggle
+    useEffect(() => {
+        if (map) {
+            setTimeout(() => {
+                map.invalidateSize()
+            }, 300) // Wait for transition
+        }
+    }, [drawingMode, map])
+
     if (!mounted) return <div className="h-[300px] w-full bg-muted flex items-center justify-center">Cargando Mapa...</div>
 
     return (
@@ -121,7 +130,7 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
                 <MapContainer
                     center={position || [4.5709, -74.2973]}
                     zoom={13}
-                    scrollWheelZoom={false}
+                    scrollWheelZoom={true}
                     style={{ height: '100%', width: '100%', zIndex: 0 }}
                     ref={setMap}
                 >
@@ -139,8 +148,8 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
                     />
                 </MapContainer>
 
-                {/* Floating Controls with Icons */}
-                <div className={`absolute right-2 z-[500] flex flex-col gap-2 pointer-events-none transition-all duration-300 ${drawingMode ? 'top-4 right-4' : 'top-2 right-2'
+                {/* Floating Controls - Ultra High Z-Index */}
+                <div className={`absolute right-2 flex flex-col gap-2 transition-all duration-300 pointer-events-none ${drawingMode ? 'top-6 right-6 z-[10000]' : 'top-2 right-2 z-[1000]'
                     }`}>
                     <div className="pointer-events-auto flex flex-col gap-2 items-end">
                         <button
