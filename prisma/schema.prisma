@@ -21,6 +21,7 @@ model Finca {
   areaTotalHa     Float
   latitud         Float?
   longitud        Float?
+  poligono        Json?    // Array of {lat, lng} for boundaries
   estado          EstadoFinca @default(ACTIVO)
   observaciones   String?  @db.Text
   createdAt       DateTime @default(now())

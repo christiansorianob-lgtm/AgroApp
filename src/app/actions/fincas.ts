@@ -29,6 +29,17 @@ export async function createFinca(formData: FormData) {
     const latitud = formData.get("latitud") ? parseFloat(formData.get("latitud") as string) : null
     const longitud = formData.get("longitud") ? parseFloat(formData.get("longitud") as string) : null
 
+    // Parse polygon string to JSON
+    const poligonoRaw = formData.get("poligono") as string
+    let poligono = null
+    if (poligonoRaw) {
+        try {
+            poligono = JSON.parse(poligonoRaw)
+        } catch (e) {
+            console.error("Error parsing polygon JSON", e)
+        }
+    }
+
     // Simple validation
     if (!nombre || !areaTotalHa) {
         return { error: "Campos obligatorios faltantes." }
@@ -59,6 +70,7 @@ export async function createFinca(formData: FormData) {
                 areaTotalHa,
                 latitud,
                 longitud,
+                poligono: poligono ?? undefined,
                 observaciones,
                 estado: 'ACTIVO'
             }
