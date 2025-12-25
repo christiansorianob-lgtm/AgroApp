@@ -28,9 +28,7 @@ export default function NewInsumoPage() {
                     <CardTitle>Datos del Producto</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <form action={async (formData) => {
-                        await createInsumo(formData)
-                    }} className="space-y-6">
+                    <form action={createInsumo as any} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="codigo">Código</Label>

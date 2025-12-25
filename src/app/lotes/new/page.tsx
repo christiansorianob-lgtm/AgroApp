@@ -29,9 +29,7 @@ export default async function NewLotePage() {
                     <CardTitle>Información del Lote</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <form action={async (formData) => {
-                        await createLote(formData)
-                    }} className="space-y-6">
+                    <form action={createLote as any} className="space-y-6">
                         <div className="space-y-2">
                             <Label htmlFor="fincaId">Finca (Obligatorio)</Label>
                             <select

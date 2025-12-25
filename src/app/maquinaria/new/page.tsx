@@ -28,9 +28,7 @@ export default function NewMaquinariaPage() {
                     <CardTitle>Información del Equipo</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <form action={async (formData) => {
-                        await createMaquinaria(formData)
-                    }} className="space-y-6">
+                    <form action={createMaquinaria as any} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="codigo">Código Interno</Label>
