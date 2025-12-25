@@ -28,7 +28,9 @@ export default function NewFincaPage() {
                     <CardTitle>Información General</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <form action={createFinca} className="space-y-6">
+                    <form action={async (formData) => {
+                        await createFinca(formData)
+                    }} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="codigo">Código Finca</Label>

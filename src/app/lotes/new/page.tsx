@@ -29,7 +29,9 @@ export default async function NewLotePage() {
                     <CardTitle>Información del Lote</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <form action={createLote} className="space-y-6">
+                    <form action={async (formData) => {
+                        await createLote(formData)
+                    }} className="space-y-6">
                         <div className="space-y-2">
                             <Label htmlFor="fincaId">Finca (Obligatorio)</Label>
                             <select
@@ -39,7 +41,7 @@ export default async function NewLotePage() {
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <option value="">Seleccione una Finca...</option>
-                                {fincas?.map((finca) => (
+                                {fincas?.map((finca: any) => (
                                     <option key={finca.id} value={finca.id}>
                                         {finca.nombre} ({finca.codigo})
                                     </option>
