@@ -35,7 +35,7 @@ function LocationMarker({ position, setPosition, onLocationSelect, drawingMode, 
 
     return (
         <>
-            {position && !drawingMode && <Marker position={position}></Marker>}
+            {position && <Marker position={position} interactive={!drawingMode}></Marker>}
             {polygonPoints.length > 0 && (
                 <Polygon positions={polygonPoints} pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.2 }} />
             )}
@@ -149,8 +149,8 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({ onLocationSelec
         <div className="space-y-2">
             {/* Main Wrapper - No internally managed buttons anymore */}
             <div className={`relative group border rounded-md ${drawingMode
-                    ? 'fixed inset-0 z-[9999] h-screen w-screen bg-background rounded-none border-none'
-                    : 'h-[300px] w-full overflow-hidden'
+                ? 'fixed inset-0 z-[9999] h-screen w-screen bg-background rounded-none border-none'
+                : 'h-[300px] w-full overflow-hidden'
                 }`}>
                 <MapContainer
                     center={position || [4.5709, -74.2973]}
