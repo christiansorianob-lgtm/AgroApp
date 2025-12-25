@@ -134,7 +134,6 @@ export default function NewFincaPage() {
             }
 
             // Success
-            alert("Finca creada exitosamente")
             window.location.href = "/fincas"
 
         } catch (error: any) {
