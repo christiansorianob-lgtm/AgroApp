@@ -82,6 +82,48 @@ export default function NewFincaPage() {
         }
     }
 
+    const [isSubmitting, setIsSubmitting] = useState(false)
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        setIsSubmitting(true)
+
+        try {
+            const formData = new FormData(e.currentTarget)
+
+            // Manual validation
+            if (!formData.get('nombre')) throw new Error("El nombre es obligatorio")
+            if (!formData.get('areaTotalHa')) throw new Error("El área es obligatoria")
+            if (!selectedDeptName) throw new Error("Seleccione un departamento")
+            if (!selectedMuniName) throw new Error("Seleccione un municipio")
+
+            // Ensure numeric formats
+            const area = formData.get('areaTotalHa') as string
+            formData.set('areaTotalHa', area.replace(',', '.'))
+
+            if (lat) formData.set('latitud', lat.toString().replace(',', '.'))
+            if (lng) formData.set('longitud', lng.toString().replace(',', '.'))
+
+            // Ensure strings logic
+            formData.set('departamento', selectedDeptName)
+            formData.set('municipio', selectedMuniName)
+
+            const res = await createFinca(formData)
+            if (res && res.error) {
+                alert(res.error)
+                setIsSubmitting(false)
+            } else {
+                // Success - Redirect happens on server, but we can also push here if needed
+                // Server action redirect usually throws, so we might not reach here if strictly redirecting.
+                // But createFinca catches error? No, redirect is outside try/catch.
+            }
+        } catch (error: any) {
+            console.error(error)
+            alert(error.message || "Error al guardar")
+            setIsSubmitting(false)
+        }
+    }
+
     return (
         <div className="max-w-2xl mx-auto space-y-6">
             <div className="flex items-center gap-4">
@@ -101,7 +143,7 @@ export default function NewFincaPage() {
                     <CardTitle>Información General</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <form action={createFinca as any} className="space-y-6">
+                    <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="codigo">Código Finca</Label>
@@ -308,9 +350,10 @@ export default function NewFincaPage() {
                             <Button variant="outline" type="button" asChild>
                                 <Link href="/fincas">Cancelar</Link>
                             </Button>
-                            <Button type="submit">
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>}
                                 <Save className="mr-2 w-4 h-4" />
-                                Guardar Finca
+                                {isSubmitting ? 'Guardando...' : 'Guardar Finca'}
                             </Button>
                         </div>
                     </form>
