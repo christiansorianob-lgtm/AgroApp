@@ -2,13 +2,51 @@
 
 import Link from "next/link"
 import { createFinca } from "@/app/actions/fincas"
+import { getDepartamentos, getMunicipios } from "@/app/actions/locations"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Save } from "lucide-react"
+import { useState, useEffect } from "react"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 
 export default function NewFincaPage() {
+    const [departamentos, setDepartamentos] = useState<any[]>([])
+    const [municipios, setMunicipios] = useState<any[]>([])
+
+    // Selection State (IDs)
+    const [selectedDeptId, setSelectedDeptId] = useState("")
+    const [selectedDeptName, setSelectedDeptName] = useState("") // To store in DB
+    const [selectedMuniName, setSelectedMuniName] = useState("") // To store in DB
+
+    useEffect(() => {
+        // Load Depts on mount
+        getDepartamentos().then(res => {
+            if (res.data) setDepartamentos(res.data)
+        })
+    }, [])
+
+    const handleDeptChange = async (deptId: string) => {
+        setSelectedDeptId(deptId)
+        const dept = departamentos.find(d => d.id === deptId)
+        setSelectedDeptName(dept?.nombre || "")
+
+        // Reset Muni
+        setMunicipios([])
+        setSelectedMuniName("")
+
+        // Load Munis
+        const res = await getMunicipios(deptId)
+        if (res.data) setMunicipios(res.data)
+    }
+
     return (
         <div className="max-w-2xl mx-auto space-y-6">
             <div className="flex items-center gap-4">
@@ -49,12 +87,46 @@ export default function NewFincaPage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="departamento">Departamento</Label>
-                                <Input id="departamento" name="departamento" placeholder="Ej: Meta" required />
+                                <Label>Departamento</Label>
+                                {/* Hidden input to send name to server action */}
+                                <input type="hidden" name="departamento" value={selectedDeptName} />
+                                <Select onValueChange={handleDeptChange}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccione..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {departamentos.map(dept => (
+                                            <SelectItem key={dept.id} value={dept.id}>
+                                                {dept.nombre}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="municipio">Municipio</Label>
-                                <Input id="municipio" name="municipio" placeholder="Ej: San Martín" required />
+                                <Label>Municipio</Label>
+                                <input type="hidden" name="municipio" value={selectedMuniName} />
+                                <Select
+                                    disabled={!selectedDeptId}
+                                    onValueChange={(val) => {
+                                        // Find name from value (which could be ID or Name, let's use Name directly if easy, or Map)
+                                        // Using ID as value is cleaner but we need Name for DB.
+                                        // Let's store Name in state.
+                                        const mun = municipios.find(m => m.id === val)
+                                        setSelectedMuniName(mun?.nombre || "")
+                                    }}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccione..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {municipios.map(mun => (
+                                            <SelectItem key={mun.id} value={mun.id}>
+                                                {mun.nombre}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 
