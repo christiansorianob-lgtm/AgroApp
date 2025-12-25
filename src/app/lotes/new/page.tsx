@@ -1,7 +1,7 @@
 'use client'
 
 import Link from "next/link"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { getFincas } from "@/app/actions/fincas"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,7 @@ const MapPicker = dynamic(() => import("@/components/ui/MapPicker"), {
     loading: () => <div className="h-full w-full bg-muted flex items-center justify-center">Cargando Mapa...</div>
 })
 
-export default function NewLotePage() {
+function LoteForm() {
     const searchParams = useSearchParams()
     const preFincaId = searchParams.get('fincaId')
 
@@ -64,7 +64,7 @@ export default function NewLotePage() {
                 fincaId: selectedFinca,
                 codigo: formData.get('codigo'),
                 nombre: formData.get('nombre'),
-                areaHa: formData.get('areaHa'), // Ensure comma to dot if needed, handled by parsing in API? better normalize here
+                areaHa: formData.get('areaHa'),
                 tipoCultivo: formData.get('tipoCultivo'),
                 variedad: formData.get('variedad'),
                 fechaSiembra: formData.get('fechaSiembra'),
@@ -90,9 +90,7 @@ export default function NewLotePage() {
                 throw new Error(errorData.error || "Error al guardar el lote")
             }
 
-            // Redirect to Finca detail to see the new Lote (or List)
-            // User requested: "panel de creacion de lotes de la finca... guardarlo"
-            // Redirecting back to Finca detail makes sense to show progress.
+            // Redirect back to Finca
             window.location.href = `/fincas/${selectedFinca}`
 
         } catch (error: any) {
@@ -303,5 +301,13 @@ export default function NewLotePage() {
                 </div>
             </form>
         </div>
+    )
+}
+
+export default function NewLotePage() {
+    return (
+        <Suspense fallback={<div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin" /></div>}>
+            <LoteForm />
+        </Suspense>
     )
 }
