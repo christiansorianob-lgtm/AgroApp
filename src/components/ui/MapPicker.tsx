@@ -136,14 +136,15 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
                 </MapContainer>
 
                 {/* Floating Controls - Using high z-index and absolute positioning */}
-                <div className="absolute top-2 right-2 z-[500] flex flex-col gap-2 pointer-events-none">
+                <div className={`absolute right-2 z-[500] flex flex-col gap-2 pointer-events-none transition-all duration-300 ${drawingMode ? 'top-4 right-4' : 'top-2 right-2'
+                    }`}>
                     <div className="pointer-events-auto flex flex-col gap-2 items-end">
                         <button
                             type="button"
                             onClick={() => setDrawingMode(!drawingMode)}
                             className={`px-3 py-1.5 text-xs font-bold rounded shadow-lg border transition-colors ${drawingMode
-                                    ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700'
-                                    : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
+                                ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700'
+                                : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
                                 }`}
                         >
                             {drawingMode ? '✅ Finalizar' : '✏️ Dibujar Área'}
