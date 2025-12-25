@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, Polygon, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { Check, Eraser, Pencil, Trash2, Undo2 } from 'lucide-react'
+import { Check, Pencil, Trash2, Undo2 } from 'lucide-react'
 // @ts-ignore
 import * as turf from '@turf/helpers'
 // @ts-ignore
@@ -70,7 +70,7 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
 
     useEffect(() => {
         setMounted(true)
-        if (lat && lng) {
+        if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
             const latlng = new L.LatLng(lat, lng)
             setPosition(latlng)
         } else if (navigator.geolocation) {
@@ -83,15 +83,21 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
         }
     }, [])
 
+    // Improved Sync Logic: Handle 0, handle updates correctly
     useEffect(() => {
-        if (lat && lng && map && !drawingMode) {
+        if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng) && map && !drawingMode) {
             const newPos = new L.LatLng(lat, lng)
+            // Check if it's a valid coordinate roughly (not 0,0 typically for Colombia unless intended)
+            // Actually 0,0 is valid but rare. 
+
+            // If we have a position, check distance to avoid loop. 
+            // If we don't have a position, SET IT.
             if (!position || position.distanceTo(newPos) > 10) {
                 setPosition(newPos)
                 map.flyTo(newPos, 18)
             }
         }
-    }, [lat, lng, map])
+    }, [lat, lng, map, drawingMode])
 
     // Calculate Area
     useEffect(() => {
@@ -115,7 +121,7 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
         if (map) {
             setTimeout(() => {
                 map.invalidateSize()
-            }, 300) // Wait for transition
+            }, 300)
         }
     }, [drawingMode, map])
 
@@ -148,7 +154,7 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
                     />
                 </MapContainer>
 
-                {/* Floating Controls - Ultra High Z-Index */}
+                {/* Floating Controls */}
                 <div className={`absolute right-2 flex flex-col gap-2 transition-all duration-300 pointer-events-none ${drawingMode ? 'top-6 right-6 z-[10000]' : 'top-2 right-2 z-[1000]'
                     }`}>
                     <div className="pointer-events-auto flex flex-col gap-2 items-end">
@@ -163,8 +169,8 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
                             {drawingMode ? <><Check className="w-4 h-4" /> Finalizar</> : <><Pencil className="w-4 h-4" /> Dibujar Área</>}
                         </button>
 
-                        {/* Undo Button - Show if Points exist and Drawing Mode active */}
-                        {polygonPoints.length > 0 && drawingMode && (
+                        {/* Undo Button - Show if Points exist (Relaxed condition) */}
+                        {polygonPoints.length > 0 && (
                             <button
                                 type="button"
                                 onClick={() => setPolygonPoints(prev => prev.slice(0, -1))}
