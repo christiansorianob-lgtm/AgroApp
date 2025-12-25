@@ -21,7 +21,7 @@ export function Sidebar({ className }: { className?: string }) {
     return (
         <aside className={clsx("w-64 bg-card border-r border-border flex flex-col h-screen fixed left-0 top-0 bottom-0 z-40 transition-transform duration-300 md:translate-x-0", className)}>
             <div className="h-16 flex items-center px-6 border-b border-border">
-                <h1 className="font-bold text-xl text-primary tracking-tight">AGROVASPALMA</h1>
+                <h1 className="font-bold text-xl text-primary tracking-tight">AgroApp</h1>
             </div>
 
             <nav className="flex-1 overflow-y-auto py-4">

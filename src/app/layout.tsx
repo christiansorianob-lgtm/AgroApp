@@ -6,7 +6,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Sistema de Palmicultura - Agrovaspalma",
+  title: "Sistema de Palmicultura - AgroApp",
   description: "Gestión operativa de fincas palmeras",
 };
 

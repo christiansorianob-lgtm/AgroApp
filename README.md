@@ -1,4 +1,4 @@
-# AGROVASPALMA - Sistema de Palmicultura
+# AgroApp - Sistema de Palmicultura
 
 Aplicación web para gestión de fincas, tareas, maquinaria e inventario.
 Construido con **Next.js 15**, **Tailwind CSS**, y **Prisma ORM** (PostgreSQL/Neon).
