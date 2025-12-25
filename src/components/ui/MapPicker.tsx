@@ -87,7 +87,6 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
     useEffect(() => {
         if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng) && map && !drawingMode) {
             const newPos = new L.LatLng(lat, lng)
-
             if (!position || position.distanceTo(newPos) > 10) {
                 setPosition(newPos)
                 map.flyTo(newPos, 18)
@@ -125,9 +124,10 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
 
     return (
         <div className="space-y-2">
-            <div className={`rounded-md overflow-hidden border relative group ${drawingMode
+            {/* Main Wrapper */}
+            <div className={`relative group border rounded-md ${drawingMode
                     ? 'fixed inset-0 z-[9999] h-screen w-screen bg-background rounded-none border-none'
-                    : 'h-[300px] w-full'
+                    : 'h-[300px] w-full overflow-hidden'
                 }`}>
                 <MapContainer
                     center={position || [4.5709, -74.2973]}
@@ -150,62 +150,59 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
                     />
                 </MapContainer>
 
-                {/* Floating Controls with Force Visibility */}
+                {/* Floating Controls OUTSIDE MapContainer but INSIDE Wrapper */}
                 <div
-                    className={`absolute flex flex-col gap-2 transition-all duration-300 ${drawingMode ? 'top-6 right-6' : 'top-2 right-2'
-                        }`}
-                    style={{ zIndex: 99999 }} // Force top
+                    className="absolute top-4 right-4 flex flex-col gap-2 items-end pointer-events-auto"
+                    style={{ zIndex: 999999 }}
                 >
-                    <div className="flex flex-col gap-2 items-end">
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setDrawingMode(!drawingMode)
+                        }}
+                        className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded shadow-lg border transition-all ${drawingMode
+                                ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700'
+                                : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
+                            }`}
+                    >
+                        {drawingMode ? <><Check className="w-4 h-4" /> Finalizar</> : <><Pencil className="w-4 h-4" /> Dibujar Área</>}
+                    </button>
+
+                    {/* Undo Button - ALWAYS Visible if points exist */}
+                    {polygonPoints.length > 0 && (
                         <button
                             type="button"
                             onClick={(e) => {
-                                e.stopPropagation(); // Prevent map click
-                                setDrawingMode(!drawingMode)
+                                e.stopPropagation();
+                                setPolygonPoints(prev => prev.slice(0, -1))
                             }}
-                            className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded shadow-lg border transition-all ${drawingMode
-                                    ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700'
-                                    : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
-                                }`}
+                            className="flex items-center gap-2 px-3 py-2 text-xs bg-white text-gray-800 font-bold rounded shadow-lg border border-gray-300 hover:bg-gray-50"
                         >
-                            {drawingMode ? <><Check className="w-4 h-4" /> Finalizar</> : <><Pencil className="w-4 h-4" /> Dibujar Área</>}
+                            <Undo2 className="w-4 h-4" /> Deshacer
                         </button>
+                    )}
 
-                        {/* Undo Button */}
-                        {polygonPoints.length > 0 && (
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPolygonPoints(prev => prev.slice(0, -1))
-                                }}
-                                className="flex items-center gap-2 px-3 py-2 text-xs bg-white text-gray-800 font-bold rounded shadow-lg border border-gray-300 hover:bg-gray-50"
-                            >
-                                <Undo2 className="w-4 h-4" /> Deshacer
-                            </button>
-                        )}
-
-                        {/* Clear Button */}
-                        {polygonPoints.length > 0 && (
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (confirm('¿Estás seguro de borrar el polígono?')) {
-                                        setPolygonPoints([])
-                                        if (onAreaCalculated) onAreaCalculated(0)
-                                    }
-                                }}
-                                className="flex items-center gap-2 px-3 py-2 text-xs bg-red-500 text-white font-bold rounded shadow-lg border border-red-600 hover:bg-red-600"
-                            >
-                                <Trash2 className="w-4 h-4" /> Borrar Todo
-                            </button>
-                        )}
-                    </div>
+                    {/* Clear Button - ALWAYS Visible if points exist */}
+                    {polygonPoints.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm('¿Estás seguro de borrar el polígono?')) {
+                                    setPolygonPoints([])
+                                    if (onAreaCalculated) onAreaCalculated(0)
+                                }
+                            }}
+                            className="flex items-center gap-2 px-3 py-2 text-xs bg-red-500 text-white font-bold rounded shadow-lg border border-red-600 hover:bg-red-600"
+                        >
+                            <Trash2 className="w-4 h-4" /> Borrar Todo
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Status Text */}
+            {/* Status Text (Outside the map wrapper entirely) */}
             <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
                 <p>
                     {drawingMode
