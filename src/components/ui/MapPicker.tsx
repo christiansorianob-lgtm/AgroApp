@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useImperativeHandle, forwardRef } from 'react'
+import { createPortal } from 'react-dom'
 import { MapContainer, TileLayer, Marker, Polygon, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
@@ -18,7 +19,7 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-function LocationMarker({ position, setPosition, onLocationSelect, drawingMode, setPolygonPoints, polygonPoints }: any) {
+function LocationMarker({ position, setPosition, onLocationSelect, drawingMode, setPolygonPoints, polygonPoints, setZoom }: any) {
     const map = useMapEvents({
         click(e) {
             if (drawingMode) {
@@ -28,9 +29,12 @@ function LocationMarker({ position, setPosition, onLocationSelect, drawingMode, 
                 // Normal marker placement
                 setPosition(e.latlng)
                 onLocationSelect(e.latlng.lat, e.latlng.lng)
-                map.flyTo(e.latlng, 18)
+                map.flyTo(e.latlng, map.getZoom())
             }
         },
+        zoomend() {
+            setZoom(map.getZoom())
+        }
     })
 
     return (
@@ -70,6 +74,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({ onLocationSelec
     const [position, setPosition] = useState<L.LatLng | null>(null)
     const [mounted, setMounted] = useState(false)
     const [map, setMap] = useState<L.Map | null>(null)
+    const [currentZoom, setCurrentZoom] = useState(13)
 
     // Polygon drawing
     const [drawingMode, setDrawingMode] = useState(false)
@@ -150,7 +155,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({ onLocationSelec
                 map.invalidateSize()
                 // Re-center after resize if position exists
                 if (position) {
-                    map.flyTo(position, 18, { animate: false })
+                    map.flyTo(position, currentZoom, { animate: false })
                 }
             }, 300)
         }
@@ -158,36 +163,45 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({ onLocationSelec
 
     if (!mounted) return <div className="h-[300px] w-full bg-muted flex items-center justify-center">Cargando Mapa...</div>
 
+    const mapContent = (
+        <div className={`relative group border rounded-md ${drawingMode
+            ? 'fixed inset-0 z-[9999] h-screen w-screen bg-background rounded-none border-none'
+            : 'h-[300px] w-full overflow-hidden'
+            }`}>
+            <MapContainer
+                center={position || [4.5709, -74.2973]}
+                zoom={currentZoom}
+                scrollWheelZoom={true}
+                style={{ height: '100%', width: '100%', zIndex: 0 }}
+                ref={setMap}
+            >
+                <TileLayer
+                    attribution='Tiles &copy; Esri'
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                />
+                <LocationMarker
+                    position={position}
+                    setPosition={setPosition}
+                    onLocationSelect={onLocationSelect}
+                    drawingMode={drawingMode}
+                    setPolygonPoints={setPolygonPoints}
+                    polygonPoints={polygonPoints}
+                    setZoom={setCurrentZoom}
+                />
+            </MapContainer>
+        </div>
+    )
+
     return (
         <div className="space-y-2">
-            {/* Main Wrapper - No internally managed buttons anymore */}
-            <div className={`relative group border rounded-md ${drawingMode
-                ? 'fixed inset-0 z-[9999] h-screen w-screen bg-background rounded-none border-none'
-                : 'h-[300px] w-full overflow-hidden'
-                }`}>
-                <MapContainer
-                    center={position || [4.5709, -74.2973]}
-                    zoom={13}
-                    scrollWheelZoom={true}
-                    style={{ height: '100%', width: '100%', zIndex: 0 }}
-                    ref={setMap}
-                >
-                    <TileLayer
-                        attribution='Tiles &copy; Esri'
-                        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    />
-                    <LocationMarker
-                        position={position}
-                        setPosition={setPosition}
-                        onLocationSelect={onLocationSelect}
-                        drawingMode={drawingMode}
-                        setPolygonPoints={setPolygonPoints}
-                        polygonPoints={polygonPoints}
-                    />
-                </MapContainer>
-            </div>
+            {/* Render Portal if Drawing Mode, else normal */}
+            {drawingMode && mounted ? createPortal(mapContent, document.body) : mapContent}
 
-            {/* Status Text */}
+            {/* Status Text - Only show when NOT in fullscreen drawing mode to avoid clutter or if desired */}
+            {/* Actually, status text might be useful in fullscreen too. But we are portaling the map ONLY. */}
+            {/* The controls are external in Page, so they stay in Page. That works fine. */}
+            {/* Status text will remain in normal flow. That's acceptible. */}
+
             <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
                 <p>
                     {drawingMode
