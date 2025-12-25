@@ -298,8 +298,11 @@ export default function NewFincaPage() {
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-3 shrink-0 ml-2">
-                                            <Button type="button" onClick={() => setShowMap(false)}>
+                                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                                            <Button variant="ghost" size="sm" onClick={() => setShowMap(false)}>
+                                                ❌ Cancelar
+                                            </Button>
+                                            <Button type="button" size="sm" onClick={() => setShowMap(false)}>
                                                 💾 Guardar
                                             </Button>
                                         </div>
