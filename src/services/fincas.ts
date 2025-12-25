@@ -37,7 +37,8 @@ export async function getFincaById(id: string) {
     const prisma = new PrismaClient()
     try {
         return await prisma.finca.findUnique({
-            where: { id }
+            where: { id },
+            include: { lotes: true }
         })
     } finally {
         await prisma.$disconnect()
