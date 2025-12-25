@@ -200,10 +200,14 @@ export default function NewFincaPage() {
 
                             {showMap && (
                                 <div className="rounded-lg border overflow-hidden">
-                                    <MapPicker onLocationSelect={(la, lo) => {
-                                        setLat(la.toString())
-                                        setLng(lo.toString())
-                                    }} />
+                                    <MapPicker
+                                        onLocationSelect={(la, lo) => {
+                                            setLat(la.toString())
+                                            setLng(lo.toString())
+                                        }}
+                                        lat={parseFloat(lat)}
+                                        lng={parseFloat(lng)}
+                                    />
                                     <p className="text-xs text-muted-foreground p-2 bg-muted/50">
                                         Haz clic en el mapa para establecer la ubicación.
                                     </p>
