@@ -10,13 +10,7 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, Save } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import dynamic from 'next/dynamic'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
+import { MapPickerHandle } from '@/components/ui/MapPicker' // Ensure this is exported
 
 const MapPicker = dynamic(() => import('@/components/ui/MapPicker'), {
     ssr: false,
@@ -36,8 +30,7 @@ export default function NewFincaPage() {
     const [lat, setLat] = useState("")
     const [lng, setLng] = useState("")
     // Map Ref and State
-    // @ts-ignore
-    const mapRef = useRef<any>(null)
+    const mapRef = useRef<MapPickerHandle>(null)
     const [isDrawing, setIsDrawing] = useState(false)
     const [hasPoints, setHasPoints] = useState(false)
 
