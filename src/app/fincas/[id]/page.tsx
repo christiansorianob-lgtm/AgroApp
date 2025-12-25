@@ -5,13 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, MapPin, Ruler, User, Calendar, Plus } from "lucide-react"
-import dynamic from "next/dynamic"
-
-// Dynamic import for Map to avoid SSR issues
-const MapPicker = dynamic(() => import("@/components/ui/MapPicker"), {
-    ssr: false,
-    loading: () => <div className="h-64 bg-muted animate-pulse rounded-md" />
-})
+import { FincaMapViewer } from "@/components/ui/FincaMapViewer"
 
 export default async function FincaDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -112,13 +106,10 @@ export default async function FincaDetailPage({ params }: { params: Promise<{ id
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="flex-1 p-0 overflow-hidden relative">
-                            <MapPicker
+                            <FincaMapViewer
                                 lat={finca.latitud || 0}
                                 lng={finca.longitud || 0}
-                                onLocationSelect={() => { }} // Read-only
-                                initialPolygon={polygonData}
-                                readOnly={true}
-                                initialZoom={14}
+                                polygon={polygonData}
                             />
                         </CardContent>
                     </Card>
