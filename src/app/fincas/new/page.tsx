@@ -32,7 +32,14 @@ export default function NewFincaPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="codigo">Código Finca</Label>
-                                <Input id="codigo" name="codigo" placeholder="Ej: FIN-001" required />
+                                <Input
+                                    id="codigo"
+                                    name="codigo"
+                                    placeholder="Autogenerado (Ej: FIN-001)"
+                                    disabled
+                                    className="bg-muted text-muted-foreground"
+                                />
+                                <p className="text-[0.8rem] text-muted-foreground">Se asignará automáticamente al guardar.</p>
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="nombre">Nombre Finca</Label>

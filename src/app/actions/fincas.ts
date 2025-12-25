@@ -18,7 +18,7 @@ export async function getFincas() {
 
 export async function createFinca(formData: FormData) {
     const nombre = formData.get("nombre") as string
-    const codigo = formData.get("codigo") as string
+    // const codigo = formData.get("codigo") as string // Removed from form
     const departamento = formData.get("departamento") as string
     const municipio = formData.get("municipio") as string
     const veredaSector = formData.get("veredaSector") as string
@@ -27,14 +27,27 @@ export async function createFinca(formData: FormData) {
     const observaciones = formData.get("observaciones") as string
 
     // Simple validation
-    if (!nombre || !codigo || !areaTotalHa) {
+    if (!nombre || !areaTotalHa) {
         return { error: "Campos obligatorios faltantes." }
     }
 
     try {
+        // Auto-generate code
+        const lastFinca = await db.finca.findFirst({
+            orderBy: { createdAt: 'desc' }
+        })
+
+        let nextCode = "FIN-001"
+        if (lastFinca && lastFinca.codigo.startsWith("FIN-")) {
+            const lastNumber = parseInt(lastFinca.codigo.split("-")[1])
+            if (!isNaN(lastNumber)) {
+                nextCode = `FIN-${(lastNumber + 1).toString().padStart(3, '0')}`
+            }
+        }
+
         await db.finca.create({
             data: {
-                codigo,
+                codigo: nextCode,
                 nombre,
                 departamento,
                 municipio,
@@ -47,7 +60,7 @@ export async function createFinca(formData: FormData) {
         })
     } catch (error) {
         console.error("Failed to create finca:", error)
-        return { error: "Error al crear la finca. Verifique que el código no exista." }
+        return { error: "Error al crear la finca." }
     }
 
     revalidatePath('/fincas')
