@@ -74,7 +74,7 @@ export function TareaForm({ fincas, lotes }: TareaFormProps) {
                 </CardHeader>
                 <CardContent>
                     {/* We use onSubmit to show loading state or custom logic, passed to action */}
-                    <form action={createTarea} className="space-y-6">
+                    <form action={async (formData) => { await createTarea(formData) }} className="space-y-6">
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
