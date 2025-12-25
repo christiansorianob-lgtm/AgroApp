@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Save } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import dynamic from 'next/dynamic'
 import {
     Select,
@@ -35,7 +35,11 @@ export default function NewFincaPage() {
     // Location State
     const [lat, setLat] = useState("")
     const [lng, setLng] = useState("")
-    const [showMap, setShowMap] = useState(false)
+    // Map Ref and State
+    // @ts-ignore
+    const mapRef = useRef<any>(null)
+    const [isDrawing, setIsDrawing] = useState(false)
+    const [hasPoints, setHasPoints] = useState(false)
 
     useEffect(() => {
         // Load Depts on mount
@@ -189,30 +193,68 @@ export default function NewFincaPage() {
                                 </div>
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap items-center">
                                 <Button type="button" variant="secondary" size="sm" onClick={handleGeolocation}>
                                     📍 Detectar mi Ubicación
                                 </Button>
                                 <Button type="button" variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>
                                     🗺️ {showMap ? 'Ocultar Mapa' : 'Seleccionar en Mapa'}
                                 </Button>
+
+                                {showMap && (
+                                    <>
+                                        <div className="w-px h-6 bg-border mx-2" /> {/* Separator */}
+
+                                        <Button
+                                            type="button"
+                                            variant={isDrawing ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => mapRef.current?.toggleDrawing()}
+                                            className={isDrawing ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
+                                        >
+                                            {isDrawing ? "✅ Finalizar" : "✏️ Dibujar Área"}
+                                        </Button>
+
+                                        {hasPoints && (
+                                            <>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={() => mapRef.current?.undo()}
+                                                >
+                                                    ↩️ Deshacer
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        if (confirm('¿Borrar todo el polígono?')) mapRef.current?.clear()
+                                                    }}
+                                                >
+                                                    🗑️ Borrar
+                                                </Button>
+                                            </>
+                                        )}
+                                    </>
+                                )}
                             </div>
 
                             {showMap && (
                                 <div className="rounded-lg border overflow-hidden">
                                     <MapPicker
+                                        ref={mapRef}
                                         onLocationSelect={(la, lo) => {
                                             setLat(la.toString())
                                             setLng(lo.toString())
                                         }}
-                                        lat={parseFloat(lat)}
-                                        lng={parseFloat(lng)}
+                                        lat={parseFloat(lat.replace(',', '.'))}
+                                        lng={parseFloat(lng.replace(',', '.'))}
                                         onAreaCalculated={(areaHa) => {
-                                            // Update Area Input
                                             const input = document.getElementById('areaTotalHa') as HTMLInputElement
                                             if (input && areaHa > 0) {
                                                 input.value = areaHa.toString()
-                                                // Don't forget to trigger any change events if needed by validation, though native value set usually works for form submission
                                             }
                                         }}
                                         onPolygonChange={(points) => {
@@ -220,6 +262,10 @@ export default function NewFincaPage() {
                                             if (input) {
                                                 input.value = JSON.stringify(points)
                                             }
+                                        }}
+                                        onStatusChange={(drawing, points) => {
+                                            setIsDrawing(drawing)
+                                            setHasPoints(points)
                                         }}
                                     />
                                     <input type="hidden" id="poligono" name="poligono" />

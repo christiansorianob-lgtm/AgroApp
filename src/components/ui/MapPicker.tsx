@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useImperativeHandle, forwardRef } from 'react'
 import { MapContainer, TileLayer, Marker, Polygon, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { Check, Pencil, Trash2, Undo2 } from 'lucide-react'
 // @ts-ignore
 import * as turf from '@turf/helpers'
 // @ts-ignore
@@ -57,9 +56,16 @@ interface MapPickerProps {
     lng?: number
     onPolygonChange?: (points: any[]) => void
     onAreaCalculated?: (ha: number) => void
+    onStatusChange?: (isDrawing: boolean, hasPoints: boolean) => void
 }
 
-export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange, onAreaCalculated }: MapPickerProps) {
+export interface MapPickerHandle {
+    toggleDrawing: () => void;
+    undo: () => void;
+    clear: () => void;
+}
+
+const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({ onLocationSelect, lat, lng, onPolygonChange, onAreaCalculated, onStatusChange }, ref) => {
     const [position, setPosition] = useState<L.LatLng | null>(null)
     const [mounted, setMounted] = useState(false)
     const [map, setMap] = useState<L.Map | null>(null)
@@ -67,6 +73,23 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
     // Polygon drawing
     const [drawingMode, setDrawingMode] = useState(false)
     const [polygonPoints, setPolygonPoints] = useState<L.LatLng[]>([])
+
+    // Expose methods to parent
+    useImperativeHandle(ref, () => ({
+        toggleDrawing: () => setDrawingMode(prev => !prev),
+        undo: () => setPolygonPoints(prev => prev.slice(0, -1)),
+        clear: () => {
+            setPolygonPoints([])
+            if (onAreaCalculated) onAreaCalculated(0)
+        }
+    }));
+
+    // Notify parent of status changes
+    useEffect(() => {
+        if (onStatusChange) {
+            onStatusChange(drawingMode, polygonPoints.length > 0)
+        }
+    }, [drawingMode, polygonPoints, onStatusChange])
 
     useEffect(() => {
         setMounted(true)
@@ -124,7 +147,7 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
 
     return (
         <div className="space-y-2">
-            {/* Main Wrapper */}
+            {/* Main Wrapper - No internally managed buttons anymore */}
             <div className={`relative group border rounded-md ${drawingMode
                     ? 'fixed inset-0 z-[9999] h-screen w-screen bg-background rounded-none border-none'
                     : 'h-[300px] w-full overflow-hidden'
@@ -149,60 +172,9 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
                         polygonPoints={polygonPoints}
                     />
                 </MapContainer>
-
-                {/* Floating Controls OUTSIDE MapContainer but INSIDE Wrapper */}
-                <div
-                    className="absolute top-4 right-4 flex flex-col gap-2 items-end pointer-events-auto"
-                    style={{ zIndex: 999999 }}
-                >
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setDrawingMode(!drawingMode)
-                        }}
-                        className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded shadow-lg border transition-all ${drawingMode
-                                ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700'
-                                : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
-                            }`}
-                    >
-                        {drawingMode ? <><Check className="w-4 h-4" /> Finalizar</> : <><Pencil className="w-4 h-4" /> Dibujar Área</>}
-                    </button>
-
-                    {/* Undo Button - ALWAYS Visible if points exist */}
-                    {polygonPoints.length > 0 && (
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setPolygonPoints(prev => prev.slice(0, -1))
-                            }}
-                            className="flex items-center gap-2 px-3 py-2 text-xs bg-white text-gray-800 font-bold rounded shadow-lg border border-gray-300 hover:bg-gray-50"
-                        >
-                            <Undo2 className="w-4 h-4" /> Deshacer
-                        </button>
-                    )}
-
-                    {/* Clear Button - ALWAYS Visible if points exist */}
-                    {polygonPoints.length > 0 && (
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm('¿Estás seguro de borrar el polígono?')) {
-                                    setPolygonPoints([])
-                                    if (onAreaCalculated) onAreaCalculated(0)
-                                }
-                            }}
-                            className="flex items-center gap-2 px-3 py-2 text-xs bg-red-500 text-white font-bold rounded shadow-lg border border-red-600 hover:bg-red-600"
-                        >
-                            <Trash2 className="w-4 h-4" /> Borrar Todo
-                        </button>
-                    )}
-                </div>
             </div>
 
-            {/* Status Text (Outside the map wrapper entirely) */}
+            {/* Status Text */}
             <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
                 <p>
                     {drawingMode
@@ -219,4 +191,7 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
             </div>
         </div>
     )
-}
+});
+
+MapPicker.displayName = "MapPicker";
+export default MapPicker;
