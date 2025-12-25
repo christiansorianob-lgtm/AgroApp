@@ -18,9 +18,11 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-function LocationMarker({ position, setPosition, onLocationSelect, drawingMode, setPolygonPoints, polygonPoints, setZoom }: any) {
+function LocationMarker({ position, setPosition, onLocationSelect, drawingMode, setPolygonPoints, polygonPoints, setZoom, readOnly }: any) {
     const map = useMapEvents({
         click(e) {
+            if (readOnly) return;
+
             if (drawingMode) {
                 // Add point to polygon
                 setPolygonPoints((prev: any) => [...prev, e.latlng])
@@ -61,6 +63,8 @@ interface MapPickerProps {
     onAreaCalculated?: (ha: number) => void
     onStatusChange?: (isDrawing: boolean, hasPoints: boolean) => void
     initialZoom?: number
+    initialPolygon?: any[]
+    readOnly?: boolean
 }
 
 export interface MapPickerHandle {
@@ -70,7 +74,17 @@ export interface MapPickerHandle {
     flyTo: (lat: number, lng: number) => void;
 }
 
-const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({ onLocationSelect, lat, lng, onPolygonChange, onAreaCalculated, onStatusChange, initialZoom = 13 }, ref) => {
+const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({
+    onLocationSelect,
+    lat,
+    lng,
+    onPolygonChange,
+    onAreaCalculated,
+    onStatusChange,
+    initialZoom = 13,
+    initialPolygon = [],
+    readOnly = false
+}, ref) => {
     const [position, setPosition] = useState<L.LatLng | null>(null)
     const [mounted, setMounted] = useState(false)
     const [map, setMap] = useState<L.Map | null>(null)
@@ -78,7 +92,9 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({ onLocationSelec
 
     // Polygon drawing
     const [drawingMode, setDrawingMode] = useState(false)
-    const [polygonPoints, setPolygonPoints] = useState<L.LatLng[]>([])
+    const [polygonPoints, setPolygonPoints] = useState<L.LatLng[]>(
+        initialPolygon ? initialPolygon.map((p: any) => new L.LatLng(p.lat, p.lng)) : []
+    )
 
     // Expose methods to parent
     useImperativeHandle(ref, () => ({
@@ -172,6 +188,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({ onLocationSelec
                         setPolygonPoints={setPolygonPoints}
                         polygonPoints={polygonPoints}
                         setZoom={setCurrentZoom}
+                        readOnly={readOnly}
                     />
                 </MapContainer>
             </div>

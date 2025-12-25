@@ -32,3 +32,14 @@ export async function getAllFincas() {
         await prisma.$disconnect()
     }
 }
+
+export async function getFincaById(id: string) {
+    const prisma = new PrismaClient()
+    try {
+        return await prisma.finca.findUnique({
+            where: { id }
+        })
+    } finally {
+        await prisma.$disconnect()
+    }
+}

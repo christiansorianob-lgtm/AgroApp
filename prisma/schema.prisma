@@ -47,10 +47,14 @@ model Lote {
   codigo          String   // Unico dentro de la finca (manejado por logica app o composite unique)
   fincaId         String
   nombre          String
-  areaHa          Float
+
   tipoCultivo     String
   variedad        String?
   fechaSiembra    DateTime?
+  areaHa          Float // Redundant if calculated from polygon, but kept for cache/manual entry
+  latitud         Float?
+  longitud        Float?
+  poligono        Json?    // Array of {lat, lng} for boundaries
   estado          EstadoLote @default(ACTIVO)
   observaciones   String?  @db.Text
   createdAt       DateTime @default(now())

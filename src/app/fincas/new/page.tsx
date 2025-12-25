@@ -128,13 +128,10 @@ export default function NewFincaPage() {
                 })
             })
 
-            if (!res.ok) {
-                const errorData = await res.json()
-                throw new Error(errorData.error || "Error desconocido al guardar")
-            }
+            const data = await res.json()
 
-            // Success
-            window.location.href = "/fincas"
+            // Success - Redirect to Lote creation as requested
+            window.location.href = `/lotes/new?fincaId=${data.data.id}`
 
         } catch (error: any) {
             console.error(error)
