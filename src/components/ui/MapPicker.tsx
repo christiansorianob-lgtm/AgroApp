@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, Polygon, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
+import { Check, Eraser, Pencil, Trash2, Undo2 } from 'lucide-react'
 // @ts-ignore
 import * as turf from '@turf/helpers'
 // @ts-ignore
@@ -138,41 +139,45 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
                     />
                 </MapContainer>
 
-                {/* Floating Controls - Using high z-index and absolute positioning */}
+                {/* Floating Controls with Icons */}
                 <div className={`absolute right-2 z-[500] flex flex-col gap-2 pointer-events-none transition-all duration-300 ${drawingMode ? 'top-4 right-4' : 'top-2 right-2'
                     }`}>
                     <div className="pointer-events-auto flex flex-col gap-2 items-end">
                         <button
                             type="button"
                             onClick={() => setDrawingMode(!drawingMode)}
-                            className={`px-3 py-1.5 text-xs font-bold rounded shadow-lg border transition-colors ${drawingMode
+                            className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded shadow-lg border transition-all ${drawingMode
                                     ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700'
                                     : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
                                 }`}
                         >
-                            {drawingMode ? '✅ Finalizar' : '✏️ Dibujar Área'}
+                            {drawingMode ? <><Check className="w-4 h-4" /> Finalizar</> : <><Pencil className="w-4 h-4" /> Dibujar Área</>}
                         </button>
 
+                        {/* Undo Button - Show if Points exist and Drawing Mode active */}
                         {polygonPoints.length > 0 && drawingMode && (
                             <button
                                 type="button"
                                 onClick={() => setPolygonPoints(prev => prev.slice(0, -1))}
-                                className="px-3 py-1.5 text-xs bg-white text-gray-800 font-bold rounded shadow-lg border border-gray-300 hover:bg-gray-50"
+                                className="flex items-center gap-2 px-3 py-2 text-xs bg-white text-gray-800 font-bold rounded shadow-lg border border-gray-300 hover:bg-gray-50"
                             >
-                                ↩️ Deshacer
+                                <Undo2 className="w-4 h-4" /> Deshacer
                             </button>
                         )}
 
+                        {/* Clear Button - Show if Points exist */}
                         {polygonPoints.length > 0 && (
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setPolygonPoints([])
-                                    if (onAreaCalculated) onAreaCalculated(0)
+                                    if (confirm('¿Estás seguro de borrar el polígono?')) {
+                                        setPolygonPoints([])
+                                        if (onAreaCalculated) onAreaCalculated(0)
+                                    }
                                 }}
-                                className="px-3 py-1.5 text-xs bg-red-500 text-white font-bold rounded shadow-lg border border-red-600 hover:bg-red-600"
+                                className="flex items-center gap-2 px-3 py-2 text-xs bg-red-500 text-white font-bold rounded shadow-lg border border-red-600 hover:bg-red-600"
                             >
-                                🗑️ Borrar
+                                <Trash2 className="w-4 h-4" /> Borrar Todo
                             </button>
                         )}
                     </div>
