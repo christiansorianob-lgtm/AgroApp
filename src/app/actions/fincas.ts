@@ -75,9 +75,10 @@ export async function createFinca(formData: FormData) {
                 estado: 'ACTIVO'
             }
         })
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to create finca:", error)
-        return { error: "Error al crear la finca." }
+        // Return the actual error message for debugging
+        return { error: `Error: ${error.message}` }
     }
 
     revalidatePath('/fincas')
