@@ -26,9 +26,9 @@ export default function NewFincaPage() {
     const [selectedDeptName, setSelectedDeptName] = useState("") // To store in DB
     const [selectedMuniName, setSelectedMuniName] = useState("") // To store in DB
 
-    // Location State
     const [lat, setLat] = useState("")
     const [lng, setLng] = useState("")
+    const [showMap, setShowMap] = useState(false) // Restore this!
     // Map Ref and State
     const mapRef = useRef<MapPickerHandle>(null)
     const [isDrawing, setIsDrawing] = useState(false)
