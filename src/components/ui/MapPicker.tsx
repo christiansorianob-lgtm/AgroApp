@@ -87,11 +87,7 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
     useEffect(() => {
         if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng) && map && !drawingMode) {
             const newPos = new L.LatLng(lat, lng)
-            // Check if it's a valid coordinate roughly (not 0,0 typically for Colombia unless intended)
-            // Actually 0,0 is valid but rare. 
 
-            // If we have a position, check distance to avoid loop. 
-            // If we don't have a position, SET IT.
             if (!position || position.distanceTo(newPos) > 10) {
                 setPosition(newPos)
                 map.flyTo(newPos, 18)
@@ -154,13 +150,19 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
                     />
                 </MapContainer>
 
-                {/* Floating Controls */}
-                <div className={`absolute right-2 flex flex-col gap-2 transition-all duration-300 pointer-events-none ${drawingMode ? 'top-6 right-6 z-[10000]' : 'top-2 right-2 z-[1000]'
-                    }`}>
-                    <div className="pointer-events-auto flex flex-col gap-2 items-end">
+                {/* Floating Controls with Force Visibility */}
+                <div
+                    className={`absolute flex flex-col gap-2 transition-all duration-300 ${drawingMode ? 'top-6 right-6' : 'top-2 right-2'
+                        }`}
+                    style={{ zIndex: 99999 }} // Force top
+                >
+                    <div className="flex flex-col gap-2 items-end">
                         <button
                             type="button"
-                            onClick={() => setDrawingMode(!drawingMode)}
+                            onClick={(e) => {
+                                e.stopPropagation(); // Prevent map click
+                                setDrawingMode(!drawingMode)
+                            }}
                             className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded shadow-lg border transition-all ${drawingMode
                                     ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700'
                                     : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50'
@@ -169,22 +171,26 @@ export default function MapPicker({ onLocationSelect, lat, lng, onPolygonChange,
                             {drawingMode ? <><Check className="w-4 h-4" /> Finalizar</> : <><Pencil className="w-4 h-4" /> Dibujar Área</>}
                         </button>
 
-                        {/* Undo Button - Show if Points exist (Relaxed condition) */}
+                        {/* Undo Button */}
                         {polygonPoints.length > 0 && (
                             <button
                                 type="button"
-                                onClick={() => setPolygonPoints(prev => prev.slice(0, -1))}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPolygonPoints(prev => prev.slice(0, -1))
+                                }}
                                 className="flex items-center gap-2 px-3 py-2 text-xs bg-white text-gray-800 font-bold rounded shadow-lg border border-gray-300 hover:bg-gray-50"
                             >
                                 <Undo2 className="w-4 h-4" /> Deshacer
                             </button>
                         )}
 
-                        {/* Clear Button - Show if Points exist */}
+                        {/* Clear Button */}
                         {polygonPoints.length > 0 && (
                             <button
                                 type="button"
-                                onClick={() => {
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     if (confirm('¿Estás seguro de borrar el polígono?')) {
                                         setPolygonPoints([])
                                         if (onAreaCalculated) onAreaCalculated(0)
