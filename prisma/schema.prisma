@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// 1) FINCAS
+// -----------------------------------------------------------------------------
+model Finca {
+  id              String   @id @default(uuid())
+  codigo          String   @unique // FIN-000001
+  nombre          String
+  departamento    String
+  municipio       String
+  veredaSector    String
+  responsable     String
+  areaTotalHa     Float
+  estado          EstadoFinca @default(ACTIVO)
+  observaciones   String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  lotes           Lote[]
+  tareas          Tarea[]
+  usosMaquinaria  UsoMaquinaria[]
+  movimientosInventario MovimientoInventario[]
+}
+
+enum EstadoFinca {
+  ACTIVO
+  INACTIVO
+}
+
+// -----------------------------------------------------------------------------
+// 2) LOTES
+// -----------------------------------------------------------------------------
+model Lote {
+  id              String   @id @default(uuid())
+  codigo          String   // Unico dentro de la finca (manejado por logica app o composite unique)
+  fincaId         String
+  nombre          String
+  areaHa          Float
+  tipoCultivo     String
+  variedad        String?
+  fechaSiembra    DateTime?
+  estado          EstadoLote @default(ACTIVO)
+  observaciones   String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  finca           Finca    @relation(fields: [fincaId], references: [id])
+  
+  // Relaciones
+  tareas          Tarea[]
+  usosMaquinaria  UsoMaquinaria[]
+  movimientosInventario MovimientoInventario[]
+
+  @@unique([fincaId, codigo]) // Codigo unico por finca
+}
+
+enum EstadoLote {
+  ACTIVO
+  INACTIVO
+  EN_RENOVACION
+}
+
+// -----------------------------------------------------------------------------
+// 3) TAREAS / ACTIVIDADES
+// -----------------------------------------------------------------------------
+model Tarea {
+  id                  String   @id @default(uuid())
+  codigo              String   @unique // TAR-000001
+  fincaId             String
+  loteId              String?  // Nullable si es NivelTarea = FINCA
+  nivel               NivelTarea
+  fechaProgramada     DateTime
+  fechaEjecucion      DateTime?
+  tipo                String // Fertilización, Plateo, etc. (Puede ser Enum o String libre)
+  descripcion         String?  @db.Text
+  responsable         String
+  duracionEstimadaHoras Float?
+  duracionRealHoras   Float?
+  estado              EstadoTarea @default(PROGRAMADA)
+  prioridad           PrioridadTarea @default(MEDIA)
+  evidencias          String?  // URLs o Texto
+  observaciones       String?  @db.Text
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  finca               Finca    @relation(fields: [fincaId], references: [id])
+  lote                Lote?    @relation(fields: [loteId], references: [id])
+
+  // Relaciones
+  usosMaquinaria      UsoMaquinaria[]
+  consumosInsumo      MovimientoInventario[]
+}
+
+enum NivelTarea {
+  FINCA
+  LOTE
+}
+
+enum EstadoTarea {
+  PROGRAMADA
+  EN_PROCESO
+  EJECUTADA
+  CANCELADA
+}
+
+enum PrioridadTarea {
+  BAJA
+  MEDIA
+  ALTA
+}
+
+// -----------------------------------------------------------------------------
+// 4) MAQUINARIA
+// -----------------------------------------------------------------------------
+model Maquinaria {
+  id                      String   @id @default(uuid())
+  codigo                  String   @unique // MAQ-000001
+  fincaId                 String // Finca base? O global? Requerimiento dice maquinaria. Asumimos global o asignada a finca. El req no especifica FincaId en Maquinaria pero dice "Controlar... Maquinaria". Agregamos FincaId para consistencia si pertenece a una sede, o optional. Req dice "Campos MAQUINARIA: ... FincaId". OK.
+  tipo                    String
+  marca                   String
+  modelo                  String
+  serialPlaca             String
+  fechaCompra             DateTime?
+  estado                  EstadoMaquinaria @default(DISPONIBLE)
+  horometroActual         Float?
+  ultimoMantenimiento     DateTime?
+  observaciones           String?  @db.Text
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // FincaId segun requerimiento
+  // Pero ojo, si se mueve entre fincas? Dejamos FincaId como ubicación actual o dueño.
+  // El modelo de datos en req incluye FincaId.
+  // Pero NO hay relacion estricta definida arriba, asumimos relacion simple o solo ID.
+  // Para integridad referencial, lo ideal es relacionar con Finca.
+  // Pero si FincaId es "Ubicación", puede cambiar.
+  // Dejaremos como String o Relacion. Relacion es mas seguro.
+  // Si FincaId es obligatorio en req, lo ponemos.
+  
+  // finca Finca @relation(...) // Comentado para evitar complejidad circular si no es estricto, pero mejor lo agregamos si es requerido estricto.
+  // El user request dice: "FincaId" en campos Maquinaria.
+  // Asumiré que es una relación foranea valida. Pero Maquinaria puede moverse. 
+  // Mejor lo dejo como campo simple vinculado o FK sin restriccion fuerte si se complica, 
+  // pero prisma exige relation field.
+  // Lo haré FK valida pero nullable? No, req dice FincaId en lista de campos.
+  // Agregare relación a Finca, asumiendo que es su base habitual.
+  
+  // UPDATE: Re-reading req: "Campos MAQUINARIA: ... FincaId". 
+  // I will add the relation manually without automatic connection to Finca model reverse side to allow cleaner schema, or just add it.
+  // Actually, Finca model doesn't explicitly list Maquinaria list in req, but logic dictates it.
+  // I won't force the relation on the Finca side to keep it simple unless needed.
+  // Wait, Prisma needs both sides usually or named relation.
+  // I'll skip the physical relation object in Finca for now to avoid clutter, 
+  // or just Map it to map: "fincaId".
+  // Actually, standard Prisma:
+  
+  // finca Finca @relation(fields: [fincaId], references: [id]) 
+  // This requires `maquinas Maquinaria[]` in Finca.
+  // I'll skip the relation enforcement for now to strictly follow "FincaId" column presence without forcing ORM overhead if not requested?
+  // No, better to have ORM relations. I will add `maquinas Maquinaria[]` to Finca later if needed, or just leave connection implicit (id only) if preferred.
+  // Given "Controlar... Fincas... Maquinaria", it implies ownership.
+  // I will leave it as a Column `fincaId` String, without `@relation` to Finca to allow moving machines without foreign key constraints blocking if Finca is deleted? No, FK is better.
+  // I'll put `fincaId` String. User didn't ask for relational strictness there, just fields.
+  // BUT: `UsoMaquinaria` has `FincaId`.
+  
+  usos UsoMaquinaria[]
+}
+
+enum EstadoMaquinaria {
+  DISPONIBLE
+  EN_USO
+  EN_MANTENIMIENTO
+  FUERA_DE_SERVICIO
+  PRESTADA
+  EN_TRASLADO
+}
+
+// -----------------------------------------------------------------------------
+// 5) USO_MAQUINARIA
+// -----------------------------------------------------------------------------
+model UsoMaquinaria {
+  id              String   @id @default(uuid())
+  maquinaId       String
+  tareaId         String   // Obligatorio segun regla
+  fincaId         String
+  loteId          String?
+  operador        String
+  fechaInicio     DateTime
+  fechaFin        DateTime
+  horasUso        Float
+  horometroInicio Float?
+  horometroFin    Float?
+  observaciones   String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  maquina         Maquinaria @relation(fields: [maquinaId], references: [id])
+  tarea           Tarea      @relation(fields: [tareaId], references: [id])
+  finca           Finca      @relation(fields: [fincaId], references: [id])
+  lote            Lote?      @relation(fields: [loteId], references: [id])
+}
+
+// -----------------------------------------------------------------------------
+// 6) INSUMOS E INVENTARIO
+// -----------------------------------------------------------------------------
+model Insumo {
+  id              String   @id @default(uuid())
+  codigo          String   @unique // INS-000001
+  nombre          String
+  categoria       String
+  unidadMedida    String
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  movimientos     MovimientoInventario[]
+}
+
+model MovimientoInventario {
+  id              String   @id @default(uuid())
+  fincaId         String
+  insumoId        String
+  tipoMovimiento  TipoMovimiento
+  fecha           DateTime
+  cantidad        Float
+  costoUnitario   Float?
+  referencia      String // Compra, Ajuste, Traslado, Consumo
+  tareaId         String? // Obligatorio si es consumo por tarea
+  loteId          String?
+  observaciones   String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  finca           Finca    @relation(fields: [fincaId], references: [id])
+  insumo          Insumo   @relation(fields: [insumoId], references: [id])
+  tarea           Tarea?   @relation(fields: [tareaId], references: [id])
+  lote            Lote?    @relation(fields: [loteId], references: [id])
+}
+
+enum TipoMovimiento {
+  ENTRADA
+  SALIDA
+  AJUSTE
+}
