@@ -1,12 +1,12 @@
 'use server'
 
-import { db } from "@/lib/db"
+import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
 export async function getFincas() {
     try {
-        const fincas = await db.finca.findMany({
+        const fincas = await prisma.finca.findMany({
             orderBy: { createdAt: 'desc' }
         })
         return { data: fincas }
@@ -18,7 +18,6 @@ export async function getFincas() {
 
 export async function createFinca(formData: FormData) {
     const nombre = formData.get("nombre") as string
-    // const codigo = formData.get("codigo") as string // Removed from form
     const departamento = formData.get("departamento") as string
     const municipio = formData.get("municipio") as string
     const veredaSector = formData.get("veredaSector") as string
@@ -47,7 +46,7 @@ export async function createFinca(formData: FormData) {
 
     try {
         // Auto-generate code
-        const lastFinca = await db.finca.findFirst({
+        const lastFinca = await prisma.finca.findFirst({
             orderBy: { createdAt: 'desc' }
         })
 
@@ -59,7 +58,7 @@ export async function createFinca(formData: FormData) {
             }
         }
 
-        await db.finca.create({
+        await prisma.finca.create({
             data: {
                 codigo: nextCode,
                 nombre,
@@ -77,7 +76,6 @@ export async function createFinca(formData: FormData) {
         })
     } catch (error: any) {
         console.error("Failed to create finca:", error)
-        // Return the actual error message for debugging
         return { error: `Error: ${error.message}` }
     }
 
