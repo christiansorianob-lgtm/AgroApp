@@ -310,7 +310,7 @@ export default function NewFincaPage() {
                             </Button>
                             <Button type="submit">
                                 <Save className="mr-2 w-4 h-4" />
-                                <Guardar Finca
+                                Guardar Finca
                             </Button>
                         </div>
                     </form>
