@@ -1,14 +1,12 @@
 'use server'
 
-import { prisma } from "@/lib/prisma"
+import { createFincaInDb, findLastFinca, getAllFincas } from "@/services/fincas"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
 export async function getFincas() {
     try {
-        const fincas = await prisma.finca.findMany({
-            orderBy: { createdAt: 'desc' }
-        })
+        const fincas = await getAllFincas()
         return { data: fincas }
     } catch (error) {
         console.error("Failed to fetch fincas:", error)
@@ -39,16 +37,13 @@ export async function createFinca(formData: FormData) {
         }
     }
 
-    // Simple validation
     if (!nombre || !areaTotalHa) {
         return { error: "Campos obligatorios faltantes." }
     }
 
     try {
         // Auto-generate code
-        const lastFinca = await prisma.finca.findFirst({
-            orderBy: { createdAt: 'desc' }
-        })
+        const lastFinca = await findLastFinca()
 
         let nextCode = "FIN-001"
         if (lastFinca && lastFinca.codigo.startsWith("FIN-")) {
@@ -58,22 +53,21 @@ export async function createFinca(formData: FormData) {
             }
         }
 
-        await prisma.finca.create({
-            data: {
-                codigo: nextCode,
-                nombre,
-                departamento,
-                municipio,
-                veredaSector,
-                responsable,
-                areaTotalHa,
-                latitud,
-                longitud,
-                poligono: poligono ?? undefined,
-                observaciones,
-                estado: 'ACTIVO'
-            }
+        await createFincaInDb({
+            codigo: nextCode,
+            nombre,
+            departamento,
+            municipio,
+            veredaSector,
+            responsable,
+            areaTotalHa,
+            latitud,
+            longitud,
+            poligono: poligono ?? undefined,
+            observaciones,
+            estado: 'ACTIVO'
         })
+
     } catch (error: any) {
         console.error("Failed to create finca:", error)
         return { error: `Error: ${error.message}` }
