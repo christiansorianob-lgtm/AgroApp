@@ -19,7 +19,7 @@ function LocationMarker({ position, setPosition, onLocationSelect }: any) {
         click(e) {
             setPosition(e.latlng)
             onLocationSelect(e.latlng.lat, e.latlng.lng)
-            map.flyTo(e.latlng, map.getZoom())
+            map.flyTo(e.latlng, 18)
         },
     })
 
@@ -27,7 +27,6 @@ function LocationMarker({ position, setPosition, onLocationSelect }: any) {
         <Marker position={position}></Marker>
     )
 }
-
 
 export default function MapPicker({ onLocationSelect, lat, lng }: { onLocationSelect: (lat: number, lng: number) => void, lat?: number, lng?: number }) {
     const [position, setPosition] = useState<L.LatLng | null>(null)
@@ -58,7 +57,7 @@ export default function MapPicker({ onLocationSelect, lat, lng }: { onLocationSe
             // Only update if significantly different to avoid loop
             if (!position || position.distanceTo(newPos) > 10) {
                 setPosition(newPos)
-                map.flyTo(newPos, 13)
+                map.flyTo(newPos, 18) // High zoom for precision on manual input
             }
         }
     }, [lat, lng, map])
@@ -75,8 +74,9 @@ export default function MapPicker({ onLocationSelect, lat, lng }: { onLocationSe
                 ref={setMap}
             >
                 <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                    // Satellite Imagery
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                 />
                 <LocationMarker position={position} setPosition={setPosition} onLocationSelect={onLocationSelect} />
             </MapContainer>
