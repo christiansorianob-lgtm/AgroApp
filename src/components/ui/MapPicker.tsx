@@ -63,6 +63,7 @@ export interface MapPickerHandle {
     toggleDrawing: () => void;
     undo: () => void;
     clear: () => void;
+    flyTo: (lat: number, lng: number) => void;
 }
 
 const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({ onLocationSelect, lat, lng, onPolygonChange, onAreaCalculated, onStatusChange }, ref) => {
@@ -81,6 +82,13 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({ onLocationSelec
         clear: () => {
             setPolygonPoints([])
             if (onAreaCalculated) onAreaCalculated(0)
+        },
+        flyTo: (lat: number, lng: number) => {
+            if (map) {
+                const newPos = new L.LatLng(lat, lng)
+                map.flyTo(newPos, 18)
+                setPosition(newPos) // Update internal position state too
+            }
         }
     }));
 
@@ -139,6 +147,10 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({ onLocationSelec
         if (map) {
             setTimeout(() => {
                 map.invalidateSize()
+                // Re-center after resize if position exists
+                if (position) {
+                    map.flyTo(position, 18, { animate: false })
+                }
             }, 300)
         }
     }, [drawingMode, map])

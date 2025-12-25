@@ -209,10 +209,33 @@ export default function NewFincaPage() {
                                             type="button"
                                             variant={isDrawing ? "default" : "outline"}
                                             size="sm"
-                                            onClick={() => mapRef.current?.toggleDrawing()}
+                                            onClick={() => {
+                                                // Ensure we are centered before drawing
+                                                if (!isDrawing && lat && lng) {
+                                                    mapRef.current?.flyTo(parseFloat(lat.replace(',', '.')), parseFloat(lng.replace(',', '.')))
+                                                }
+                                                mapRef.current?.toggleDrawing()
+                                            }}
                                             className={isDrawing ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
                                         >
                                             {isDrawing ? "✅ Finalizar" : "✏️ Dibujar Área"}
+                                        </Button>
+
+                                        {/* Auto-center button */}
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            title="Centrar en coordenadas"
+                                            onClick={() => {
+                                                if (lat && lng) {
+                                                    mapRef.current?.flyTo(parseFloat(lat.replace(',', '.')), parseFloat(lng.replace(',', '.')))
+                                                } else {
+                                                    alert("Ingrese coordenadas primero")
+                                                }
+                                            }}
+                                        >
+                                            🎯 Centrar
                                         </Button>
 
                                         {hasPoints && (
