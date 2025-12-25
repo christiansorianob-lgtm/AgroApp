@@ -207,10 +207,22 @@ export default function NewFincaPage() {
                                         }}
                                         lat={parseFloat(lat)}
                                         lng={parseFloat(lng)}
+                                        onAreaCalculated={(areaHa) => {
+                                            // Update Area Input
+                                            const input = document.getElementById('areaTotalHa') as HTMLInputElement
+                                            if (input && areaHa > 0) {
+                                                input.value = areaHa.toString()
+                                                // Don't forget to trigger any change events if needed by validation, though native value set usually works for form submission
+                                            }
+                                        }}
+                                        onPolygonChange={(points) => {
+                                            const input = document.getElementById('poligono') as HTMLInputElement
+                                            if (input) {
+                                                input.value = JSON.stringify(points)
+                                            }
+                                        }}
                                     />
-                                    <p className="text-xs text-muted-foreground p-2 bg-muted/50">
-                                        Haz clic en el mapa para establecer la ubicación.
-                                    </p>
+                                    <input type="hidden" id="poligono" name="poligono" />
                                 </div>
                             )}
                         </div>
