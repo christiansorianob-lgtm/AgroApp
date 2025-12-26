@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { getFincas } from "@/app/actions/fincas"
 import { getLotes } from "@/app/actions/lotes"
 import { getTiposActividad, getResponsables } from "@/app/actions/configuracion"
@@ -49,11 +50,13 @@ export default async function NewTareaPage() {
     }
 
     return (
-        <TareaForm
-            fincas={fincasData.data || []}
-            lotes={lotesData.data || []}
-            tiposActividad={tiposRes.data || []}
-            responsables={respRes.data || []}
-        />
+        <Suspense fallback={<div>Cargando formulario...</div>}>
+            <TareaForm
+                fincas={fincasData.data || []}
+                lotes={lotesData.data || []}
+                tiposActividad={tiposRes.data || []}
+                responsables={respRes.data || []}
+            />
+        </Suspense>
     )
 }
