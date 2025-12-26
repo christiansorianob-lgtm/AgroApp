@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useImperativeHandle, forwardRef } from 'react'
-import { MapContainer, TileLayer, Marker, Polygon, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Polygon, useMapEvents, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 // @ts-ignore
@@ -65,6 +65,8 @@ interface MapPickerProps {
     initialZoom?: number
     initialPolygon?: any[]
     readOnly?: boolean
+    referencePolygon?: any[]
+    otherPolygons?: { id: string, name: string, points: any[] }[]
 }
 
 export interface MapPickerHandle {
@@ -83,7 +85,9 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({
     onStatusChange,
     initialZoom = 13,
     initialPolygon = [],
-    readOnly = false
+    readOnly = false,
+    referencePolygon = [],
+    otherPolygons = []
 }, ref) => {
     const [position, setPosition] = useState<L.LatLng | null>(null)
     const [mounted, setMounted] = useState(false)
@@ -180,6 +184,29 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({
                         attribution='Tiles &copy; Esri'
                         url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     />
+
+                    {/* Reference Polygon (Finca) */}
+                    {referencePolygon.length > 0 && (
+                        <Polygon
+                            positions={referencePolygon}
+                            pathOptions={{ color: 'yellow', fillColor: 'transparent', dashArray: '10, 10', weight: 2 }}
+                            interactive={false}
+                        />
+                    )}
+
+                    {/* Other Lotes Polygons */}
+                    {otherPolygons.map((op) => (
+                        <Polygon
+                            key={op.id}
+                            positions={op.points}
+                            pathOptions={{ color: '#ffffff', fillColor: '#cccccc', fillOpacity: 0.2, weight: 1, dashArray: '5, 5' }}
+                        >
+                            <Tooltip direction="center" permanent className="bg-transparent border-none text-white font-bold shadow-none">
+                                {op.name}
+                            </Tooltip>
+                        </Polygon>
+                    ))}
+
                     <LocationMarker
                         position={position}
                         setPosition={setPosition}

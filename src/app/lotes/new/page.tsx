@@ -4,11 +4,13 @@ import Link from "next/link"
 import { useState, useEffect, useRef, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { getFincas } from "@/app/actions/fincas"
+import { getTiposCultivo } from "@/app/actions/cultivos"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Save, Loader2, Map as MapIcon, RotateCcw, Trash2, Crosshair } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import dynamic from "next/dynamic"
 
 // Dynamic Map import
@@ -24,11 +26,18 @@ function LoteForm() {
     const [fincas, setFincas] = useState<any[]>([])
     const [loadingFincas, setLoadingFincas] = useState(true)
 
+    // Catalog State
+    const [tiposCultivo, setTiposCultivo] = useState<any[]>([])
+    const [variedades, setVariedades] = useState<any[]>([])
+
     // Form State
     const [selectedFinca, setSelectedFinca] = useState(preFincaId || "")
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [showErrorModal, setShowErrorModal] = useState(false)
     const [errorDetail, setErrorDetail] = useState("")
+
+    const [selectedTipo, setSelectedTipo] = useState("")
+    const [selectedVariedad, setSelectedVariedad] = useState("")
 
     // Map State
     const [showMap, setShowMap] = useState(false)
@@ -38,11 +47,29 @@ function LoteForm() {
     const [drawingMode, setDrawingMode] = useState(false)
     const [polygonPoints, setPolygonPoints] = useState<any[]>([])
 
+    // Map Overlays
+    const [activeRefPolygon, setActiveRefPolygon] = useState<any[]>([])
+    const [activeOtherPolygons, setActiveOtherPolygons] = useState<any[]>([])
+
     useEffect(() => {
         async function load() {
             try {
-                const res = await getFincas()
-                if (res.data) setFincas(res.data)
+                // Load Fincas
+                const resFincas = await getFincas()
+                if (resFincas.data) {
+                    setFincas(resFincas.data)
+                    if (preFincaId) {
+                        const target = resFincas.data.find((f: any) => f.id === preFincaId)
+                        if (target) updateFincaContext(target)
+                    }
+                }
+
+                // Load Tipos Cultivo
+                const resCultivos = await getTiposCultivo()
+                console.log("Loaded Cultivos:", resCultivos)
+                if (resCultivos.data) {
+                    setTiposCultivo(resCultivos.data)
+                }
             } catch (e) {
                 console.error(e)
             } finally {
@@ -50,7 +77,62 @@ function LoteForm() {
             }
         }
         load()
-    }, [])
+    }, [preFincaId])
+
+    const updateFincaContext = (finca: any) => {
+        console.log("Updating context for Finca:", finca.nombre)
+
+        // 1. Set Reference Polygon
+        let refPoly: any[] = []
+        if (finca.poligono) {
+            try {
+                refPoly = typeof finca.poligono === 'string' ? JSON.parse(finca.poligono) : finca.poligono
+            } catch (e) { console.error("Error parsing polygon", e) }
+        }
+        setActiveRefPolygon(refPoly)
+
+        // 2. Set Other Lotes
+        if (finca.lotes && finca.lotes.length > 0) {
+            const others = finca.lotes.map((l: any) => {
+                try {
+                    return {
+                        id: l.id,
+                        name: l.nombre,
+                        points: typeof l.poligono === 'string' ? JSON.parse(l.poligono) : l.poligono
+                    }
+                } catch { return null }
+            }).filter((l: any) => l && l.points && l.points.length > 0)
+            setActiveOtherPolygons(others)
+        } else {
+            setActiveOtherPolygons([])
+        }
+
+        // 3. Center Map & Update Form
+        if (finca.latitud && finca.longitud) {
+            const newLat = finca.latitud.toString()
+            const newLng = finca.longitud.toString()
+            setLat(newLat)
+            setLng(newLng)
+
+            if (mapRef.current) {
+                mapRef.current.flyTo(finca.latitud, finca.longitud)
+            }
+        }
+    }
+
+    const handleFincaSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const id = e.target.value
+        setSelectedFinca(id)
+        const finca = fincas.find(f => f.id === id)
+        if (finca) updateFincaContext(finca)
+    }
+
+    const handleTipoChange = (value: string) => {
+        setSelectedTipo(value)
+        setSelectedVariedad("") // Reset variedad
+        const tipo = tiposCultivo.find(t => t.nombre === value)
+        setVariedades(tipo ? tipo.variedades : [])
+    }
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -62,11 +144,11 @@ function LoteForm() {
 
             const payload = {
                 fincaId: selectedFinca,
-                codigo: formData.get('codigo'),
+                codigo: "", // Autogenerated by API
                 nombre: formData.get('nombre'),
                 areaHa: formData.get('areaHa'),
-                tipoCultivo: formData.get('tipoCultivo'),
-                variedad: formData.get('variedad'),
+                tipoCultivo: selectedTipo,
+                variedad: selectedVariedad,
                 fechaSiembra: formData.get('fechaSiembra'),
                 latitud: lat,
                 longitud: lng,
@@ -90,7 +172,6 @@ function LoteForm() {
                 throw new Error(errorData.error || "Error al guardar el lote")
             }
 
-            // Redirect back to Finca
             window.location.href = `/fincas/${selectedFinca}`
 
         } catch (error: any) {
@@ -207,6 +288,8 @@ function LoteForm() {
                                 if (input && areaHa > 0) input.value = areaHa.toString()
                             }}
                             onPolygonChange={(points) => setPolygonPoints(points)}
+                            referencePolygon={activeRefPolygon}
+                            otherPolygons={activeOtherPolygons}
                         />
                     </div>
                 </div>
@@ -225,7 +308,7 @@ function LoteForm() {
                                 name="fincaId"
                                 required
                                 value={selectedFinca}
-                                onChange={(e) => setSelectedFinca(e.target.value)}
+                                onChange={handleFincaSelect}
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 disabled={!!preFincaId} // If passed via URL, lock it? Or allow change? Let's allow change unless strict. Existing code didn't strict. But pre-fill is help. 
                             >
@@ -259,7 +342,13 @@ function LoteForm() {
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="codigo">Código Lote</Label>
-                                <Input id="codigo" name="codigo" placeholder="Autogenerado (Ej: L-01)" />
+                                <Input
+                                    id="codigo"
+                                    name="codigo"
+                                    placeholder="Autogenerado al guardar"
+                                    readOnly
+                                    className="bg-muted text-muted-foreground cursor-not-allowed"
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="nombre">Nombre Lote</Label>
@@ -276,15 +365,39 @@ function LoteForm() {
                         <CardHeader><CardTitle>Detalles Agronómicos</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="tipoCultivo">Tipo Cultivo</Label>
-                                <Input id="tipoCultivo" name="tipoCultivo" placeholder="Ej: Palma de Aceite" required defaultValue="Palma de Aceite" />
+                                <div className="flex justify-between items-center">
+                                    <Label htmlFor="tipoCultivo">Tipo Cultivo</Label>
+                                    <Link href="/configuracion/cultivos" className="text-xs text-primary hover:underline hover:text-primary/80">
+                                        + Gestionar Lista
+                                    </Link>
+                                </div>
+                                <Select value={selectedTipo} onValueChange={handleTipoChange}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Seleccione Tipo de Cultivo" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none" disabled>Seleccione...</SelectItem>
+                                        {tiposCultivo.map((t) => (
+                                            <SelectItem key={t.id} value={t.nombre}>{t.nombre}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="variedad">Variedad</Label>
-                                <Input id="variedad" name="variedad" placeholder="Ej: Guineensis" />
+                                <Select value={selectedVariedad} onValueChange={setSelectedVariedad} disabled={!selectedTipo}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Seleccione Variedad" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {variedades.map((v) => (
+                                            <SelectItem key={v.id} value={v.nombre}>{v.nombre}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="fechaSiembra">Fecha Siembra</Label>
+                                <Label htmlFor="fechaSiembra">Fecha Inicio</Label>
                                 <Input id="fechaSiembra" name="fechaSiembra" type="date" />
                             </div>
                         </CardContent>

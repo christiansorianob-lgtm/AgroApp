@@ -4,28 +4,82 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getTareas } from "@/app/actions/tareas"
 import { Plus } from "lucide-react"
+import { BackButton } from "@/components/common/BackButton"
 
-export default async function TareasPage() {
-    const { data: tareas, error } = await getTareas()
+export default async function TareasPage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+    const searchParams = await props.searchParams
+    const fincaId = searchParams.fincaId as string | undefined
+    const loteId = searchParams.loteId as string | undefined
+    const filterNivel = searchParams.filter as string | undefined // 'finca_only'
+
+    // Determine filters for Server Action
+    const filters: any = {}
+    if (loteId) {
+        filters.loteId = loteId
+    } else if (fincaId) {
+        filters.fincaId = fincaId
+        if (filterNivel === 'finca_only') {
+            filters.nivel = 'FINCA'
+        }
+    }
+
+    const { data: tareas, error } = await getTareas(filters)
+
+    // Construct query string for new task
+    const newParams = new URLSearchParams()
+    if (fincaId) newParams.set('fincaId', fincaId)
+    if (loteId) newParams.set('loteId', loteId)
+    const newHref = `/tareas/new?${newParams.toString()}`
+
+    // Construct toggle filter link for Finca context
+    const toggleFilterParams = new URLSearchParams(newParams)
+    if (filterNivel === 'finca_only') {
+        toggleFilterParams.delete('filter') // Remove filter to show all
+    } else {
+        toggleFilterParams.set('filter', 'finca_only') // Add filter
+    }
+    const toggleFilterHref = `/tareas?${toggleFilterParams.toString()}`
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-primary">Tareas</h2>
-                    <p className="text-muted-foreground">Programación y ejecución de actividades</p>
+                <div className="flex items-center gap-4">
+                    <BackButton fallback="/" />
+                    <div>
+                        <h2 className="text-3xl font-bold tracking-tight text-primary">Tareas</h2>
+                        <div className="text-muted-foreground flex items-center gap-2">
+                            <p>Programación y ejecución de actividades</p>
+                            {loteId && <span className="text-xs bg-muted px-2 py-1 rounded">Filtrado por Lote</span>}
+                            {fincaId && !loteId && <span className="text-xs bg-muted px-2 py-1 rounded">Contexto Finca</span>}
+                        </div>
+                    </div>
                 </div>
-                <Button asChild>
-                    <Link href="/tareas/new">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nueva Tarea
-                    </Link>
-                </Button>
+                <div className="flex gap-2">
+                    {/* Toggle Button for Finca Context */}
+                    {fincaId && !loteId && (
+                        <Button variant={filterNivel === 'finca_only' ? "secondary" : "outline"} asChild>
+                            <Link href={toggleFilterHref}>
+                                {filterNivel === 'finca_only' ? "Ver Todas" : "Solo Nivel Finca"}
+                            </Link>
+                        </Button>
+                    )}
+
+                    <Button asChild>
+                        <Link href={newHref}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Nueva Tarea
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Listado de Tareas</CardTitle>
+                    <CardTitle>
+                        {loteId ? "Tareas del Lote" :
+                            fincaId ? (filterNivel === 'finca_only' ? "Tareas Generales de la Finca" : "Todas las Tareas de la Finca") :
+                                "Listado General de Tareas"}
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
                     {error && <p className="text-destructive mb-4">{error}</p>}
@@ -40,13 +94,14 @@ export default async function TareasPage() {
                                 <TableHead>Responsable</TableHead>
                                 <TableHead>Estado</TableHead>
                                 <TableHead>Prioridad</TableHead>
+                                <TableHead>Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {tareas?.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
-                                        No hay tareas registradas.
+                                    <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
+                                        No hay tareas registradas para este filtro.
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -67,20 +122,27 @@ export default async function TareasPage() {
                                         <TableCell>{tarea.responsable}</TableCell>
                                         <TableCell>
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${tarea.estado === 'PROGRAMADA' ? 'bg-blue-100 text-blue-800' :
-                                                    tarea.estado === 'EN_PROCESO' ? 'bg-yellow-100 text-yellow-800' :
-                                                        tarea.estado === 'EJECUTADA' ? 'bg-green-100 text-green-800' :
-                                                            'bg-red-100 text-red-800'
+                                                tarea.estado === 'EN_PROCESO' ? 'bg-yellow-100 text-yellow-800' :
+                                                    tarea.estado === 'EJECUTADA' ? 'bg-green-100 text-green-800' :
+                                                        'bg-red-100 text-red-800'
                                                 }`}>
-                                                {tarea.estado}
+                                                {tarea.estado.replace('_', ' ')}
                                             </span>
                                         </TableCell>
                                         <TableCell>
-                                            <span className={`text-xs font-bold ${tarea.prioridad === 'ALTA' ? 'text-red-600' :
-                                                    tarea.prioridad === 'MEDIA' ? 'text-yellow-600' :
-                                                        'text-green-600'
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${tarea.prioridad === 'ALTA' ? 'bg-red-100 text-red-800' :
+                                                tarea.prioridad === 'MEDIA' ? 'bg-yellow-100 text-yellow-800' :
+                                                    'bg-green-100 text-green-800'
                                                 }`}>
                                                 {tarea.prioridad}
                                             </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Button variant="outline" size="sm" asChild>
+                                                <Link href={`/tareas/${tarea.id}/execute?fincaId=${fincaId || ''}&loteId=${loteId || ''}`}>
+                                                    Gestionar
+                                                </Link>
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))

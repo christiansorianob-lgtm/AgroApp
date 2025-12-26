@@ -40,12 +40,17 @@ export default async function Home() {
     ? `${maintenanceMachines} equipos detenidos`
     : "Flota 100% operativa"
 
-  const totalInsumos = await db.insumo.count({
+  const totalProductos = await db.producto.count({
     where: { activo: true }
   })
 
-  // 2. Fetch Recent Activity (Last 5 created/updated tasks)
+  // 2. Fetch Recent Activity (Last 5 created/updated tasks, EXCLUDING executed)
   const recentActivity = await db.tarea.findMany({
+    where: {
+      estado: {
+        not: 'EJECUTADA'
+      }
+    },
     take: 5,
     orderBy: { updatedAt: 'desc' },
     include: { finca: true, lote: true }
@@ -74,8 +79,8 @@ export default async function Home() {
       color: "text-yellow-500"
     },
     {
-      title: "Catálogo de Insumos",
-      value: totalInsumos.toString(),
+      title: "Catálogo de Productos",
+      value: totalProductos.toString(),
       description: "Productos registrados",
       icon: Package,
       color: "text-green-500"
@@ -112,19 +117,19 @@ export default async function Home() {
       </div>
 
       <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-6">
-        <h3 className="font-semibold text-lg mb-4">Actividad Reciente</h3>
+        <h3 className="font-semibold text-lg mb-4">Actividad Reciente (Pendientes)</h3>
 
         {recentActivity.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <p>No hay actividad reciente registrada en el sistema.</p>
+            <p>No hay tareas pendientes recientes.</p>
             <Link href="/tareas/new" className="text-primary hover:underline text-sm font-medium mt-2 inline-block">
-              + Crear primera tarea
+              + Crear nueva tarea
             </Link>
           </div>
         ) : (
           <div className="space-y-4">
             {recentActivity.map(item => (
-              <div key={item.id} className="flex items-center justify-between border-b border-border/50 pb-4 last:border-0 last:pb-0">
+              <div key={item.id} className="flex items-center justify-between border-b border-border/50 pb-4 last:border-0 last:pb-0 hover:bg-muted/50 p-2 rounded transition-colors">
                 <div className="grid gap-1">
                   <p className="text-sm font-medium leading-none">
                     {item.tipo} - <span className="text-muted-foreground">{item.codigo}</span>
@@ -133,15 +138,18 @@ export default async function Home() {
                     {item.finca.nombre} {item.lote && `• Lote ${item.lote.nombre}`} • {new Date(item.updatedAt).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.estado === 'PROGRAMADA' ? 'bg-blue-100 text-blue-800' :
-                      item.estado === 'EN_PROCESO' ? 'bg-yellow-100 text-yellow-800' :
-                        item.estado === 'EJECUTADA' ? 'bg-green-100 text-green-800' :
-                          'bg-gray-100 text-gray-800'
+                    item.estado === 'EN_PROCESO' ? 'bg-yellow-100 text-yellow-800' :
+                      item.estado === 'EJECUTADA' ? 'bg-green-100 text-green-800' :
+                        'bg-gray-100 text-gray-800'
                     }`}>
-                    {item.estado}
+                    {item.estado.replace('_', ' ')}
                   </span>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+
+                  <Link href={`/tareas/${item.id}/execute`} className="text-sm font-medium text-blue-600 hover:underline flex items-center gap-1">
+                    Gestionar <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
               </div>
             ))}

@@ -65,7 +65,7 @@ export default async function FincasPage() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="sm" asChild>
-                                                <Link href={`/fincas/${finca.id}`}>Ver</Link>
+                                                <Link href={`/fincas/${finca.id}`}>Administrar</Link>
                                             </Button>
                                         </TableCell>
                                     </TableRow>

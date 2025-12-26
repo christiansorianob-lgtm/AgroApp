@@ -2,18 +2,18 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Tractor, Sprout, ClipboardList, Package, Settings, Warehouse } from 'lucide-react'
+import { LayoutDashboard, Tractor, Sprout, ClipboardList, Package, Settings, Warehouse, FileText as Copy } from 'lucide-react'
 import clsx from 'clsx'
 
 const tools = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Fincas & Lotes', href: '/fincas', icon: Sprout },
-    { name: 'Tareas', href: '/tareas', icon: ClipboardList },
     { name: 'Maquinaria', href: '/maquinaria', icon: Tractor },
-    { name: 'Insumos', href: '/insumos', icon: Package },
-    { name: 'Reportes', href: '/reportes', icon: Copy }, // Lucide Copy or similar for reports
+    // Removed duplicate Maquinaria
+    { name: 'Almacén', href: '/almacen', icon: Package },
+    { name: 'Reportes', href: '/reportes', icon: Copy },
+    { name: 'Configuración', href: '/configuracion', icon: Settings },
 ]
-import { FileText as Copy } from 'lucide-react'
 
 export function Sidebar({ className }: { className?: string }) {
     const pathname = usePathname()

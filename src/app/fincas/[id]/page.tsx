@@ -4,7 +4,7 @@ import { getFincaById } from "@/services/fincas"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, MapPin, Ruler, User, Calendar, Plus } from "lucide-react"
+import { ArrowLeft, MapPin, Ruler, User, Calendar, Plus, Leaf, Pencil, ClipboardList, ExternalLink } from "lucide-react"
 import { FincaMapViewer } from "@/components/ui/FincaMapViewer"
 
 export default async function FincaDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +41,12 @@ export default async function FincaDetailPage({ params }: { params: Promise<{ id
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <Button variant="outline" asChild>
+                        <Link href={`/tareas?fincaId=${finca.id}`}>
+                            <ClipboardList className="mr-2 h-4 w-4" />
+                            Tareas
+                        </Link>
+                    </Button>
                     <Button asChild>
                         <Link href={`/lotes/new?fincaId=${finca.id}`}>
                             <Plus className="mr-2 h-4 w-4" />
@@ -99,9 +105,17 @@ export default async function FincaDetailPage({ params }: { params: Promise<{ id
                             <CardTitle className="flex items-center justify-between">
                                 <span>Ubicación Geográfica</span>
                                 {finca.latitud && finca.longitud && (
-                                    <span className="text-xs font-mono text-muted-foreground">
+                                    <a
+                                        href={`https://www.google.com/maps?q=${finca.latitud},${finca.longitud}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs font-mono text-blue-600 hover:underline flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-100"
+                                        title="Ver en Google Maps"
+                                    >
+                                        <MapPin className="w-3 h-3" />
                                         {finca.latitud.toFixed(6)}, {finca.longitud.toFixed(6)}
-                                    </span>
+                                        <ExternalLink className="w-3 h-3 ml-1" />
+                                    </a>
                                 )}
                             </CardTitle>
                         </CardHeader>
@@ -110,23 +124,75 @@ export default async function FincaDetailPage({ params }: { params: Promise<{ id
                                 lat={finca.latitud || 0}
                                 lng={finca.longitud || 0}
                                 polygon={polygonData}
+                                lotes={finca.lotes}
                             />
                         </CardContent>
                     </Card>
                 </div>
             </div>
 
-            {/* Lotes Section Placeholder */}
+            {/* Lotes Section */}
             <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-2xl font-bold">Lotes ({finca.lotes?.length || 0})</h2>
                 </div>
-                {/* TODO: List Lotes here */}
-                <Card>
-                    <CardContent className="p-8 text-center text-muted-foreground">
-                        No hay lotes registrados aún.
-                    </CardContent>
-                </Card>
+
+                {finca.lotes && finca.lotes.length > 0 ? (
+                    <Card>
+                        <div className="rounded-md border">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-muted/50 text-muted-foreground">
+                                    <tr>
+                                        <th className="p-4 font-medium">Código</th>
+                                        <th className="p-4 font-medium">Nombre</th>
+                                        <th className="p-4 font-medium">Cultivo</th>
+                                        <th className="p-4 font-medium">Área (Ha)</th>
+                                        <th className="p-4 font-medium text-right">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {finca.lotes.map((lote: any) => (
+                                        <tr key={lote.id} className="hover:bg-muted/50 transition-colors">
+                                            <td className="p-4 font-medium">{lote.codigo}</td>
+                                            <td className="p-4">{lote.nombre}</td>
+                                            <td className="p-4">
+                                                <div className="flex flex-col">
+                                                    <span>{lote.tipoCultivo}</span>
+                                                    <span className="text-xs text-muted-foreground">{lote.variedad}</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-4">{lote.areaHa}</td>
+                                            <td className="p-4 text-right">
+                                                <Button variant="ghost" size="sm" asChild>
+                                                    <Link href={`/lotes/${lote.id}/edit`}>
+                                                        Administrar
+                                                    </Link>
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+                ) : (
+                    <Card>
+                        <CardContent className="p-12 text-center flex flex-col items-center justify-center text-muted-foreground space-y-4">
+                            <div className="p-4 bg-muted rounded-full">
+                                <Leaf className="w-8 h-8 opacity-50" />
+                            </div>
+                            <div>
+                                <h3 className="tex-lg font-medium">No hay lotes registrados</h3>
+                                <p className="text-sm">Comienza agregando lotes a esta finca para gestionarlos.</p>
+                            </div>
+                            <Button variant="outline" asChild>
+                                <Link href={`/lotes/new?fincaId=${finca.id}`}>
+                                    Registrar Primer Lote
+                                </Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </div>
     )

@@ -39,6 +39,7 @@ export default async function LotesPage() {
                                 <TableHead>Cultivo</TableHead>
                                 <TableHead>Área (Ha)</TableHead>
                                 <TableHead>Estado</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -58,11 +59,16 @@ export default async function LotesPage() {
                                         <TableCell>{lote.areaHa}</TableCell>
                                         <TableCell>
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${lote.estado === 'ACTIVO' ? 'bg-green-100 text-green-800' :
-                                                    lote.estado === 'INACTIVO' ? 'bg-red-100 text-red-800' :
-                                                        'bg-yellow-100 text-yellow-800'
+                                                lote.estado === 'INACTIVO' ? 'bg-red-100 text-red-800' :
+                                                    'bg-yellow-100 text-yellow-800'
                                                 }`}>
                                                 {lote.estado}
                                             </span>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="sm" asChild>
+                                                <Link href={`/lotes/${lote.id}/edit`}>Administrar</Link>
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))

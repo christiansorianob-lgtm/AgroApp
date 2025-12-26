@@ -32,6 +32,7 @@ model Finca {
   tareas          Tarea[]
   usosMaquinaria  UsoMaquinaria[]
   movimientosInventario MovimientoInventario[]
+  maquinarias     Maquinaria[]
 }
 
 enum EstadoFinca {
@@ -104,7 +105,7 @@ model Tarea {
 
   // Relaciones
   usosMaquinaria      UsoMaquinaria[]
-  consumosInsumo      MovimientoInventario[]
+  consumos            MovimientoInventario[]
 }
 
 enum NivelTarea {
@@ -130,10 +131,21 @@ enum PrioridadTarea {
 // -----------------------------------------------------------------------------
 model Maquinaria {
   id                      String   @id @default(uuid())
-  codigo                  String   @unique // MAQ-000001
-  fincaId                 String // Finca base? O global? Requerimiento dice maquinaria. Asumimos global o asignada a finca. El req no especifica FincaId en Maquinaria pero dice "Controlar... Maquinaria". Agregamos FincaId para consistencia si pertenece a una sede, o optional. Req dice "Campos MAQUINARIA: ... FincaId". OK.
-  tipo                    String
-  marca                   String
+  codigo                  String   @unique // MAQ-000, MAQ-001 (Autogenerado)
+  
+  // Relations to Catalogs
+  tipoMaquinariaId        String
+  marcaMaquinariaId       String
+  ubicacionMaquinariaId   String
+  
+  // Finca relation might still be useful if the machine belongs to a specific Finca entity, 
+  // but user asked for "Ubicacion" to be a dropdown of "Bodega, Taller". 
+  // We will keep fincaId as nullable if we want to track ownership, or strictly follow "Ubicacion" as the new location.
+  // Given "Ubicacion (Finca Base)" -> "Ubicacion" request, I will treat ubicacionMaquinariaId as the primary location info.
+  // I will keep fincaId optional for now to not break existing data immediately, or just remove if I am sure.
+  // Plan said "Make fincaId optional". 
+  fincaId                 String?
+
   modelo                  String
   serialPlaca             String
   fechaCompra             DateTime?
@@ -144,41 +156,11 @@ model Maquinaria {
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
-  // FincaId segun requerimiento
-  // Pero ojo, si se mueve entre fincas? Dejamos FincaId como ubicación actual o dueño.
-  // El modelo de datos en req incluye FincaId.
-  // Pero NO hay relacion estricta definida arriba, asumimos relacion simple o solo ID.
-  // Para integridad referencial, lo ideal es relacionar con Finca.
-  // Pero si FincaId es "Ubicación", puede cambiar.
-  // Dejaremos como String o Relacion. Relacion es mas seguro.
-  // Si FincaId es obligatorio en req, lo ponemos.
-  
-  // finca Finca @relation(...) // Comentado para evitar complejidad circular si no es estricto, pero mejor lo agregamos si es requerido estricto.
-  // El user request dice: "FincaId" en campos Maquinaria.
-  // Asumiré que es una relación foranea valida. Pero Maquinaria puede moverse. 
-  // Mejor lo dejo como campo simple vinculado o FK sin restriccion fuerte si se complica, 
-  // pero prisma exige relation field.
-  // Lo haré FK valida pero nullable? No, req dice FincaId en lista de campos.
-  // Agregare relación a Finca, asumiendo que es su base habitual.
-  
-  // UPDATE: Re-reading req: "Campos MAQUINARIA: ... FincaId". 
-  // I will add the relation manually without automatic connection to Finca model reverse side to allow cleaner schema, or just add it.
-  // Actually, Finca model doesn't explicitly list Maquinaria list in req, but logic dictates it.
-  // I won't force the relation on the Finca side to keep it simple unless needed.
-  // Wait, Prisma needs both sides usually or named relation.
-  // I'll skip the physical relation object in Finca for now to avoid clutter, 
-  // or just Map it to map: "fincaId".
-  // Actually, standard Prisma:
-  
-  // finca Finca @relation(fields: [fincaId], references: [id]) 
-  // This requires `maquinas Maquinaria[]` in Finca.
-  // I'll skip the relation enforcement for now to strictly follow "FincaId" column presence without forcing ORM overhead if not requested?
-  // No, better to have ORM relations. I will add `maquinas Maquinaria[]` to Finca later if needed, or just leave connection implicit (id only) if preferred.
-  // Given "Controlar... Fincas... Maquinaria", it implies ownership.
-  // I will leave it as a Column `fincaId` String, without `@relation` to Finca to allow moving machines without foreign key constraints blocking if Finca is deleted? No, FK is better.
-  // I'll put `fincaId` String. User didn't ask for relational strictness there, just fields.
-  // BUT: `UsoMaquinaria` has `FincaId`.
-  
+  tipo        TipoMaquinaria      @relation(fields: [tipoMaquinariaId], references: [id])
+  marca       MarcaMaquinaria     @relation(fields: [marcaMaquinariaId], references: [id])
+  ubicacion   UbicacionMaquinaria @relation(fields: [ubicacionMaquinariaId], references: [id])
+  finca       Finca?               @relation(fields: [fincaId], references: [id])
+
   usos UsoMaquinaria[]
 }
 
@@ -189,6 +171,27 @@ enum EstadoMaquinaria {
   FUERA_DE_SERVICIO
   PRESTADA
   EN_TRASLADO
+}
+
+// -----------------------------------------------------------------------------
+// CATALOGOS MAQUINARIA
+// -----------------------------------------------------------------------------
+model TipoMaquinaria {
+  id        String       @id @default(uuid())
+  nombre    String       @unique
+  maquinas  Maquinaria[]
+}
+
+model MarcaMaquinaria {
+  id        String       @id @default(uuid())
+  nombre    String       @unique
+  maquinas  Maquinaria[]
+}
+
+model UbicacionMaquinaria {
+  id        String       @id @default(uuid())
+  nombre    String       @unique
+  maquinas  Maquinaria[]
 }
 
 // -----------------------------------------------------------------------------
@@ -216,14 +219,15 @@ model UsoMaquinaria {
 }
 
 // -----------------------------------------------------------------------------
-// 6) INSUMOS E INVENTARIO
+// 6) ALMACÉN E INVENTARIO
 // -----------------------------------------------------------------------------
-model Insumo {
+model Producto {
   id              String   @id @default(uuid())
-  codigo          String   @unique // INS-000001
+  codigo          String   @unique // PRO-000001
   nombre          String
   categoria       String
   unidadMedida    String
+  stockActual     Float    @default(0)
   activo          Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -234,7 +238,7 @@ model Insumo {
 model MovimientoInventario {
   id              String   @id @default(uuid())
   fincaId         String
-  insumoId        String
+  productoId      String
   tipoMovimiento  TipoMovimiento
   fecha           DateTime
   cantidad        Float
@@ -246,7 +250,7 @@ model MovimientoInventario {
   createdAt       DateTime @default(now())
 
   finca           Finca    @relation(fields: [fincaId], references: [id])
-  insumo          Insumo   @relation(fields: [insumoId], references: [id])
+  producto        Producto @relation(fields: [productoId], references: [id])
   tarea           Tarea?   @relation(fields: [tareaId], references: [id])
   lote            Lote?    @relation(fields: [loteId], references: [id])
 }
@@ -258,19 +262,57 @@ enum TipoMovimiento {
 }
 
 // -----------------------------------------------------------------------------
-// 7) GEOGRAFIA (Catalogos)
+// 7) CONFIGURACION GENERAL
 // -----------------------------------------------------------------------------
-model Departamento {
-  id         String      @id @default(uuid())
-  nombre     String      @unique
-  municipios Municipio[]
+
+model TipoActividad {
+  id        String   @id @default(uuid())
+  nombre    String   @unique
 }
 
-model Municipio {
-  id             String       @id @default(uuid())
-  nombre         String
-  departamentoId String
-  departamento   Departamento @relation(fields: [departamentoId], references: [id])
+model Responsable {
+  id        String   @id @default(uuid())
+  nombre    String   @unique
+  email     String?
+  cargo     String?
+  activo    Boolean  @default(true)
+}
 
-  @@unique([departamentoId, nombre])
+// -----------------------------------------------------------------------------
+// 10) CATALOGOS ALMACÉN
+// -----------------------------------------------------------------------------
+model NombreProducto {
+  id          String   @id @default(uuid())
+  nombre      String   @unique
+  categoriaId String?
+  categoria   CategoriaProducto? @relation(fields: [categoriaId], references: [id])
+}
+
+model CategoriaProducto {
+  id        String   @id @default(uuid())
+  nombre    String   @unique
+  nombres   NombreProducto[]
+}
+
+model UnidadMedida {
+  id        String   @id @default(uuid())
+  nombre    String   @unique
+}
+
+// -----------------------------------------------------------------------------
+// 8) CATALOGOS CULTIVOS
+// -----------------------------------------------------------------------------
+model TipoCultivo {
+  id          String            @id @default(uuid())
+  nombre      String            @unique
+  variedades  VariedadCultivo[]
+}
+
+model VariedadCultivo {
+  id            String      @id @default(uuid())
+  nombre        String
+  tipoCultivoId String
+  tipoCultivo   TipoCultivo @relation(fields: [tipoCultivoId], references: [id])
+
+  @@unique([tipoCultivoId, nombre])
 }

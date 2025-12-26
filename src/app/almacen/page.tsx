@@ -2,30 +2,34 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { getInsumos } from "@/app/actions/insumos"
+import { getProductos } from "@/app/actions/almacen"
 import { Plus, Package } from "lucide-react"
+import { BackButton } from "@/components/common/BackButton"
 
 export default async function InsumosPage() {
-    const { data: insumos, error } = await getInsumos()
+    const { data: productos, error } = await getProductos()
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-primary">Insumos</h2>
-                    <p className="text-muted-foreground">Catálogo y existencias</p>
+                <div className="flex items-center gap-4">
+                    <BackButton fallback="/dashboard" />
+                    <div>
+                        <h2 className="text-3xl font-bold tracking-tight text-primary">Gestión de Almacén</h2>
+                        <p className="text-muted-foreground">Inventario y existencias</p>
+                    </div>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" asChild>
-                        <Link href="/insumos/movimientos">
+                        <Link href="/almacen/movimientos">
                             <Package className="mr-2 h-4 w-4" />
                             Ver Movimientos
                         </Link>
                     </Button>
                     <Button asChild>
-                        <Link href="/insumos/new">
+                        <Link href="/almacen/new">
                             <Plus className="mr-2 h-4 w-4" />
-                            Nuevo Insumo
+                            Nuevo Producto
                         </Link>
                     </Button>
                 </div>
@@ -45,30 +49,25 @@ export default async function InsumosPage() {
                                 <TableHead>Nombre</TableHead>
                                 <TableHead>Categoría</TableHead>
                                 <TableHead>Unidad</TableHead>
-                                <TableHead className="text-right">Stock Global (Est.)</TableHead>
+                                <TableHead className="text-right">Stock Actual</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {insumos?.length === 0 ? (
+                            {productos?.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                                        No hay insumos registrados.
+                                        No hay productos registrados en almacén.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                insumos?.map((insumo) => {
-                                    // Rough calculation of stock from movements for UI demo
-                                    const entrada = insumo.movimientos.filter(m => m.tipoMovimiento === 'ENTRADA' || m.tipoMovimiento === 'AJUSTE').reduce((acc, m) => acc + m.cantidad, 0)
-                                    const salida = insumo.movimientos.filter(m => m.tipoMovimiento === 'SALIDA').reduce((acc, m) => acc + m.cantidad, 0)
-                                    const stock = entrada - salida
-
+                                productos?.map((producto) => {
                                     return (
-                                        <TableRow key={insumo.id}>
-                                            <TableCell className="font-medium">{insumo.codigo}</TableCell>
-                                            <TableCell>{insumo.nombre}</TableCell>
-                                            <TableCell>{insumo.categoria}</TableCell>
-                                            <TableCell>{insumo.unidadMedida}</TableCell>
-                                            <TableCell className="text-right font-bold text-primary">{stock}</TableCell>
+                                        <TableRow key={producto.id}>
+                                            <TableCell className="font-medium">{producto.codigo}</TableCell>
+                                            <TableCell>{producto.nombre}</TableCell>
+                                            <TableCell>{producto.categoria}</TableCell>
+                                            <TableCell>{producto.unidadMedida}</TableCell>
+                                            <TableCell className="text-right font-bold text-primary">{producto.stockActual}</TableCell>
                                         </TableRow>
                                     )
                                 })

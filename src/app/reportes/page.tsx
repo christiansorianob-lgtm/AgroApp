@@ -31,10 +31,10 @@ export default function ReportesPage() {
                     </Card>
                 </Link>
 
-                <Link href="/insumos/movimientos" className="block group">
+                <Link href="/almacen/movimientos" className="block group">
                     <Card className="h-full transition-colors hover:bg-muted/50">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Consumo de Insumos</CardTitle>
+                            <CardTitle className="text-sm font-medium">Consumo de Almacén</CardTitle>
                             <BarChart3 className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
                         </CardHeader>
                         <CardContent>
@@ -78,7 +78,7 @@ export default function ReportesPage() {
                     </p>
                     <div className="flex gap-2">
                         <Button variant="outline" disabled>Exportar Tareas</Button>
-                        <Button variant="outline" disabled>Exportar Insumos</Button>
+                        <Button variant="outline" disabled>Exportar Inventario</Button>
                     </div>
                 </CardContent>
             </Card>

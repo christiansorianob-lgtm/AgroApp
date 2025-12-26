@@ -33,35 +33,91 @@ const colombiaData = [
 async function main() {
     console.log('Start seeding locations...')
 
-    for (const dept of colombiaData) {
-        const createdDept = await prisma.departamento.upsert({
-            where: { nombre: dept.departamento },
-            update: {},
-            create: {
-                nombre: dept.departamento
-            }
-        })
+    // Geolocation seeding removed as tables do not exist in schema.
+    // console.log('Start seeding locations...')
+    // ... code removed ...
 
-        console.log(`Created Department: ${createdDept.nombre}`)
+    console.log('Seeding finished.')
 
-        for (const muniName of dept.municipios) {
-            await prisma.municipio.upsert({
+    // --- SEED MAQUINARIA ---
+    console.log('Start seeding machinery catalogs...')
+
+    const tiposMaquinaria = ['Tractor', 'Camión', 'Cosechadora', 'Fumigadora', 'Guadaña', 'Motobomba', 'Planta Eléctrica', 'Remolque']
+    for (const nombre of tiposMaquinaria) {
+        // We use findFirst to avoid unique constraint errors if name isn't unique in schema schema (it should be though)
+        // Ideally schema has @unique on name. Assuming it does or we just check existence.
+        // Actually schema for TipoMaquinaria doesn't verify unique name explicitly in snippet I saw?
+        // Let's use create directly inside a try-catch or findFirst. 
+        // Better: check if exists.
+        const exists = await prisma.tipoMaquinaria.findFirst({ where: { nombre } })
+        if (!exists) {
+            await prisma.tipoMaquinaria.create({ data: { nombre } })
+        }
+    }
+
+    const marcasMaquinaria = ['John Deere', 'Massey Ferguson', 'Caterpillar', 'Kubota', 'Yamaha', 'Honda', 'Stihl', 'Ford', 'Chevrolet', 'Husqvarna']
+    for (const nombre of marcasMaquinaria) {
+        const exists = await prisma.marcaMaquinaria.findFirst({ where: { nombre } })
+        if (!exists) {
+            await prisma.marcaMaquinaria.create({ data: { nombre } })
+        }
+    }
+
+    const ubicacionesMaquinaria = ['Bodega Principal', 'Taller Mecánico', 'Patio de Maquinaria', 'Garaje Administrativo']
+    for (const nombre of ubicacionesMaquinaria) {
+        const exists = await prisma.ubicacionMaquinaria.findFirst({ where: { nombre } })
+        if (!exists) {
+            await prisma.ubicacionMaquinaria.create({ data: { nombre } })
+        }
+    }
+
+    console.log('Machinery seeding finished.')
+
+    // --- SEED CULTIVOS ---
+    console.log('Start seeding crops...')
+    const cultivos = [
+        {
+            nombre: 'Palma de Aceite',
+            variedades: ['Guineensis', 'Híbrido OxG', 'Coari x La Mé']
+        },
+        {
+            nombre: 'Frutales',
+            variedades: ['Cítricos', 'Aguacate', 'Mango', 'Guanábana']
+        },
+        {
+            nombre: 'Forestales',
+            variedades: ['Teca', 'Melina', 'Eucalipto', 'Acacia']
+        },
+        {
+            nombre: 'Pastos',
+            variedades: ['Brachiaria', 'Estrella', 'Mombasa']
+        }
+    ]
+
+    for (const cult of cultivos) {
+        // Use upsert or findFirst to verify
+        let tipo = await prisma.tipoCultivo.findUnique({ where: { nombre: cult.nombre } })
+        if (!tipo) {
+            tipo = await prisma.tipoCultivo.create({ data: { nombre: cult.nombre } })
+        }
+
+        for (const varn of cult.variedades) {
+            await prisma.variedadCultivo.upsert({
                 where: {
-                    departamentoId_nombre: {
-                        departamentoId: createdDept.id,
-                        nombre: muniName
+                    tipoCultivoId_nombre: {
+                        tipoCultivoId: tipo.id,
+                        nombre: varn
                     }
                 },
                 update: {},
                 create: {
-                    nombre: muniName,
-                    departamentoId: createdDept.id
+                    nombre: varn,
+                    tipoCultivoId: tipo.id
                 }
             })
         }
     }
-
-    console.log('Seeding finished.')
+    console.log('Crops seeding finished.')
 }
 
 main()

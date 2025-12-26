@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getMaquinaria } from "@/app/actions/maquinaria"
 import { Plus, Wrench } from "lucide-react"
+import { BackButton } from "@/components/common/BackButton"
 
 export default async function MaquinariaPage() {
     const { data: maquinas, error } = await getMaquinaria()
@@ -11,9 +12,12 @@ export default async function MaquinariaPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-primary">Maquinaria</h2>
-                    <p className="text-muted-foreground">Flota de vehículos y equipos</p>
+                <div className="flex items-center gap-4">
+                    <BackButton fallback="/dashboard" />
+                    <div>
+                        <h2 className="text-3xl font-bold tracking-tight text-primary">Maquinaria</h2>
+                        <p className="text-muted-foreground">Flota de vehículos y equipos</p>
+                    </div>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" asChild>
@@ -57,22 +61,22 @@ export default async function MaquinariaPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                maquinas?.map((maq) => (
+                                maquinas?.map((maq: any) => (
                                     <TableRow key={maq.id}>
                                         <TableCell className="font-medium">{maq.codigo}</TableCell>
-                                        <TableCell>{maq.tipo}</TableCell>
-                                        <TableCell>{maq.marca} {maq.modelo}</TableCell>
+                                        <TableCell>{maq.tipo?.nombre || '-'}</TableCell>
+                                        <TableCell>{maq.marca?.nombre || '-'} {maq.modelo}</TableCell>
                                         <TableCell>{maq.serialPlaca}</TableCell>
                                         <TableCell>
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${maq.estado === 'DISPONIBLE' ? 'bg-green-100 text-green-800' :
-                                                    maq.estado === 'EN_USO' ? 'bg-blue-100 text-blue-800' :
-                                                        maq.estado === 'EN_MANTENIMIENTO' ? 'bg-yellow-100 text-yellow-800' :
-                                                            'bg-red-100 text-red-800'
+                                                maq.estado === 'EN_USO' ? 'bg-blue-100 text-blue-800' :
+                                                    maq.estado === 'EN_MANTENIMIENTO' ? 'bg-yellow-100 text-yellow-800' :
+                                                        'bg-red-100 text-red-800'
                                                 }`}>
                                                 {maq.estado.replace('_', ' ')}
                                             </span>
                                         </TableCell>
-                                        <TableCell>{maq.fincaId}</TableCell>
+                                        <TableCell>{maq.ubicacion?.nombre || '-'}</TableCell>
                                     </TableRow>
                                 ))
                             )}
