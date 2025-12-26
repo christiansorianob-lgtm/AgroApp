@@ -1,9 +1,9 @@
-import { getCategoriasInsumo } from "@/app/actions/configuracion"
-import { CategoriasInsumoClient } from "./client"
+import { getCategoriasProducto } from "@/app/actions/configuracion"
+import { CategoriasProductoClient } from "./client"
 
 export const dynamic = 'force-dynamic'
 
 export default async function Page() {
-    const { data } = await getCategoriasInsumo()
-    return <CategoriasInsumoClient initialData={data || []} />
+    const { data } = await getCategoriasProducto()
+    return <CategoriasProductoClient initialData={data || []} />
 }

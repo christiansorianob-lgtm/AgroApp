@@ -1,9 +1,9 @@
-import { getNombresInsumo } from "@/app/actions/configuracion"
-import { NombresInsumoClient } from "./client"
+import { getNombresProducto } from "@/app/actions/configuracion"
+import { NombresProductoClient } from "./client"
 
 export const dynamic = 'force-dynamic'
 
 export default async function Page() {
-    const { data } = await getNombresInsumo()
-    return <NombresInsumoClient initialData={data || []} />
+    const { data } = await getNombresProducto()
+    return <NombresProductoClient initialData={data || []} />
 }
