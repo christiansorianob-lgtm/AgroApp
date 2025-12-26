@@ -316,3 +316,19 @@ model VariedadCultivo {
 
   @@unique([tipoCultivoId, nombre])
 }
+
+// -----------------------------------------------------------------------------
+// 11) LOCATION CATALOGS
+// -----------------------------------------------------------------------------
+model Departamento {
+  id        String      @id @default(uuid())
+  nombre    String      @unique
+  municipios Municipio[]
+}
+
+model Municipio {
+  id              String       @id @default(uuid())
+  nombre          String
+  departamentoId  String
+  departamento    Departamento @relation(fields: [departamentoId], references: [id])
+}
