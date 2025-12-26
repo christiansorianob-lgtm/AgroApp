@@ -57,7 +57,7 @@ export default async function UsoMaquinariaPage() {
                                     <TableRow key={uso.id}>
                                         <TableCell className="font-medium">{new Date(uso.fechaInicio).toLocaleDateString()}</TableCell>
                                         <TableCell>
-                                            <div>{uso.maquina.tipo}</div>
+                                            <div>{uso.maquina.tipo.nombre}</div>
                                             <div className="text-xs text-muted-foreground">{uso.maquina.codigo}</div>
                                         </TableCell>
                                         <TableCell>

@@ -178,7 +178,11 @@ export async function getUsoMaquinaria() {
     try {
         const usos = await db.usoMaquinaria.findMany({
             include: {
-                maquina: true,
+                maquina: {
+                    include: {
+                        tipo: true
+                    }
+                },
                 tarea: true,
                 finca: true
             },
