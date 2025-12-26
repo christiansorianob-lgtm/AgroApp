@@ -47,7 +47,7 @@ export default async function NewUsoPage() {
                             >
                                 <option value="">Seleccione Máquina...</option>
                                 {maquinasData.data?.filter(m => m.estado === 'DISPONIBLE' || m.estado === 'EN_USO').map((m) => (
-                                    <option key={m.id} value={m.id}>{m.tipo} - {m.codigo}</option>
+                                    <option key={m.id} value={m.id}>{m.tipo.nombre} - {m.codigo}</option>
                                 ))}
                             </select>
                         </div>
