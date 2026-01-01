@@ -51,5 +51,22 @@ async function test() {
     } catch (e) {
         console.error("PING PAGES Error:", e);
     }
+
+    console.log("--- Testing PING (App Router) ---");
+    try {
+        const res = await request('GET', '/api/ping');
+        console.log(`Status: ${res.statusCode}`);
+        if (res.statusCode === 200) console.log("Body:", res.body);
+    } catch (e) {
+        console.error("PING APP Error:", e);
+    }
+
+    console.log("--- Testing LOGIN (App Router) ---");
+    try {
+        const res = await request('POST', '/api/v1/auth/login');
+        console.log(`Status: ${res.statusCode}`);
+    } catch (e) {
+        console.error("LOGIN Error:", e);
+    }
 }
 test();
