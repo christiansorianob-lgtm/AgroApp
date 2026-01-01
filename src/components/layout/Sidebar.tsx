@@ -27,7 +27,7 @@ export function Sidebar({ className }: { className?: string }) {
             <nav className="flex-1 overflow-y-auto py-4">
                 <ul className="space-y-1 px-3">
                     {tools.map((item) => {
-                        const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+                        const isActive = pathname === item.href || (item.href !== '/' && (pathname?.startsWith(item.href) ?? false))
                         const Icon = item.icon
 
                         return (
