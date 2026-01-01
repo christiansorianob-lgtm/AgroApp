@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-    return NextResponse.json({ message: "pong" });
+    return NextResponse.json({ message: 'pong' })
+    This is a syntax error to force build fail
 }
 
 export async function OPTIONS() {
