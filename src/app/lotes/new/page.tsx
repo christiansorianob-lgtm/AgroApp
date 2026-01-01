@@ -24,7 +24,7 @@ const MapPicker = dynamic(() => import("@/components/ui/MapPicker"), {
 
 function LoteForm() {
     const searchParams = useSearchParams()
-    const preFincaId = searchParams.get('fincaId')
+    const preFincaId = searchParams?.get('fincaId')
 
     const [fincas, setFincas] = useState<any[]>([])
     const [loadingFincas, setLoadingFincas] = useState(true)
