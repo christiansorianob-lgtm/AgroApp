@@ -43,12 +43,13 @@ async function test() {
         console.error("ROOT Error:", e);
     }
 
-    console.log("--- Testing PING (Trailing Slash) ---");
+    console.log("--- Testing PING (Pages Router) ---");
     try {
-        const res = await request('GET', '/api/ping/');
+        const res = await request('GET', '/api/ping_pages');
         console.log(`Status: ${res.statusCode}`);
+        if (res.statusCode === 200) console.log("Body:", res.body);
     } catch (e) {
-        console.error("PING Error:", e);
+        console.error("PING PAGES Error:", e);
     }
 }
 test();

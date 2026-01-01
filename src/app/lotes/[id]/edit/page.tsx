@@ -23,7 +23,9 @@ const MapPicker = dynamic(() => import("@/components/ui/MapPicker"), {
 function EditLoteForm() {
     const params = useParams()
     const router = useRouter()
-    const id = params.id as string
+
+    // Safety check for params
+    const id = params?.id ? String(params.id) : ""
 
     const [loading, setLoading] = useState(true)
 
