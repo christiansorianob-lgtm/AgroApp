@@ -86,5 +86,14 @@ async function test() {
     } catch (e) {
         console.error("MIDDLEWARE Error:", e);
     }
+
+    console.log("--- Testing APP ROUTER PAGE (Diagnostic) ---");
+    try {
+        const res = await request('GET', '/test-page');
+        console.log(`Status: ${res.statusCode}`);
+        if (res.statusCode === 200) console.log("Page loads OK");
+    } catch (e) {
+        console.error("PAGE Error:", e);
+    }
 }
 test();
