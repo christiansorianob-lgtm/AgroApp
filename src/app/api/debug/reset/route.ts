@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     try {
         await db.tarea.deleteMany({});
-        await db.trackingPoint.deleteMany({});
+        await db.trazabilidad.deleteMany({});
         // Re-seed minimal data if needed, or just clear
 
         await db.tarea.create({
