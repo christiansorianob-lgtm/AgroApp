@@ -34,12 +34,19 @@ function request(method, path) {
 }
 
 async function test() {
-    console.log("--- Testing PING ---");
+    console.log("--- Testing ROOT ---");
     try {
-        const res = await request('GET', '/api/ping');
+        const res = await request('GET', '/');
         console.log(`Status: ${res.statusCode}`);
-        console.log("Headers:", JSON.stringify(res.headers, null, 2));
-        console.log("Body snippet:", res.body.substring(0, 500));
+        // console.log("Body snippet:", res.body.substring(0, 100)); 
+    } catch (e) {
+        console.error("ROOT Error:", e);
+    }
+
+    console.log("--- Testing PING (Trailing Slash) ---");
+    try {
+        const res = await request('GET', '/api/ping/');
+        console.log(`Status: ${res.statusCode}`);
     } catch (e) {
         console.error("PING Error:", e);
     }
