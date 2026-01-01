@@ -26,7 +26,7 @@ async function main() {
 
     recentTasks.forEach(task => {
         console.log(`\nTask ID: ${task.id}`);
-        console.log(`Description: ${task.descripcion || task.tipo.nombre}`);
+        console.log(`Description: ${task.descripcion || task.tipo}`);
         console.log(`Executed: ${task.fechaEjecucion}`);
         console.log(`GPS Points: ${task.trazabilidad.length}`);
 
