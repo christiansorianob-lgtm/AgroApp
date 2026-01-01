@@ -77,5 +77,14 @@ async function test() {
     } catch (e) {
         console.error("LOGIN OPTIONS Error:", e);
     }
+
+    console.log("--- Testing MIDDLEWARE (Diagnostic) ---");
+    try {
+        const res = await request('GET', '/api/mw-ping');
+        console.log(`Status: ${res.statusCode}`);
+        if (res.statusCode === 200) console.log("Body:", res.body);
+    } catch (e) {
+        console.error("MIDDLEWARE Error:", e);
+    }
 }
 test();
