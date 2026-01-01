@@ -11,7 +11,7 @@ import { ArrowLeft, Save } from "lucide-react"
 import { useState, useEffect, useRef, useMemo } from "react"
 import dynamic from 'next/dynamic'
 import { MapPickerHandle } from '@/components/ui/MapPicker'
-import { MapPickerHandle } from '@/components/ui/MapPicker'
+
 import { Combobox } from "@/components/ui/combobox"
 import { GoBackButton } from "@/components/ui/GoBackButton"
 
