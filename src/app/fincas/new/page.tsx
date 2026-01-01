@@ -8,16 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Save } from "lucide-react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import dynamic from 'next/dynamic'
 import { MapPickerHandle } from '@/components/ui/MapPicker'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
+import { MapPickerHandle } from '@/components/ui/MapPicker'
+import { Combobox } from "@/components/ui/combobox"
+import { GoBackButton } from "@/components/ui/GoBackButton"
 
 const MapPicker = dynamic(() => import('@/components/ui/MapPicker'), {
     ssr: false,
@@ -31,11 +27,12 @@ export default function NewFincaPage() {
     // Selection State (IDs)
     const [selectedDeptId, setSelectedDeptId] = useState("")
     const [selectedDeptName, setSelectedDeptName] = useState("") // To store in DB
+    const [selectedMuniId, setSelectedMuniId] = useState("")
     const [selectedMuniName, setSelectedMuniName] = useState("") // To store in DB
 
     const [lat, setLat] = useState("")
     const [lng, setLng] = useState("")
-    const [showMap, setShowMap] = useState(false) // Restore this!
+    const [showMap, setShowMap] = useState(false)
     // Map Ref and State
     const mapRef = useRef<MapPickerHandle>(null)
     const [isDrawing, setIsDrawing] = useState(false)
@@ -48,6 +45,17 @@ export default function NewFincaPage() {
         })
     }, [])
 
+    // Options for Combobox
+    const deptOptions = useMemo(() => departamentos.map(d => ({
+        value: d.id,
+        label: d.nombre
+    })), [departamentos])
+
+    const muniOptions = useMemo(() => municipios.map(m => ({
+        value: m.id,
+        label: m.nombre
+    })), [municipios])
+
     const handleDeptChange = async (deptId: string) => {
         setSelectedDeptId(deptId)
         const dept = departamentos.find(d => d.id === deptId)
@@ -55,11 +63,20 @@ export default function NewFincaPage() {
 
         // Reset Muni
         setMunicipios([])
+        setSelectedMuniId("")
         setSelectedMuniName("")
 
         // Load Munis
-        const res = await getMunicipios(deptId)
-        if (res.data) setMunicipios(res.data)
+        if (deptId) {
+            const res = await getMunicipios(deptId)
+            if (res.data) setMunicipios(res.data)
+        }
+    }
+
+    const handleMuniChange = (muniId: string) => {
+        setSelectedMuniId(muniId)
+        const mun = municipios.find(m => m.id === muniId)
+        setSelectedMuniName(mun?.nombre || "")
     }
 
     const handleGeolocation = () => {
@@ -129,6 +146,7 @@ export default function NewFincaPage() {
             })
 
             const data = await res.json()
+            if (!res.ok) throw new Error(data.error || "Error al guardar")
 
             // Success - Redirect to Lote creation as requested
             window.location.href = `/lotes/new?fincaId=${data.data.id}`
@@ -145,11 +163,7 @@ export default function NewFincaPage() {
     return (
         <div className="max-w-2xl mx-auto space-y-6">
             <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild>
-                    <Link href="/fincas">
-                        <ArrowLeft className="w-5 h-5" />
-                    </Link>
-                </Button>
+                <GoBackButton fallbackRoute="/fincas" />
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight text-primary">Nueva Finca</h2>
                     <p className="text-muted-foreground">Registre una nueva unidad productiva</p>
@@ -220,43 +234,27 @@ export default function NewFincaPage() {
                                 <Label>Departamento</Label>
                                 {/* Hidden input to send name to server action */}
                                 <input type="hidden" name="departamento" value={selectedDeptName} />
-                                <Select onValueChange={handleDeptChange}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {departamentos.map(dept => (
-                                            <SelectItem key={dept.id} value={dept.id}>
-                                                {dept.nombre}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Combobox
+                                    options={deptOptions}
+                                    value={selectedDeptId}
+                                    onSelect={handleDeptChange}
+                                    placeholder="Seleccione..."
+                                    searchPlaceholder="Buscar depto..."
+                                    emptyText="No encontrado"
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label>Municipio</Label>
                                 <input type="hidden" name="municipio" value={selectedMuniName} />
-                                <Select
+                                <Combobox
+                                    options={muniOptions}
+                                    value={selectedMuniId}
+                                    onSelect={handleMuniChange}
+                                    placeholder="Seleccione..."
+                                    searchPlaceholder="Buscar municipio..."
+                                    emptyText="No encontrado"
                                     disabled={!selectedDeptId}
-                                    onValueChange={(val) => {
-                                        // Find name from value (which could be ID or Name, let's use Name directly if easy, or Map)
-                                        // Using ID as value is cleaner but we need Name for DB.
-                                        // Let's store Name in state.
-                                        const mun = municipios.find(m => m.id === val)
-                                        setSelectedMuniName(mun?.nombre || "")
-                                    }}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {municipios.map(mun => (
-                                            <SelectItem key={mun.id} value={mun.id}>
-                                                {mun.nombre}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                />
                             </div>
                         </div>
 
@@ -403,9 +401,9 @@ export default function NewFincaPage() {
                         </div>
 
                         <div className="pt-4 flex justify-end gap-3">
-                            <Button variant="outline" type="button" asChild>
-                                <Link href="/fincas">Cancelar</Link>
-                            </Button>
+                            <GoBackButton variant="outline" size="default" fallbackRoute="/fincas">
+                                Cancelar
+                            </GoBackButton>
                             <Button type="submit" disabled={isSubmitting}>
                                 {isSubmitting && <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>}
                                 <Save className="mr-2 w-4 h-4" />

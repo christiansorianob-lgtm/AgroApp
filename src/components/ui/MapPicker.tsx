@@ -184,6 +184,10 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({
                         attribution='Tiles &copy; Esri'
                         url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     />
+                    <TileLayer
+                        attribution='Tiles &copy; Esri'
+                        url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                    />
 
                     {/* Reference Polygon (Finca) */}
                     {referencePolygon.length > 0 && (

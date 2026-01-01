@@ -1,17 +1,20 @@
 'use client'
 
 import Link from "next/link"
-import { useState, useEffect, useRef, Suspense } from "react"
+import { useState, useEffect, useRef, Suspense, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import { getFincas } from "@/app/actions/fincas"
-import { getTiposCultivo } from "@/app/actions/cultivos"
+import { getTiposCultivo, createTipoCultivo } from "@/app/actions/cultivos"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Save, Loader2, Map as MapIcon, RotateCcw, Trash2, Crosshair } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import dynamic from "next/dynamic"
+import { Combobox } from "@/components/ui/combobox"
+import { Combobox } from "@/components/ui/combobox"
+import { QuickCreateDialog } from "@/components/common/QuickCreateDialog"
+import { GoBackButton } from "@/components/ui/GoBackButton"
 
 // Dynamic Map import
 const MapPicker = dynamic(() => import("@/components/ui/MapPicker"), {
@@ -51,6 +54,14 @@ function LoteForm() {
     const [activeRefPolygon, setActiveRefPolygon] = useState<any[]>([])
     const [activeOtherPolygons, setActiveOtherPolygons] = useState<any[]>([])
 
+    // Function to refresh Types (passed to QuickCreateDialog)
+    const refreshCultivos = async () => {
+        const resCultivos = await getTiposCultivo()
+        if (resCultivos.data) {
+            setTiposCultivo(resCultivos.data)
+        }
+    }
+
     useEffect(() => {
         async function load() {
             try {
@@ -64,12 +75,9 @@ function LoteForm() {
                     }
                 }
 
-                // Load Tipos Cultivo
-                const resCultivos = await getTiposCultivo()
-                console.log("Loaded Cultivos:", resCultivos)
-                if (resCultivos.data) {
-                    setTiposCultivo(resCultivos.data)
-                }
+                // Load Tipos Cultivo using the refresh function
+                await refreshCultivos()
+
             } catch (e) {
                 console.error(e)
             } finally {
@@ -120,8 +128,7 @@ function LoteForm() {
         }
     }
 
-    const handleFincaSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const id = e.target.value
+    const handleFincaSelect = (id: string) => {
         setSelectedFinca(id)
         const finca = fincas.find(f => f.id === id)
         if (finca) updateFincaContext(finca)
@@ -183,14 +190,26 @@ function LoteForm() {
         }
     }
 
+    const fincaOptions = useMemo(() => fincas.map(f => ({
+        value: f.id,
+        label: `${f.nombre} (${f.codigo})`
+    })), [fincas])
+
+    const tipoCultivoOptions = useMemo(() => tiposCultivo.map(t => ({
+        value: t.nombre,
+        label: t.nombre
+    })), [tiposCultivo])
+
+    const variedadOptions = useMemo(() => variedades.map(v => ({
+        value: v.nombre,
+        label: v.nombre
+    })), [variedades])
+
+
     return (
         <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild>
-                    <Link href={`/fincas/${selectedFinca || ''}`}>
-                        <ArrowLeft className="w-5 h-5" />
-                    </Link>
-                </Button>
+                <GoBackButton fallbackRoute={`/fincas/${selectedFinca || ''}`} />
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight text-primary">Nuevo Lote</h2>
                     <p className="text-muted-foreground">Registre un lote dentro de una finca</p>
@@ -303,22 +322,15 @@ function LoteForm() {
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="fincaId">Finca</Label>
-                            <select
-                                id="fincaId"
-                                name="fincaId"
-                                required
+                            <Combobox
+                                options={fincaOptions}
                                 value={selectedFinca}
-                                onChange={handleFincaSelect}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                disabled={!!preFincaId} // If passed via URL, lock it? Or allow change? Let's allow change unless strict. Existing code didn't strict. But pre-fill is help. 
-                            >
-                                <option value="">Seleccione una Finca...</option>
-                                {fincas.map((finca) => (
-                                    <option key={finca.id} value={finca.id}>
-                                        {finca.nombre} ({finca.codigo})
-                                    </option>
-                                ))}
-                            </select>
+                                onSelect={handleFincaSelect}
+                                placeholder="Seleccione una Finca..."
+                                searchPlaceholder="Buscar Finca..."
+                                emptyText="No encontrada"
+                                disabled={!!preFincaId}
+                            />
                         </div>
 
                         <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -367,47 +379,48 @@ function LoteForm() {
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
                                     <Label htmlFor="tipoCultivo">Tipo Cultivo</Label>
-                                    <Link href="/configuracion/cultivos" className="text-xs text-primary hover:underline hover:text-primary/80">
-                                        + Gestionar Lista
-                                    </Link>
+                                    <QuickCreateDialog
+                                        triggerLabel="Administrar"
+                                        title="Nuevo Tipo de Cultivo"
+                                        description="Defina un nuevo tipo de cultivo (ej: Café, Palma)."
+                                        placeholder="Nombre del cultivo"
+                                        action={createTipoCultivo}
+                                        onSuccess={refreshCultivos}
+                                    />
                                 </div>
-                                <Select value={selectedTipo} onValueChange={handleTipoChange}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Seleccione Tipo de Cultivo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none" disabled>Seleccione...</SelectItem>
-                                        {tiposCultivo.map((t) => (
-                                            <SelectItem key={t.id} value={t.nombre}>{t.nombre}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Combobox
+                                    options={tipoCultivoOptions}
+                                    value={selectedTipo}
+                                    onSelect={handleTipoChange}
+                                    placeholder="Seleccione Tipo de Cultivo..."
+                                    searchPlaceholder="Buscar cultivo..."
+                                    emptyText="No encontrado"
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="variedad">Variedad</Label>
-                                <Select value={selectedVariedad} onValueChange={setSelectedVariedad} disabled={!selectedTipo}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Seleccione Variedad" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {variedades.map((v) => (
-                                            <SelectItem key={v.id} value={v.nombre}>{v.nombre}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Combobox
+                                    options={variedadOptions}
+                                    value={selectedVariedad}
+                                    onSelect={setSelectedVariedad}
+                                    placeholder="Seleccione Variedad..."
+                                    searchPlaceholder="Buscar variedad..."
+                                    emptyText="No encontrada"
+                                    disabled={!selectedTipo}
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="fechaSiembra">Fecha Inicio</Label>
-                                <Input id="fechaSiembra" name="fechaSiembra" type="date" />
+                                <Input id="fechaSiembra" name="fechaSiembra" type="date" defaultValue={new Date().toISOString().split('T')[0]} />
                             </div>
                         </CardContent>
                     </Card>
                 </div>
 
                 <div className="pt-4 flex justify-end gap-3">
-                    <Button variant="outline" type="button" asChild>
-                        <Link href={`/fincas/${selectedFinca || ''}`}>Cancelar</Link>
-                    </Button>
+                    <GoBackButton variant="outline" size="default" fallbackRoute={`/fincas/${selectedFinca || ''}`}>
+                        Cancelar
+                    </GoBackButton>
                     <Button type="submit" disabled={isSubmitting || !selectedFinca}>
                         {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Guardando...</> : <><Save className="mr-2 w-4 h-4" /> Guardar Lote</>}
                     </Button>

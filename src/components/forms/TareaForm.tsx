@@ -1,15 +1,31 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createTarea } from '@/app/actions/tareas'
+import { createTipoActividad, getTiposActividad, createResponsable, getResponsables, updateResponsable, deleteResponsable, getCargos, createCargo, deleteCargo } from "@/app/actions/configuracion"
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, Save } from 'lucide-react'
-import { BackButton } from "@/components/common/BackButton"
+import { Textarea } from "@/components/ui/textarea"
+import { ArrowLeft, Save, Loader2 } from 'lucide-react'
+import { Combobox } from "@/components/ui/combobox"
+import { QuickCreateDialog } from "@/components/common/QuickCreateDialog"
+import { ManageResponsablesDialog } from "@/components/forms/ManageResponsablesDialog"
+import { GoBackButton } from "@/components/ui/GoBackButton"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+import { ExternalLink } from "lucide-react"
+
+// ... imports
 
 // Types for props
 interface Finca {
@@ -29,53 +45,141 @@ interface TareaFormProps {
     fincas: Finca[]
     lotes: Lote[]
     tiposActividad: { id: string, nombre: string }[]
-    responsables: { id: string, nombre: string }[]
+    responsables: { id: string, nombre: string, celular?: string | null }[]
+    cargos: { id: string, nombre: string }[]
 }
 
-export function TareaForm({ fincas, lotes, tiposActividad, responsables }: TareaFormProps) {
+export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, responsables: initialResponsables, cargos: initialCargos }: TareaFormProps) {
     const router = useRouter()
-    const searchParams = useSearchParams()
 
-    // Initialize state from URL params
+    // Local state for catalogs
+    const [tiposActividad, setTiposActividad] = useState(initialTipos)
+    const [responsables, setResponsables] = useState(initialResponsables)
+    const [cargos, setCargos] = useState(initialCargos)
+
+    // Initialize state from URL params (removed as per instruction, but keeping the original logic for selectedFinca/Lote if no initial value is provided)
+    // const initialFincaId = searchParams.get('fincaId') || ""
+    // const initialLoteId = searchParams.get('loteId') || ""
+
+    const searchParams = useSearchParams()
     const initialFincaId = searchParams.get('fincaId') || ""
     const initialLoteId = searchParams.get('loteId') || ""
 
     const [selectedFinca, setSelectedFinca] = useState<string>(initialFincaId)
     const [selectedLote, setSelectedLote] = useState<string>(initialLoteId)
-    const [nivel, setNivel] = useState<"FINCA" | "LOTE">(initialLoteId ? "LOTE" : "FINCA")
-    const [loading, setLoading] = useState(false)
+    // const [nivel, setNivel] = useState<"FINCA" | "LOTE">(initialLoteId ? "LOTE" : "FINCA") // Removed as per instruction
 
-    // Filter lotes based on selected Finca
-    const filteredLotes = lotes.filter(l => l.fincaId === selectedFinca)
+    // Controlled states for other Comboboxes
+    const [selectedTipo, setSelectedTipo] = useState("")
+    const [selectedResponsable, setSelectedResponsable] = useState("")
+    const [selectedPrioridad, setSelectedPrioridad] = useState("MEDIA")
+    const [selectedEstado, setSelectedEstado] = useState("PROGRAMADA")
+    // Changed to string for input type="date"
+    const [fechaProgramada, setFechaProgramada] = useState(new Date().toISOString().split('T')[0])
 
-    // Effect to auto-select Finca if only Lote provided
-    useEffect(() => {
-        if (initialLoteId && !initialFincaId && !selectedFinca) {
-            const l = lotes.find(x => x.id === initialLoteId)
-            if (l) setSelectedFinca(l.fincaId)
-        }
-    }, [initialLoteId, initialFincaId, selectedFinca, lotes])
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [createdTask, setCreatedTask] = useState<{ id: string, responsableId: string, tipo: string, fincaNombre: string } | null>(null)
 
-    async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-        // Validation handled by browser 'required' + server action
-        // We just toggle loading state here if needed, but since we use action prop/formAction, 
-        // we might not catch the submit event unless we use onSubmit.
-        // Let's use onSubmit to be safe to show loading.
-        setLoading(true)
-        // Note: Actual submission is handled by the form action, but if we intercept it we must call it manually or let it bubble?
-        // To keep it simple with server actions + client loading state:
-        // We let the action run via the form's action attribute, but we can't easily wait for it without useFormStatus (React generic).
-        // Since we are not using useFormStatus here (it requires simpler component structure), 
-        // We will just let the form submit normally.
+    // Data Refresh Handlers
+    const refreshTipos = async () => {
+        const res = await getTiposActividad()
+        if (res.data) setTiposActividad(res.data)
     }
 
-    // Since we are using a Server Action attached to the form, we can't easily set loading state *during* the request on the button directly without useFormStatus.
-    // However, createTarea handles redirect, so loading state is just until page unloads.
+    const refreshResponsables = async () => {
+        const res = await getResponsables()
+        if (res.data) setResponsables(res.data)
+    }
+
+    const refreshCargos = async () => {
+        const res = await getCargos()
+        if (res.data) setCargos(res.data)
+    }
+
+    // Filter lotes based on selected Finca
+    const loteOptions = useMemo(() => {
+        if (!selectedFinca) return []
+        return lotes
+            .filter(l => l.fincaId === selectedFinca)
+            .map(l => ({ value: l.id, label: `${l.nombre} (${l.codigo})` }))
+    }, [selectedFinca, lotes])
+
+    // Options for Comboboxes
+    const fincaOptions = fincas.map(f => ({ value: f.id, label: `${f.nombre} (${f.codigo})` }))
+
+    // const nivelOptions = [ // Removed as per instruction
+    //     { value: "FINCA", label: "A Nivel de Finca (General)" },
+    //     { value: "LOTE", label: "A Nivel de Lote (Específico)" }
+    // ]
+
+    // Note: Server expects Names for Tipo and Responsable, not IDs
+    const tipoOptions = tiposActividad.map(t => ({ value: t.id, label: t.nombre }))
+    const responsableOptions = responsables.map(r => ({ value: r.id, label: r.nombre }))
+
+    const prioridadOptions = [
+        { value: "ALTA", label: "Alta" },
+        { value: "MEDIA", label: "Media" },
+        { value: "BAJA", label: "Baja" }
+    ]
+
+    const estadoOptions = [
+        { value: "PROGRAMADA", label: "Programada" },
+        { value: "EN_PROCESO", label: "En Progreso" },
+        { value: "CANCELADA", label: "Cancelada" }
+    ]
+
+    async function handleSubmit(formData: FormData) {
+        setIsSubmitting(true)
+        const result = await createTarea(formData)
+        if (result?.error) {
+            alert(result.error) // Consider replacing this alert too later
+            setIsSubmitting(false)
+        } else {
+            // Success!
+            // Find responsible phone to see if we offer notification
+            const respId = formData.get('responsable') // Wait, formData has name... we need ID.
+            // Actually 'createTarea' action does the lookup? No, formData has names.
+            // But we have 'selectedResponsable' state which IS the ID.
+            const finca = fincas.find(f => f.id === selectedFinca)
+
+            setCreatedTask({
+                id: "new", // effectively we don't have the ID returned by createTarea yet unless we update the action to return it.
+                // But for the link, if we want to link to specific ID, we need the action to return ID.
+                // For now, let's assume valid creation.
+                responsableId: selectedResponsable,
+                tipo: tiposActividad.find(t => t.id === selectedTipo)?.nombre || "Tarea",
+                fincaNombre: finca?.nombre || "Finca"
+            })
+            setIsSubmitting(false)
+        }
+    }
+
+    const handleClose = () => {
+        router.back()
+    }
+
+    const handleNotify = () => {
+        if (!createdTask) return
+
+        const resp = responsables.find(r => r.id === createdTask.responsableId)
+        if (resp && resp.celular) {
+            const message = `Hola ${resp.nombre}, se te ha asignado una nueva tarea: *${createdTask.tipo}* en *${createdTask.fincaNombre}*`
+            // const deepLink = `agroapp://tasks` // Future integration
+            const whatsappUrl = `https://wa.me/57${resp.celular}?text=${encodeURIComponent(message)}`
+            window.open(whatsappUrl, '_blank')
+        }
+
+        if (window.history.length > 2) {
+            router.back()
+        } else {
+            router.push("/tareas")
+        }
+    }
 
     return (
         <div className="max-w-3xl mx-auto space-y-6">
             <div className="flex items-center gap-4">
-                <BackButton fallback="/tareas" />
+                <GoBackButton fallbackRoute="/tareas" />
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight text-primary">Nueva Tarea</h2>
                     <p className="text-muted-foreground">Programe una actividad de campo</p>
@@ -87,190 +191,209 @@ export function TareaForm({ fincas, lotes, tiposActividad, responsables }: Tarea
                     <CardTitle>Detalles de la Actividad</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <form action={createTarea as any} onSubmit={() => setLoading(true)} className="space-y-6">
+                    <form action={handleSubmit} className="space-y-6">
+
+                        {/* Hidden Inputs for Combobox Data */}
+                        <input type="hidden" name="fincaId" value={selectedFinca} />
+                        <input type="hidden" name="loteId" value={selectedLote} />
+                        {/* <input type="hidden" name="nivel" value={nivel} /> */} {/* Removed */}
+                        <input type="hidden" name="tipo" value={tiposActividad.find(t => t.id === selectedTipo)?.nombre || ""} />
+                        <input type="hidden" name="responsable" value={responsables.find(r => r.id === selectedResponsable)?.nombre || ""} />
+                        <input type="hidden" name="prioridad" value={selectedPrioridad} />
+                        <input type="hidden" name="estado" value={selectedEstado} />
+                        {/* <input type="hidden" name="fechaProgramada" value={fechaProgramada?.toISOString() || ""} /> */} {/* Removed, handled by visible input */}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="fincaId">Finca (Obligatorio)</Label>
-                                {!!initialFincaId && <input type="hidden" name="fincaId" value={selectedFinca} />}
-                                <select
-                                    id="fincaId"
-                                    name={initialFincaId ? undefined : "fincaId"}
-                                    required
+                                <Combobox
+                                    options={fincaOptions}
                                     value={selectedFinca}
-                                    onChange={(e) => {
-                                        setSelectedFinca(e.target.value)
-                                        setSelectedLote("") // Reset lote when finca changes
-                                        // If level was LOTE and we change finca, we might want to keep LOTE level or not?
-                                        // Keep level, just reset selection.
+                                    onSelect={(val) => {
+                                        setSelectedFinca(val)
+                                        setSelectedLote("") // Reset lote
                                     }}
+                                    placeholder="Seleccione una Finca..."
+                                    searchPlaceholder="Buscar finca..."
+                                    emptyText="No encontrada."
                                     disabled={!!initialFincaId}
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    <option value="">Seleccione una Finca...</option>
-                                    {fincas.map((finca) => (
-                                        <option key={finca.id} value={finca.id}>
-                                            {finca.nombre} ({finca.codigo})
-                                        </option>
-                                    ))}
-                                </select>
+                                />
                             </div>
 
-                            <div className="space-y-2">
+                            {/* Removed Nivel selector as per instruction */}
+                            {/* <div className="space-y-2">
                                 <Label htmlFor="nivel">Nivel de la Tarea</Label>
-                                <select
-                                    id="nivel"
-                                    name="nivel"
-                                    required
+                                <Combobox
+                                    options={nivelOptions}
                                     value={nivel}
-                                    onChange={(e) => setNivel(e.target.value as "FINCA" | "LOTE")}
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    <option value="FINCA">A Nivel de Finca (General)</option>
-                                    <option value="LOTE">A Nivel de Lote (Específico)</option>
-                                </select>
-                            </div>
+                                    onSelect={(val) => setNivel(val as "FINCA" | "LOTE")}
+                                    placeholder="Seleccione nivel..."
+                                    searchPlaceholder="Buscar nivel..."
+                                    emptyText="No encontrado."
+                                />
+                            </div> */}
                         </div>
 
-                        {/* Lote Selector - Only if Nivel is LOTE */}
-                        {nivel === 'LOTE' && (
+                        {/* Lote Selector - Hidden if creating task strictly for Finca (context mode) */}
+                        {!(initialFincaId && !initialLoteId) && (
                             <div className="space-y-2 p-4 border rounded-md bg-muted/20">
-                                <Label htmlFor="loteId">Seleccione el Lote</Label>
-                                <select
-                                    id="loteId"
-                                    name="loteId"
-                                    required={nivel === 'LOTE'}
+                                <Label htmlFor="loteId">Seleccione el Lote (Opcional)</Label>
+                                <Combobox
+                                    options={loteOptions}
                                     value={selectedLote}
-                                    onChange={(e) => setSelectedLote(e.target.value)}
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    <option value="">Seleccione un Lote...</option>
-                                    {filteredLotes.length > 0 ? (
-                                        filteredLotes.map((lote) => (
-                                            <option key={lote.id} value={lote.id}>
-                                                {lote.nombre} ({lote.codigo})
-                                            </option>
-                                        ))
-                                    ) : (
-                                        <option value="" disabled>No hay lotes en esta finca</option>
-                                    )}
-                                </select>
+                                    onSelect={setSelectedLote}
+                                    placeholder={selectedFinca ? "Seleccione un Lote..." : "Seleccione una finca primero"}
+                                    searchPlaceholder="Buscar lote..."
+                                    emptyText={selectedFinca ? "No hay lotes en esta finca." : "Seleccione una finca primero."}
+                                    disabled={!selectedFinca || loteOptions.length === 0 || !!initialLoteId}
+                                />
                                 {!selectedFinca && <p className="text-xs text-muted-foreground">Seleccione una finca primero para ver sus lotes.</p>}
                             </div>
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="codigo">Código Tarea</Label>
-                                <Input
-                                    id="codigo"
-                                    name="codigo"
-                                    placeholder="Autogenerado al guardar"
-                                    readOnly
-                                    className="bg-muted text-muted-foreground cursor-not-allowed"
+                                <div className="flex justify-between items-center">
+                                    <Label htmlFor="tipo">Tipo de Actividad</Label>
+                                    <QuickCreateDialog
+                                        triggerLabel="Administrar"
+                                        title="Nuevo Tipo de Actividad"
+                                        description="Agregue un nuevo tipo de actividad para las tareas."
+                                        placeholder="Ej: Fertilización"
+                                        action={createTipoActividad}
+                                        onSuccess={refreshTipos}
+                                    />
+                                </div>
+                                <Combobox
+                                    options={tipoOptions}
+                                    value={selectedTipo}
+                                    onSelect={setSelectedTipo}
+                                    placeholder="Seleccione tipo..."
+                                    searchPlaceholder="Buscar tipo..."
+                                    emptyText="No encontrado."
                                 />
                             </div>
                             <div className="space-y-2">
-                                <div className="flex justify-between items-center">
-                                    <Label htmlFor="tipo">Tipo de Actividad</Label>
-                                    <Link href="/configuracion/actividades" className="text-xs text-primary hover:underline">
-                                        + Administrar
-                                    </Link>
-                                </div>
-                                <select
-                                    id="tipo"
-                                    name="tipo"
+                                <Label htmlFor="fechaProgramada">Fecha Programada</Label>
+                                <Input
+                                    id="fechaProgramada"
+                                    name="fechaProgramada"
+                                    type="date"
+                                    value={fechaProgramada}
+                                    onChange={(e) => setFechaProgramada(e.target.value)}
                                     required
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    <option value="">Seleccione tipo...</option>
-                                    {tiposActividad.map(t => (
-                                        <option key={t.id} value={t.nombre}>{t.nombre}</option>
-                                    ))}
-                                </select>
+                                />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="fechaProgramada">Fecha Programada</Label>
-                                <Input id="fechaProgramada" name="fechaProgramada" type="date" required />
-                            </div>
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
                                     <Label htmlFor="responsable">Responsable</Label>
-                                    <Link href="/configuracion/responsables" className="text-xs text-primary hover:underline">
-                                        + Administrar
-                                    </Link>
+                                    <ManageResponsablesDialog
+                                        responsables={responsables as any} // Cast to match interface if needed or fix interface
+                                        cargos={cargos}
+                                        createAction={createResponsable}
+                                        updateAction={updateResponsable}
+                                        deleteAction={deleteResponsable}
+                                        createCargoAction={createCargo}
+                                        deleteCargoAction={deleteCargo}
+                                        onRefreshCargos={refreshCargos}
+                                        onSuccess={refreshResponsables}
+                                    />
                                 </div>
-                                <select
-                                    id="responsable"
-                                    name="responsable"
-                                    required
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    <option value="">Seleccione responsable...</option>
-                                    {responsables.map(r => (
-                                        <option key={r.id} value={r.nombre}>{r.nombre}</option>
-                                    ))}
-                                </select>
+                                <Combobox
+                                    options={responsableOptions}
+                                    value={selectedResponsable}
+                                    onSelect={setSelectedResponsable}
+                                    placeholder="Seleccione responsable..."
+                                    searchPlaceholder="Buscar responsable..."
+                                    emptyText="No encontrado."
+                                />
                             </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="prioridad">Prioridad</Label>
-                                <select
-                                    id="prioridad"
-                                    name="prioridad"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    <option value="MEDIA">Media</option>
-                                    <option value="BAJA">Baja</option>
-                                    <option value="ALTA">Alta</option>
-                                </select>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="prioridad">Prioridad</Label>
+                                    <Combobox
+                                        options={prioridadOptions}
+                                        value={selectedPrioridad}
+                                        onSelect={setSelectedPrioridad}
+                                        placeholder="Seleccione prioridad..."
+                                        searchPlaceholder="Buscar prioridad..."
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="estado">Estado Inicial</Label>
+                                    <Combobox
+                                        options={estadoOptions}
+                                        value={selectedEstado}
+                                        onSelect={setSelectedEstado}
+                                        placeholder="Seleccione estado..."
+                                        searchPlaceholder="Buscar estado..."
+                                    />
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="estado">Estado Inicial</Label>
-                                <select
-                                    id="estado"
-                                    name="estado"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    <option value="PROGRAMADA">Programada</option>
-                                    <option value="EN_PROCESO">En Proceso</option>
-                                    {/* <option value="EJECUTADA">Ejecutada</option> - Estado reservado para ejecución */}
-                                    <option value="CANCELADA">Cancelada</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="descripcion">Descripción</Label>
-                            <textarea
-                                id="descripcion"
-                                name="descripcion"
-                                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                placeholder="Detalles sobre la labor a realizar..."
-                            />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="observaciones">Observaciones</Label>
                             <Input id="observaciones" name="observaciones" placeholder="Notas adicionales..." />
                         </div>
 
+                        <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="checkbox"
+                                    id="requiereTrazabilidad"
+                                    name="requiereTrazabilidad"
+                                    defaultChecked
+                                    className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                />
+                                <Label htmlFor="requiereTrazabilidad">Requiere Trazabilidad GPS (Seguimiento de Operario)</Label>
+                            </div>
+                            <p className="text-xs text-muted-foreground ml-6">
+                                Activa el rastreo continuo de ubicación durante la ejecución. Recomendado para campo.
+                            </p>
+                        </div>
+
                         <div className="pt-4 flex justify-end gap-3">
-                            <Button variant="outline" type="button" asChild>
-                                <Link href="/tareas">Cancelar</Link>
+                            <Button variant="outline" type="button" onClick={() => router.back()}>
+                                Cancelar
                             </Button>
-                            <Button type="submit" disabled={loading}>
-                                <Save className="mr-2 w-4 h-4" />
-                                {loading ? 'Guardando...' : 'Guardar Tarea'}
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="mr-2 w-4 h-4 animate-spin" /> : <Save className="mr-2 w-4 h-4" />}
+                                Guardar Tarea
                             </Button>
                         </div>
                     </form>
                 </CardContent>
             </Card>
-        </div>
+
+            <Dialog open={!!createdTask} onOpenChange={(open) => !open && handleClose()}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>¡Tarea Creada!</DialogTitle>
+                        <DialogDescription>
+                            La actividad se ha programado correctamente.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-4">
+                        <p className="text-sm text-muted-foreground mb-2">
+                            ¿Deseas notificar al responsable vía WhatsApp ahora mismo?
+                        </p>
+                    </div>
+
+                    <DialogFooter className="flex gap-2 sm:justify-end">
+                        <Button variant="secondary" onClick={handleClose}>
+                            No, salir
+                        </Button>
+                        <Button onClick={handleNotify} className="bg-green-600 hover:bg-green-700">
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            Notificar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div >
     )
 }

@@ -6,12 +6,23 @@ import { redirect } from "next/navigation"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
 
-export async function getTareas(filters?: { fincaId?: string, loteId?: string, nivel?: "FINCA" | "LOTE" }) {
+export async function getTareas(filters?: { fincaId?: string, loteId?: string, nivel?: "FINCA" | "LOTE", estado?: string[], delayed?: boolean }) {
     try {
         const where: any = {}
         if (filters?.fincaId) where.fincaId = filters.fincaId
         if (filters?.loteId) where.loteId = filters.loteId
         if (filters?.nivel) where.nivel = filters.nivel
+
+        if (filters?.estado && filters.estado.length > 0) {
+            where.estado = { in: filters.estado }
+        }
+
+        if (filters?.delayed) {
+            where.estado = 'PROGRAMADA'
+            where.fechaProgramada = {
+                lt: new Date()
+            }
+        }
 
         const tareas = await db.tarea.findMany({
             where,
@@ -49,6 +60,11 @@ export async function getTareaById(id: string) {
                             }
                         } as any
                     }
+                },
+                trazabilidad: {
+                    orderBy: {
+                        timestamp: 'asc'
+                    }
                 }
             }
         })
@@ -62,8 +78,14 @@ export async function getTareaById(id: string) {
 export async function createTarea(formData: FormData) {
     // const codigo = formData.get("codigo") as string // Removed manual code
     const fincaId = formData.get("fincaId") as string
-    const nivel = formData.get("nivel") as "FINCA" | "LOTE"
-    const loteId = formData.get("loteId") as string | null
+
+    // Handle loteId: treat empty string as null
+    const rawLoteId = formData.get("loteId") as string | null
+    const loteId = rawLoteId && rawLoteId.trim() !== "" ? rawLoteId : null
+
+    // Infer nivel based on loteId presence
+    const nivel: "FINCA" | "LOTE" = loteId ? "LOTE" : "FINCA"
+
     const fechaProgramada = formData.get("fechaProgramada") as string
     const tipo = formData.get("tipo") as string
     const responsable = formData.get("responsable") as string
@@ -71,9 +93,10 @@ export async function createTarea(formData: FormData) {
     const estado = formData.get("estado") as "PROGRAMADA" | "EN_PROCESO" | "EJECUTADA" | "CANCELADA"
     const descripcion = formData.get("descripcion") as string
     const observaciones = formData.get("observaciones") as string
+    const requiereTrazabilidad = formData.get("requiereTrazabilidad") === "on"
 
     // Validations
-    if (!fincaId || !nivel || !fechaProgramada || !tipo || !responsable) {
+    if (!fincaId || !fechaProgramada || !tipo || !responsable) {
         return { error: "Campos obligatorios faltantes." }
     }
 
@@ -82,9 +105,22 @@ export async function createTarea(formData: FormData) {
     }
 
     try {
-        // Auto-generate Code
-        const totalTareas = await db.tarea.count()
-        const nextId = totalTareas + 1
+        // Auto-generate Code safely
+        const lastTarea = await db.tarea.findFirst({
+            orderBy: { codigo: 'desc' }
+        })
+
+        let nextId = 1
+        if (lastTarea && lastTarea.codigo) {
+            const parts = lastTarea.codigo.split('-')
+            if (parts.length === 2) {
+                const lastSeq = parseInt(parts[1])
+                if (!isNaN(lastSeq)) {
+                    nextId = lastSeq + 1
+                }
+            }
+        }
+
         const codigo = `TAR-${nextId.toString().padStart(3, '0')}`
 
         await db.tarea.create({
@@ -92,19 +128,20 @@ export async function createTarea(formData: FormData) {
                 codigo,
                 fincaId,
                 nivel,
-                loteId: nivel === 'LOTE' ? loteId : null,
+                loteId: loteId, // Already null if empty
                 fechaProgramada: new Date(fechaProgramada),
                 tipo,
                 responsable,
                 prioridad: prioridad || 'MEDIA',
                 estado: estado || 'PROGRAMADA',
                 descripcion,
-                observaciones
+                observaciones,
+                requiereTrazabilidad
             }
         })
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to create tarea:", error)
-        return { error: "Error al crear la tarea. Verifique datos." }
+        return { error: `Error al crear la tarea: ${error.message}` }
     }
 
     revalidatePath('/tareas')

@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
+import { getFincas } from "@/app/actions/fincas"
+
 export default async function NewMaquinariaPage() {
-    const [tiposRes, marcasRes, ubicacionesRes] = await Promise.all([
+    const [tiposRes, marcasRes, ubicacionesRes, fincasRes] = await Promise.all([
         getTiposMaquinaria(),
         getMarcasMaquinaria(),
-        getUbicacionesMaquinaria()
+        getUbicacionesMaquinaria(),
+        getFincas()
     ])
 
     return (
@@ -29,6 +32,7 @@ export default async function NewMaquinariaPage() {
                 tipos={tiposRes.data || []}
                 marcas={marcasRes.data || []}
                 ubicaciones={ubicacionesRes.data || []}
+                fincas={fincasRes.data || []}
             />
         </div>
     )

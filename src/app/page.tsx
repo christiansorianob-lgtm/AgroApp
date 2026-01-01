@@ -64,28 +64,32 @@ export default async function Home() {
         value: pendingTasks.toString(),
         description: `${highPriorityTasks} de prioridad alta`,
         icon: Calendar,
-        color: "text-blue-500"
+        color: "text-blue-500",
+        href: "/tareas?status=PROGRAMADA,EN_PROCESO"
       },
       {
         title: "Tareas Atrasadas",
         value: delayedTasks.toString(),
         description: "Requieren atención inmediata",
         icon: AlertTriangle,
-        color: "text-red-500"
+        color: "text-red-500",
+        href: "/tareas?delayed=true"
       },
       {
         title: "Maquinaria en Taller",
         value: maintenanceMachines.toString(),
         description: maintenanceText,
         icon: Tractor,
-        color: "text-yellow-500"
+        color: "text-yellow-500",
+        href: "/maquinaria?status=EN_MANTENIMIENTO"
       },
       {
         title: "Catálogo de Productos",
         value: totalProductos.toString(),
         description: "Productos registrados",
         icon: Package,
-        color: "text-green-500"
+        color: "text-green-500",
+        href: "/almacen"
       }
     ]
 
@@ -100,20 +104,22 @@ export default async function Home() {
           {stats.map((stat) => {
             const Icon = stat.icon
             return (
-              <Card key={stat.title}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    {stat.title}
-                  </CardTitle>
-                  <Icon className={`h-4 w-4 ${stat.color}`} />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {stat.description}
-                  </p>
-                </CardContent>
-              </Card>
+              <Link key={stat.title} href={stat.href} className="block h-full">
+                <Card className="hover:bg-accent/50 transition-colors h-full cursor-pointer">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      {stat.title}
+                    </CardTitle>
+                    <Icon className={`h-4 w-4 ${stat.color}`} />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stat.value}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {stat.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
             )
           })}
         </div>

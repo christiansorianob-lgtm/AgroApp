@@ -49,13 +49,14 @@ export default async function InsumosPage() {
                                 <TableHead>Nombre</TableHead>
                                 <TableHead>Categoría</TableHead>
                                 <TableHead>Unidad</TableHead>
+                                <TableHead>Finca</TableHead>
                                 <TableHead className="text-right">Stock Actual</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {productos?.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                                         No hay productos registrados en almacén.
                                     </TableCell>
                                 </TableRow>
@@ -67,6 +68,7 @@ export default async function InsumosPage() {
                                             <TableCell>{producto.nombre}</TableCell>
                                             <TableCell>{producto.categoria}</TableCell>
                                             <TableCell>{producto.unidadMedida}</TableCell>
+                                            <TableCell>{producto.finca?.nombre}</TableCell>
                                             <TableCell className="text-right font-bold text-primary">{producto.stockActual}</TableCell>
                                         </TableRow>
                                     )

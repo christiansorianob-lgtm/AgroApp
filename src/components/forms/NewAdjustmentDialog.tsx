@@ -1,15 +1,15 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Loader2 } from "lucide-react"
 import { createAjusteInventario } from "@/app/actions/almacen"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Combobox } from "@/components/ui/combobox"
 
 interface NewAdjustmentDialogProps {
     productos: any[]
@@ -27,6 +27,17 @@ export function NewAdjustmentDialog({ productos, fincas }: NewAdjustmentDialogPr
     const [cantidad, setCantidad] = useState("")
     const [observaciones, setObservaciones] = useState("")
     const [errorMessage, setErrorMessage] = useState("")
+
+    // Options mapping
+    const productoOptions = useMemo(() => productos.map(p => ({
+        value: p.id,
+        label: `${p.nombre} (${p.stockActual} ${p.unidadMedida})`
+    })), [productos])
+
+    const fincaOptions = useMemo(() => fincas.map(f => ({
+        value: f.id,
+        label: f.nombre
+    })), [fincas])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -99,18 +110,14 @@ export function NewAdjustmentDialog({ productos, fincas }: NewAdjustmentDialogPr
 
                         <div className="space-y-2 col-span-2">
                             <Label htmlFor="producto">Producto</Label>
-                            <Select value={productoId} onValueChange={setProductoId} required>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar producto..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {productos.map(p => (
-                                        <SelectItem key={p.id} value={p.id}>
-                                            {p.nombre} ({p.stockActual} {p.unidadMedida})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Combobox
+                                options={productoOptions}
+                                value={productoId}
+                                onSelect={setProductoId}
+                                placeholder="Seleccionar producto..."
+                                searchPlaceholder="Buscar producto..."
+                                emptyText="No encontrado."
+                            />
                         </div>
 
                         <div className="space-y-2">
@@ -128,16 +135,14 @@ export function NewAdjustmentDialog({ productos, fincas }: NewAdjustmentDialogPr
 
                         <div className="space-y-2">
                             <Label htmlFor="finca">Finca / Bodega</Label>
-                            <Select value={fincaId} onValueChange={setFincaId} required>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccionar ubicación..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {fincas.map(f => (
-                                        <SelectItem key={f.id} value={f.id}>{f.nombre}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Combobox
+                                options={fincaOptions}
+                                value={fincaId}
+                                onSelect={setFincaId}
+                                placeholder="Seleccionar ubicación..."
+                                searchPlaceholder="Buscar ubicación..."
+                                emptyText="No encontrada."
+                            />
                         </div>
 
                         <div className="space-y-2 col-span-2">

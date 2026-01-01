@@ -14,17 +14,22 @@ import { TaskExecutionDetails } from "@/components/tareas/TaskExecutionDetails"
 
 export default async function ExecuteTaskPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
-    const [tareaRes, productosRes, maquinariaRes] = await Promise.all([
-        getTareaById(id),
-        getProductos(),
-        getMaquinaria()
-    ])
+    // Fetch task first to get fincaId
+    const tareaRes = await getTareaById(id)
 
     if (tareaRes.error || !tareaRes.data) {
         return <div className="p-8 text-center text-red-500">Error: Tarea no encontrada</div>
     }
 
     const tarea = tareaRes.data as any
+    const fincaId = tarea.fincaId
+
+    // Fetch resources filtered by fincaId
+    const [productosRes, maquinariaRes] = await Promise.all([
+        getProductos(fincaId),
+        getMaquinaria(fincaId)
+    ])
+
     const productos = productosRes.data || []
     const maquinaria = maquinariaRes.data || []
 

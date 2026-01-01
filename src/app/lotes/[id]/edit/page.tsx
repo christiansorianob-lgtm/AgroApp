@@ -1,18 +1,18 @@
 'use client'
 
-import React, { useState, useEffect, useRef, Suspense } from "react"
+import React, { useState, useEffect, useRef, Suspense, useMemo } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { getFincas } from "@/app/actions/fincas"
 import { getTiposCultivo } from "@/app/actions/cultivos"
-import { getLoteById, updateLote } from "@/app/actions/lotes" // Import the actions
+import { getLoteById, updateLote } from "@/app/actions/lotes"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Save, Loader2, Map as MapIcon, RotateCcw, Trash2, Crosshair, ClipboardList } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ArrowLeft, Save, Loader2, Map as MapIcon, RotateCcw, Trash2, Crosshair, ClipboardList, Plus } from "lucide-react"
 import dynamic from "next/dynamic"
+import { Combobox } from "@/components/ui/combobox"
 
 // Dynamic Map import
 const MapPicker = dynamic(() => import("@/components/ui/MapPicker"), {
@@ -82,8 +82,6 @@ function EditLoteForm() {
                 // Crop
                 setSelectedTipo(lote.tipoCultivo)
                 if (lote.tipoCultivo) {
-                    // Find varieties for this type
-                    // We need to wait for state update or look in resCultivos.data directly
                     const tipo = resCultivos.data?.find((t: any) => t.nombre === lote.tipoCultivo)
                     if (tipo) setVariedades(tipo.variedades)
                 }
@@ -105,25 +103,12 @@ function EditLoteForm() {
                     } catch (e) { console.error("Error parsing polygon", e) }
                 }
 
-                // 3. Load Context (Finca Polygon & Other Lotes)
-                // We need to fetch the Finca to get its polygon and other lotes
-                // Could optimize if getLoteById returned this, currently it returns Finca basic info.
-                // But getFincas returns all... let's use getFincaById equivalent or search in getFincas if list is small, 
-                // OR better, just update the server action to include lotes in finca if needed, 
-                // but getLoteById includes finca. Let's see if it included 'poligono' of finca.
-                // The current getLoteById uses 'include: { finca: true }', so we have finca data.
-
                 const finca = lote.finca
 
                 // Finca Ref Polygon
                 if (finca.poligono) {
                     setActiveRefPolygon(typeof finca.poligono === 'string' ? JSON.parse(finca.poligono) : finca.poligono)
                 }
-
-                // Other lots - Not loaded by getLoteById (it includes Finca but not Finca.lotes).
-                // We might want to fetch siblings. For now, skipping other polygons display to keep it simple or fetch separate.
-                // If critical, we should fetch siblings.
-
             } catch (e: any) {
                 console.error(e)
                 setErrorDetail(e.message)
@@ -160,8 +145,6 @@ function EditLoteForm() {
             if (lng) formData.append('longitud', lng)
             if (polygonPoints.length > 0) formData.append('poligono', JSON.stringify(polygonPoints))
 
-            // Normalization handled in server action or here? Server action does minimal.
-            // Let's ensure dots in floats
             if (areaHa) formData.set('areaHa', areaHa.replace(',', '.'))
             if (lat) formData.set('latitud', lat.replace(',', '.'))
             if (lng) formData.set('longitud', lng.replace(',', '.'))
@@ -184,6 +167,16 @@ function EditLoteForm() {
         }
     }
 
+    const tipoCultivoOptions = useMemo(() => tiposCultivo.map(t => ({
+        value: t.nombre,
+        label: t.nombre
+    })), [tiposCultivo])
+
+    const variedadOptions = useMemo(() => variedades.map(v => ({
+        value: v.nombre,
+        label: v.nombre
+    })), [variedades])
+
     if (loading) return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
 
     return (
@@ -199,12 +192,20 @@ function EditLoteForm() {
                     <p className="text-muted-foreground">{nombre} ({codigo}) - {fincaName}</p>
                 </div>
                 <div className="ml-auto">
-                    <Button variant="outline" asChild>
-                        <Link href={`/tareas?loteId=${id}`}>
-                            <ClipboardList className="mr-2 h-4 w-4" />
-                            Tareas del Lote
-                        </Link>
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" asChild>
+                            <Link href={`/tareas?loteId=${id}`}>
+                                <ClipboardList className="mr-2 h-4 w-4" />
+                                Ver Tareas
+                            </Link>
+                        </Button>
+                        <Button asChild>
+                            <Link href={`/tareas/new?fincaId=${fincaId}&loteId=${id}`}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Nueva Tarea
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
             </div>
 
@@ -342,30 +343,26 @@ function EditLoteForm() {
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="tipoCultivo">Tipo Cultivo</Label>
-                                <Select value={selectedTipo} onValueChange={handleTipoChange}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Seleccione Tipo..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none" disabled>Seleccione...</SelectItem>
-                                        {tiposCultivo.map((t) => (
-                                            <SelectItem key={t.id} value={t.nombre}>{t.nombre}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Combobox
+                                    options={tipoCultivoOptions}
+                                    value={selectedTipo}
+                                    onSelect={handleTipoChange}
+                                    placeholder="Seleccione Tipo de Cultivo..."
+                                    searchPlaceholder="Buscar cultivo..."
+                                    emptyText="No encontrado"
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="variedad">Variedad</Label>
-                                <Select value={selectedVariedad} onValueChange={setSelectedVariedad} disabled={!selectedTipo}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Seleccione Variedad" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {variedades.map((v) => (
-                                            <SelectItem key={v.id} value={v.nombre}>{v.nombre}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Combobox
+                                    options={variedadOptions}
+                                    value={selectedVariedad}
+                                    onSelect={setSelectedVariedad}
+                                    placeholder="Seleccione Variedad..."
+                                    searchPlaceholder="Buscar variedad..."
+                                    emptyText="No encontrada"
+                                    disabled={!selectedTipo}
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="fechaSiembra">Fecha Inicio</Label>

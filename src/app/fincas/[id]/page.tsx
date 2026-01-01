@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, MapPin, Ruler, User, Calendar, Plus, Leaf, Pencil, ClipboardList, ExternalLink } from "lucide-react"
 import { FincaMapViewer } from "@/components/ui/FincaMapViewer"
+import { GoBackButton } from "@/components/ui/GoBackButton"
 
 export default async function FincaDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -22,11 +23,7 @@ export default async function FincaDetailPage({ params }: { params: Promise<{ id
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" asChild>
-                        <Link href="/fincas">
-                            <ArrowLeft className="w-5 h-5" />
-                        </Link>
-                    </Button>
+                    <GoBackButton fallbackRoute="/fincas" />
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
                             {finca.nombre}
@@ -44,13 +41,19 @@ export default async function FincaDetailPage({ params }: { params: Promise<{ id
                     <Button variant="outline" asChild>
                         <Link href={`/tareas?fincaId=${finca.id}`}>
                             <ClipboardList className="mr-2 h-4 w-4" />
-                            Tareas
+                            Ver Tareas
                         </Link>
                     </Button>
-                    <Button asChild>
+                    <Button variant="outline" asChild>
                         <Link href={`/lotes/new?fincaId=${finca.id}`}>
                             <Plus className="mr-2 h-4 w-4" />
                             Nuevo Lote
+                        </Link>
+                    </Button>
+                    <Button asChild>
+                        <Link href={`/tareas/new?fincaId=${finca.id}`}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Nueva Tarea
                         </Link>
                     </Button>
                 </div>
@@ -164,7 +167,7 @@ export default async function FincaDetailPage({ params }: { params: Promise<{ id
                                             <td className="p-4">{lote.areaHa}</td>
                                             <td className="p-4 text-right">
                                                 <Button variant="ghost" size="sm" asChild>
-                                                    <Link href={`/lotes/${lote.id}/edit`}>
+                                                    <Link href={`/lotes/${lote.id}`}>
                                                         Administrar
                                                     </Link>
                                                 </Button>

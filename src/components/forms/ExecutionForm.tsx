@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { executeTarea } from "@/app/actions/tareas"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,9 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Save, Loader2, Plus, Trash2, Settings } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { Combobox } from "@/components/ui/combobox"
+import { ProductCreationDialog } from "./ProductCreationDialog"
+import { MachineryCreationDialog } from "./MachineryCreationDialog"
 
 interface ExecutionFormProps {
     tarea: any
@@ -27,8 +30,20 @@ export function ExecutionForm({ tarea, productos, maquinaria }: ExecutionFormPro
     const [evidencias, setEvidencias] = useState(tarea.evidencias || "")
     const [consumos, setConsumos] = useState<{ id: string, productoId: string, cantidad: number }[]>([])
     const [usosMaquinaria, setUsosMaquinaria] = useState<{ id: string, maquinaId: string, horas: number }[]>([])
+    const [executionDate, setExecutionDate] = useState(new Date().toISOString().split('T')[0])
 
     const [files, setFiles] = useState<FileList | null>(null)
+
+    // Options for Comboboxes
+    const productoOptions = useMemo(() => productos.map(p => ({
+        value: p.id,
+        label: `${p.nombre} (Stock: ${p.stockActual} ${p.unidadMedida})`
+    })), [productos])
+
+    const maquinariaOptions = useMemo(() => maquinaria.map(m => ({
+        value: m.id,
+        label: `${m.codigo} - ${m.tipo?.nombre} - ${m.marca?.nombre}`
+    })), [maquinaria])
 
     // Consumption helpers
     const addConsumo = () => {
@@ -68,7 +83,7 @@ export function ExecutionForm({ tarea, productos, maquinaria }: ExecutionFormPro
         formData.append("fincaId", tarea.fincaId)
         formData.append("estado", estado)
         formData.append("observaciones", observaciones)
-        formData.append("fechaEjecucion", new Date().toISOString())
+        formData.append("fechaEjecucion", new Date(executionDate).toISOString())
         formData.append("consumos", JSON.stringify(validConsumos))
         formData.append("maquinaria", JSON.stringify(validMaquinaria))
 
@@ -113,7 +128,11 @@ export function ExecutionForm({ tarea, productos, maquinaria }: ExecutionFormPro
                         </div>
                         <div className="space-y-2">
                             <Label>Fecha de Ejecución</Label>
-                            <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
+                            <Input
+                                type="date"
+                                value={executionDate}
+                                onChange={(e) => setExecutionDate(e.target.value)}
+                            />
                         </div>
                     </div>
 
@@ -145,9 +164,9 @@ export function ExecutionForm({ tarea, productos, maquinaria }: ExecutionFormPro
                 <CardHeader className="flex flex-row justify-between items-center">
                     <div className="flex items-center gap-2">
                         <CardTitle>Insumos Utilizados</CardTitle>
-                        <Link href="/almacen" className="text-xs text-primary hover:underline flex items-center gap-1">
-                            <Settings className="w-3 h-3" /> Administrar
-                        </Link>
+                        <div className="ml-2">
+                            <ProductCreationDialog defaultFincaId={tarea.fincaId} />
+                        </div>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={addConsumo}>
                         <Plus className="w-4 h-4 mr-2" /> Agregar Insumo
@@ -163,19 +182,14 @@ export function ExecutionForm({ tarea, productos, maquinaria }: ExecutionFormPro
                             <div key={consumo.id} className="flex gap-4 items-end bg-muted/30 p-3 rounded-md">
                                 <div className="flex-1 space-y-2">
                                     <Label className="text-xs">Producto</Label>
-                                    <select
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    <Combobox
+                                        options={productoOptions}
                                         value={consumo.productoId}
-                                        onChange={(e) => updateConsumo(consumo.id, 'productoId', e.target.value)}
-                                        required
-                                    >
-                                        <option value="">Seleccione...</option>
-                                        {productos.map(p => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.nombre} (Stock: {p.stockActual} {p.unidadMedida})
-                                            </option>
-                                        ))}
-                                    </select>
+                                        onSelect={(val) => updateConsumo(consumo.id, 'productoId', val)}
+                                        placeholder="Seleccione..."
+                                        searchPlaceholder="Buscar producto..."
+                                        emptyText="No encontrado."
+                                    />
                                 </div>
                                 <div className="w-32 space-y-2">
                                     <Label className="text-xs">Cantidad</Label>
@@ -208,9 +222,9 @@ export function ExecutionForm({ tarea, productos, maquinaria }: ExecutionFormPro
                 <CardHeader className="flex flex-row justify-between items-center">
                     <div className="flex items-center gap-2">
                         <CardTitle>Maquinaria Utilizada</CardTitle>
-                        <Link href="/maquinaria" className="text-xs text-primary hover:underline flex items-center gap-1">
-                            <Settings className="w-3 h-3" /> Administrar
-                        </Link>
+                        <div className="ml-2">
+                            <MachineryCreationDialog defaultFincaId={tarea.fincaId} />
+                        </div>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={addUsoMaquinaria}>
                         <Plus className="w-4 h-4 mr-2" /> Agregar Maquinaria
@@ -226,19 +240,14 @@ export function ExecutionForm({ tarea, productos, maquinaria }: ExecutionFormPro
                             <div key={uso.id} className="flex gap-4 items-end bg-muted/30 p-3 rounded-md">
                                 <div className="flex-1 space-y-2">
                                     <Label className="text-xs">Máquina</Label>
-                                    <select
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    <Combobox
+                                        options={maquinariaOptions}
                                         value={uso.maquinaId}
-                                        onChange={(e) => updateUsoMaquinaria(uso.id, 'maquinaId', e.target.value)}
-                                        required
-                                    >
-                                        <option value="">Seleccione...</option>
-                                        {maquinaria.map(m => (
-                                            <option key={m.id} value={m.id}>
-                                                {m.codigo} - {m.tipo?.nombre} - {m.marca?.nombre}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        onSelect={(val) => updateUsoMaquinaria(uso.id, 'maquinaId', val)}
+                                        placeholder="Seleccione..."
+                                        searchPlaceholder="Buscar máquina..."
+                                        emptyText="No encontrada."
+                                    />
                                 </div>
                                 <div className="w-32 space-y-2">
                                     <Label className="text-xs">Horas / Cantidad</Label>

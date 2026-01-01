@@ -11,16 +11,21 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
     const fincaId = searchParams.fincaId as string | undefined
     const loteId = searchParams.loteId as string | undefined
     const filterNivel = searchParams.filter as string | undefined // 'finca_only'
+    const statusParam = searchParams.status as string | undefined
+    const delayedParam = searchParams.delayed as string | undefined
 
     // Determine filters for Server Action
     const filters: any = {}
-    if (loteId) {
-        filters.loteId = loteId
-    } else if (fincaId) {
-        filters.fincaId = fincaId
-        if (filterNivel === 'finca_only') {
-            filters.nivel = 'FINCA'
-        }
+    if (loteId) filters.loteId = loteId
+    if (fincaId) filters.fincaId = fincaId
+    if (filterNivel === 'finca_only') filters.nivel = 'FINCA'
+
+    if (statusParam) {
+        filters.estado = statusParam.split(',')
+    }
+
+    if (delayedParam === 'true') {
+        filters.delayed = true
     }
 
     const { data: tareas, error } = await getTareas(filters)
@@ -51,6 +56,8 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
                             <p>Programación y ejecución de actividades</p>
                             {loteId && <span className="text-xs bg-muted px-2 py-1 rounded">Filtrado por Lote</span>}
                             {fincaId && !loteId && <span className="text-xs bg-muted px-2 py-1 rounded">Contexto Finca</span>}
+                            {statusParam && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Estado: {statusParam.replace(',', ', ')}</span>}
+                            {delayedParam === 'true' && <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Atrasadas</span>}
                         </div>
                     </div>
                 </div>

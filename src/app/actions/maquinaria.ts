@@ -112,15 +112,22 @@ export async function deleteUbicacionMaquinaria(id: string) {
 
 // --- MAQUINARIA CRUD ---
 
-export async function getMaquinaria() {
+// --- MAQUINARIA CRUD ---
+
+export async function getMaquinaria(filters?: { fincaId?: string, estado?: string }) {
     try {
+        const where: any = {}
+        if (filters?.fincaId) where.fincaId = filters.fincaId
+        if (filters?.estado) where.estado = filters.estado
+
         const maquinas = await db.maquinaria.findMany({
+            where,
             orderBy: { createdAt: 'desc' },
             include: {
                 tipo: true,
                 marca: true,
                 ubicacion: true,
-                // finca: true
+                finca: true
             }
         })
         return { data: maquinas }
@@ -135,33 +142,46 @@ export async function createMaquinaria(formData: FormData) {
     const ubicacionId = formData.get("ubicacionId") as string
     const tipoId = formData.get("tipoId") as string
     const marcaId = formData.get("marcaId") as string
+    const fincaId = formData.get("fincaId") as string
     const modelo = formData.get("modelo") as string
     const serialPlaca = formData.get("serialPlaca") as string
     const estado = formData.get("estado") as any
     const observaciones = formData.get("observaciones") as string
 
-    if (!tipoId || !marcaId || !ubicacionId || !serialPlaca) {
-        return { error: "Campos obligatorios faltantes." }
+    if (!tipoId || !marcaId || !ubicacionId || !serialPlaca || !fincaId) {
+        return { error: "Campos obligatorios faltantes (incluyendo Finca)." }
     }
 
     try {
         // Autogenerate Code: MAQ-XXX
-        const count = await db.maquinaria.count()
+        // Should be per finca or global? Usually machines have unique serial anyway.
+        // Let's keep code consecutive global or per finca?
+        // User said "diferencien por finca", probably meant visibility.
+        // Let's keep global count for code simplicity or switch to per finca if needed.
+        // Assuming global code is fine as long as they are distinct entities.
+        const count = await db.maquinaria.count() // Global count or per finca?
         const nextId = count + 1
         const codigo = `MAQ-${nextId.toString().padStart(3, '0')}`
 
-        await db.maquinaria.create({
+        const newMaquinaria = await db.maquinaria.create({
             data: {
                 codigo,
                 tipoMaquinariaId: tipoId,
                 marcaMaquinariaId: marcaId,
                 ubicacionMaquinariaId: ubicacionId,
+                fincaId,
                 modelo,
                 serialPlaca,
                 estado: estado || 'DISPONIBLE',
                 observaciones
             }
         })
+
+        const disableRedirect = formData.get("disable_redirect") === "true"
+        if (disableRedirect) {
+            revalidatePath('/maquinaria')
+            return { success: true, data: newMaquinaria }
+        }
     } catch (error) {
         console.error("Failed to create maquinaria:", error)
         return { error: "Error al registrar maquina." }

@@ -33,6 +33,7 @@ model Finca {
   usosMaquinaria  UsoMaquinaria[]
   movimientosInventario MovimientoInventario[]
   maquinarias     Maquinaria[]
+  productos       Producto[]
 }
 
 enum EstadoFinca {
@@ -87,7 +88,8 @@ model Tarea {
   loteId              String?  // Nullable si es NivelTarea = FINCA
   nivel               NivelTarea
   fechaProgramada     DateTime
-  fechaEjecucion      DateTime?
+  fechaInicioReal     DateTime? // Fecha cuando se dio click a "Iniciar"
+  fechaEjecucion      DateTime? // Fecha cuando se dio click a "Finalizar"
   tipo                String // Fertilización, Plateo, etc. (Puede ser Enum o String libre)
   descripcion         String?  @db.Text
   responsable         String
@@ -96,6 +98,7 @@ model Tarea {
   estado              EstadoTarea @default(PROGRAMADA)
   prioridad           PrioridadTarea @default(MEDIA)
   evidencias          String?  // URLs o Texto
+  requiereTrazabilidad Boolean @default(false)
   observaciones       String?  @db.Text
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -106,6 +109,20 @@ model Tarea {
   // Relaciones
   usosMaquinaria      UsoMaquinaria[]
   consumos            MovimientoInventario[]
+  trazabilidad        Trazabilidad[]
+}
+
+model Trazabilidad {
+  id        String   @id @default(uuid())
+  tareaId   String
+  lat       Float
+  lng       Float
+  accuracy  Float?
+  battery   Float?
+  timestamp DateTime
+  createdAt DateTime @default(now())
+
+  tarea     Tarea    @relation(fields: [tareaId], references: [id])
 }
 
 enum NivelTarea {
@@ -144,8 +161,8 @@ model Maquinaria {
   // Given "Ubicacion (Finca Base)" -> "Ubicacion" request, I will treat ubicacionMaquinariaId as the primary location info.
   // I will keep fincaId optional for now to not break existing data immediately, or just remove if I am sure.
   // Plan said "Make fincaId optional". 
-  fincaId                 String?
-
+  fincaId                 String
+  
   modelo                  String
   serialPlaca             String
   fechaCompra             DateTime?
@@ -159,7 +176,7 @@ model Maquinaria {
   tipo        TipoMaquinaria      @relation(fields: [tipoMaquinariaId], references: [id])
   marca       MarcaMaquinaria     @relation(fields: [marcaMaquinariaId], references: [id])
   ubicacion   UbicacionMaquinaria @relation(fields: [ubicacionMaquinariaId], references: [id])
-  finca       Finca?               @relation(fields: [fincaId], references: [id])
+  finca       Finca               @relation(fields: [fincaId], references: [id])
 
   usos UsoMaquinaria[]
 }
@@ -223,7 +240,13 @@ model UsoMaquinaria {
 // -----------------------------------------------------------------------------
 model Producto {
   id              String   @id @default(uuid())
-  codigo          String   @unique // PRO-000001
+  fincaId         String
+  codigo          String   // PRO-000001 (Unique per Finca? Or Global? Keeping global uniqueness for simplicity for now, or composite unique)
+  // Plan didn't specify changing codigo uniqueness, but ideally it should be unique per Finca if we want total isolation.
+  // For now, I'll keep the @unique on codigo but note that it might collide if different fincas generate same sequence.
+  // Ideally: @@unique([fincaId, codigo]) and remove @unique from codigo.
+  // But let's stick to adding fincaId first. The code generation logic is "count + 1", which needs to filter by finca now.
+
   nombre          String
   categoria       String
   unidadMedida    String
@@ -232,7 +255,10 @@ model Producto {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  finca           Finca    @relation(fields: [fincaId], references: [id])
   movimientos     MovimientoInventario[]
+
+  @@unique([fincaId, codigo])
 }
 
 model MovimientoInventario {
@@ -274,8 +300,18 @@ model Responsable {
   id        String   @id @default(uuid())
   nombre    String   @unique
   email     String?
-  cargo     String?
+  celular   String?
+  password  String   @default("123456")
+  cargo     String? // Deprecated, kept for history
+  cargoId   String?
+  cargoRef  Cargo?   @relation(fields: [cargoId], references: [id])
   activo    Boolean  @default(true)
+}
+
+model Cargo {
+  id        String       @id @default(uuid())
+  nombre    String       @unique
+  responsables Responsable[]
 }
 
 // -----------------------------------------------------------------------------

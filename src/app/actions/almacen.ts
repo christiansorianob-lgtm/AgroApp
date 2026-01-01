@@ -4,12 +4,15 @@ import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
-export async function getProductos() {
+export async function getProductos(fincaId?: string) {
     try {
+        const whereClause = fincaId ? { fincaId } : {}
         const productos = await db.producto.findMany({
+            where: whereClause,
             orderBy: { nombre: 'asc' },
             include: {
-                movimientos: true
+                movimientos: true,
+                finca: true
             }
         })
         return { data: productos }
@@ -19,20 +22,26 @@ export async function getProductos() {
     }
 }
 
+// export async function getProductos(fincaId: string) { ... } -> Updated below
+
 export async function createProducto(formData: FormData) {
     const nombre = formData.get("nombre") as string
     const categoria = formData.get("categoria") as string
     const unidadMedida = formData.get("unidadMedida") as string
     const cantidadStr = formData.get("cantidad") as string
+    const fincaId = formData.get("fincaId") as string
     const stockActual = parseFloat(cantidadStr) || 0
 
-    if (!nombre || !categoria || !unidadMedida) {
-        return { error: "Todos los campos son obligatorios." }
-    }
+    if (!fincaId) return { error: "Debe seleccionar una Finca." }
+    if (!categoria) return { error: "Debe seleccionar una Categoría." }
+    if (!nombre) return { error: "Debe seleccionar un Nombre Comercial." }
+    if (!unidadMedida) return { error: "Debe seleccionar una Unidad de Medida." }
 
     try {
-        // Auto-generate code
-        const count = await db.producto.count()
+        // Auto-generate code PER FINCA if possible, or global uniqueness?
+        // Schema has @@unique([fincaId, codigo]).
+        // We need to count products IN THIS FINCA to generate consecutive code.
+        const count = await db.producto.count({ where: { fincaId } })
         const codigo = `PRO-${(count + 1).toString().padStart(3, '0')}`
 
         const newProducto = await db.producto.create({
@@ -41,12 +50,19 @@ export async function createProducto(formData: FormData) {
                 nombre,
                 categoria,
                 unidadMedida,
-                stockActual
+                stockActual,
+                fincaId
             }
         })
 
         // Create initial stock movement if quantity > 0
-        await createInitialStockMovement(newProducto.id, stockActual)
+        await createInitialStockMovement(newProducto.id, stockActual, fincaId)
+
+        const disableRedirect = formData.get("disable_redirect") === "true"
+        if (disableRedirect) {
+            revalidatePath('/almacen')
+            return { success: true, data: newProducto }
+        }
     } catch (error) {
         console.error("Failed to create producto:", error)
         return { error: "Error al crear producto." }
@@ -60,18 +76,13 @@ export async function createProducto(formData: FormData) {
 
 // ... previous code
 
-async function createInitialStockMovement(productoId: string, cantidad: number) {
+async function createInitialStockMovement(productoId: string, cantidad: number, fincaId: string) {
     if (cantidad <= 0) return
 
-    const finca = await db.finca.findFirst({
-        where: { estado: 'ACTIVO' }
-    })
-
-    if (!finca) return
-
+    // We use the passed fincaId, no need to findFirst random one.
     await db.movimientoInventario.create({
         data: {
-            fincaId: finca.id,
+            fincaId,
             productoId,
             tipoMovimiento: 'ENTRADA',
             fecha: new Date(),

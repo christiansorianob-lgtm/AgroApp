@@ -6,8 +6,14 @@ import { getMaquinaria } from "@/app/actions/maquinaria"
 import { Plus, Wrench } from "lucide-react"
 import { BackButton } from "@/components/common/BackButton"
 
-export default async function MaquinariaPage() {
-    const { data: maquinas, error } = await getMaquinaria()
+export default async function MaquinariaPage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+    const searchParams = await props.searchParams
+    const statusParam = searchParams.status as string | undefined
+
+    const filters: any = {}
+    if (statusParam) filters.estado = statusParam
+
+    const { data: maquinas, error } = await getMaquinaria(filters)
 
     return (
         <div className="space-y-6">
@@ -16,7 +22,10 @@ export default async function MaquinariaPage() {
                     <BackButton fallback="/dashboard" />
                     <div>
                         <h2 className="text-3xl font-bold tracking-tight text-primary">Maquinaria</h2>
-                        <p className="text-muted-foreground">Flota de vehículos y equipos</p>
+                        <div className="text-muted-foreground flex items-center gap-2">
+                            <p>Flota de vehículos y equipos</p>
+                            {statusParam && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Estado: {statusParam.replace('_', ' ')}</span>}
+                        </div>
                     </div>
                 </div>
                 <div className="flex gap-2">
@@ -76,7 +85,12 @@ export default async function MaquinariaPage() {
                                                 {maq.estado.replace('_', ' ')}
                                             </span>
                                         </TableCell>
-                                        <TableCell>{maq.ubicacion?.nombre || '-'}</TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">{maq.finca?.nombre || 'Sin Finca'}</span>
+                                                <span className="text-xs text-muted-foreground">{maq.ubicacion?.nombre}</span>
+                                            </div>
+                                        </TableCell>
                                     </TableRow>
                                 ))
                             )}

@@ -1,7 +1,7 @@
 import { Suspense } from "react"
 import { getFincas } from "@/app/actions/fincas"
 import { getLotes } from "@/app/actions/lotes"
-import { getTiposActividad, getResponsables } from "@/app/actions/configuracion"
+import { getTiposActividad, getResponsables, getCargos } from "@/app/actions/configuracion"
 import { TareaForm } from "@/components/forms/TareaForm"
 
 export default async function NewTareaPage() {
@@ -9,6 +9,7 @@ export default async function NewTareaPage() {
     const lotesData = await getLotes()
     const tiposRes = await getTiposActividad()
     const respRes = await getResponsables()
+    const cargosRes = await getCargos()
 
     if (!fincasData.data || fincasData.data.length === 0) {
         return (
@@ -56,6 +57,7 @@ export default async function NewTareaPage() {
                 lotes={lotesData.data || []}
                 tiposActividad={tiposRes.data || []}
                 responsables={respRes.data || []}
+                cargos={cargosRes.data || []}
             />
         </Suspense>
     )

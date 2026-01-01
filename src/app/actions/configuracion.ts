@@ -70,7 +70,8 @@ export async function getResponsables() {
     try {
         const data = await db.responsable.findMany({
             where: { activo: true },
-            orderBy: { nombre: 'asc' }
+            orderBy: { nombre: 'asc' },
+            include: { cargoRef: true }
         })
         return { data }
     } catch (error) {
@@ -79,7 +80,7 @@ export async function getResponsables() {
     }
 }
 
-export async function createResponsable(nombre: string, email?: string, cargo?: string) {
+export async function createResponsable(nombre: string, email?: string, cargoId?: string, celular?: string) {
     if (!nombre || !nombre.trim()) return { error: "Nombre requerido" }
 
     try {
@@ -87,7 +88,8 @@ export async function createResponsable(nombre: string, email?: string, cargo?: 
             data: {
                 nombre: nombre.trim(),
                 email: email?.trim(),
-                cargo: cargo?.trim()
+                cargoId: cargoId?.trim() || null,
+                celular: celular?.trim()
             }
         })
         revalidatePath('/configuracion/responsables')
@@ -95,6 +97,28 @@ export async function createResponsable(nombre: string, email?: string, cargo?: 
         return { success: true }
     } catch (error) {
         return { error: "Error al crear responsable (posible duplicado)" }
+    }
+}
+
+export async function updateResponsable(id: string, nombre: string, email?: string, cargoId?: string, celular?: string) {
+    if (!nombre || !nombre.trim()) return { error: "Nombre requerido" }
+
+    try {
+        await db.responsable.update({
+            where: { id },
+            data: {
+                nombre: nombre.trim(),
+                email: email?.trim(),
+                cargoId: cargoId?.trim() || null,
+                celular: celular?.trim()
+            }
+        })
+        revalidatePath('/configuracion/responsables')
+        revalidatePath('/tareas/new')
+        return { success: true }
+    } catch (error: any) {
+        console.error("Error updating responsable:", error)
+        return { error: `Error al actualizar: ${error.message}` }
     }
 }
 
@@ -107,6 +131,58 @@ export async function deleteResponsable(id: string) {
     } catch (error) {
         return { error: "Error al eliminar responsable" }
     }
+}
+
+// -----------------------------------------------------------------------------
+// CATALOGOS CARGOS
+// -----------------------------------------------------------------------------
+
+export async function getCargos() {
+    try {
+        const data = await db.cargo.findMany({ orderBy: { nombre: 'asc' } })
+        return { data }
+    } catch (error) {
+        return { error: "Error al cargar cargos" }
+    }
+}
+
+export async function createCargo(nombre: string) {
+    if (!nombre || !nombre.trim()) return { error: "Nombre requerido" }
+    try {
+        await db.cargo.create({ data: { nombre: nombre.trim() } })
+        revalidatePath('/configuracion/responsables')
+        return { success: true }
+    } catch (error) {
+        return { error: "Error al crear cargo (posible duplicado)" }
+    }
+}
+
+export async function deleteCargo(id: string) {
+    try {
+        await db.cargo.delete({ where: { id } })
+        revalidatePath('/configuracion/responsables')
+        return { success: true }
+    } catch (error) {
+        return { error: "Error al eliminar cargo" }
+    }
+}
+
+export async function seedCargos() {
+    const defaults = [
+        "Administrador", "Mayordomo", "Capataz", "Agrónomo",
+        "Veterinario", "Tractorista / Operario", "Jornalero",
+        "Oficios Varios", "Vigilante"
+    ]
+    let count = 0
+    for (const nombre of defaults) {
+        const exists = await db.cargo.findUnique({ where: { nombre } })
+        if (!exists) {
+            await db.cargo.create({ data: { nombre } })
+            count++
+        }
+    }
+    revalidatePath('/configuracion/responsables')
+    return { success: true, count }
 }
 
 // -----------------------------------------------------------------------------
