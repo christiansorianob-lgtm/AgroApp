@@ -13,16 +13,16 @@ export async function GET(request: Request) {
         const tasks = await prisma.tarea.findMany({
             take: 20,
             orderBy: { updatedAt: 'desc' },
-            include: { trackingPoints: true }
+            include: { trazabilidad: true }
         });
 
         const report = tasks.map(t => ({
             id: t.id,
             tipo: t.tipo,
             estado: t.estado,
-            pointsCount: t.trackingPoints.length,
+            pointsCount: t.trazabilidad.length,
             // Sample
-            sample: t.trackingPoints.length > 0 ? t.trackingPoints[0] : null
+            sample: t.trazabilidad.length > 0 ? t.trazabilidad[0] : null
         }));
 
         await prisma.$disconnect();
