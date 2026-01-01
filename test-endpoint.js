@@ -68,5 +68,14 @@ async function test() {
     } catch (e) {
         console.error("LOGIN Error:", e);
     }
+
+    console.log("--- Testing LOGIN OPTIONS (App Router) ---");
+    try {
+        const res = await request('OPTIONS', '/api/v1/auth/login');
+        console.log(`Status: ${res.statusCode}`);
+        console.log("Headers:", res.headers);
+    } catch (e) {
+        console.error("LOGIN OPTIONS Error:", e);
+    }
 }
 test();
