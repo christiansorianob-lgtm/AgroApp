@@ -12,7 +12,7 @@ async function main() {
                 // If there's a readable code field, check that too. Assuming 'id' for now or we list all.
             ]
         },
-        include: { trackingPoints: true }
+        include: { trazabilidad: true }
     });
 
     if (!task) {
@@ -20,17 +20,17 @@ async function main() {
         const recent = await db.tarea.findMany({
             take: 5,
             orderBy: { createdAt: 'desc' },
-            select: { id: true, tipo: true, estado: true, trackingPoints: { select: { id: true } } }
+            select: { id: true, tipo: true, estado: true, trazabilidad: { select: { id: true } } }
         });
         console.log("Recent tasks:", JSON.stringify(recent, null, 2));
         return;
     }
 
     console.log(`Task found: ${task.id} (${task.estado})`);
-    console.log(`Tracking Points count: ${task.trackingPoints.length}`);
-    if (task.trackingPoints.length > 0) {
-        console.log("First point:", task.trackingPoints[0]);
-        console.log("Last point:", task.trackingPoints[task.trackingPoints.length - 1]);
+    console.log(`Tracking Points count: ${task.trazabilidad.length}`);
+    if (task.trazabilidad.length > 0) {
+        console.log("First point:", task.trazabilidad[0]);
+        console.log("Last point:", task.trazabilidad[task.trazabilidad.length - 1]);
     }
 }
 
