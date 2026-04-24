@@ -13,6 +13,7 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
     const filterNivel = searchParams.filter as string | undefined // 'finca_only'
     const statusParam = searchParams.status as string | undefined
     const delayedParam = searchParams.delayed as string | undefined
+    const sortParam = (searchParams.sort as string | undefined) === 'asc' ? 'asc' : 'desc'
 
     // Determine filters for Server Action
     const filters: any = {}
@@ -28,13 +29,23 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
         filters.delayed = true
     }
 
-    const { data: tareas, error } = await getTareas(filters)
+    const { data: tareas, error } = await getTareas({ ...filters, sort: sortParam })
 
     // Construct query string for new task
     const newParams = new URLSearchParams()
     if (fincaId) newParams.set('fincaId', fincaId)
     if (loteId) newParams.set('loteId', loteId)
     const newHref = `/tareas/new?${newParams.toString()}`
+
+    // Build sort toggle URL (flips asc <-> desc, keeps all other params)
+    const sortToggleParams = new URLSearchParams()
+    if (fincaId) sortToggleParams.set('fincaId', fincaId)
+    if (loteId) sortToggleParams.set('loteId', loteId)
+    if (filterNivel) sortToggleParams.set('filter', filterNivel)
+    if (statusParam) sortToggleParams.set('status', statusParam)
+    if (delayedParam) sortToggleParams.set('delayed', delayedParam)
+    sortToggleParams.set('sort', sortParam === 'desc' ? 'asc' : 'desc')
+    const sortToggleHref = `/tareas?${sortToggleParams.toString()}`
 
     // Construct toggle filter link for Finca context
     const toggleFilterParams = new URLSearchParams(newParams)
@@ -94,7 +105,21 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Fecha</TableHead>
+                                <TableHead>
+                                    <Link
+                                        href={sortToggleHref}
+                                        className="flex items-center gap-1.5 hover:text-primary transition-colors group w-fit"
+                                        title={sortParam === 'desc' ? 'Ordenar: más antigua primero' : 'Ordenar: más reciente primero'}
+                                    >
+                                        Fecha
+                                        <span className="text-muted-foreground group-hover:text-primary transition-colors">
+                                            {sortParam === 'desc' ? '↓' : '↑'}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground/60 group-hover:text-primary/60">
+                                            {sortParam === 'desc' ? 'nueva→vieja' : 'vieja→nueva'}
+                                        </span>
+                                    </Link>
+                                </TableHead>
                                 <TableHead>Tarea</TableHead>
                                 <TableHead>Ubicación</TableHead>
                                 <TableHead>Nivel</TableHead>

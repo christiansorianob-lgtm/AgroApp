@@ -6,7 +6,7 @@ import { redirect } from "next/navigation"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
 
-export async function getTareas(filters?: { fincaId?: string, loteId?: string, nivel?: "FINCA" | "LOTE", estado?: string[], delayed?: boolean }) {
+export async function getTareas(filters?: { fincaId?: string, loteId?: string, nivel?: "FINCA" | "LOTE", estado?: string[], delayed?: boolean, sort?: 'asc' | 'desc' }) {
     try {
         const where: any = {}
         if (filters?.fincaId) where.fincaId = filters.fincaId
@@ -30,7 +30,7 @@ export async function getTareas(filters?: { fincaId?: string, loteId?: string, n
                 finca: true,
                 lote: true
             },
-            orderBy: { fechaProgramada: 'desc' }
+            orderBy: { fechaProgramada: filters?.sort || 'desc' }
         })
         return { data: tareas }
     } catch (error) {
