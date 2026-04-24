@@ -21,8 +21,21 @@ export default async function LoteDetailPage({ params }: { params: Promise<{ id:
     const finca = lote.finca
 
     // Prepare polygon data
-    const polygonData = lote.poligono ? (typeof lote.poligono === 'string' ? JSON.parse(lote.poligono) : lote.poligono) : []
-    const fincaPolygon = finca.poligono ? (typeof finca.poligono === 'string' ? JSON.parse(finca.poligono) : finca.poligono) : []
+    let polygonData = []
+    if (lote.poligono) {
+        try {
+            const parsed = typeof lote.poligono === 'string' ? JSON.parse(lote.poligono) : lote.poligono;
+            polygonData = Array.isArray(parsed) ? parsed : [];
+        } catch (e) { }
+    }
+
+    let fincaPolygon = []
+    if (finca.poligono) {
+        try {
+            const parsed = typeof finca.poligono === 'string' ? JSON.parse(finca.poligono) : finca.poligono;
+            fincaPolygon = Array.isArray(parsed) ? parsed : [];
+        } catch (e) { }
+    }
 
     // Pass lote as "lotes" array to map viewer to visualize it
     const loteAsArrayItem = {

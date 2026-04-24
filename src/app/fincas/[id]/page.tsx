@@ -16,7 +16,15 @@ export default async function FincaDetailPage({ params }: { params: Promise<{ id
         notFound()
     }
 
-    const polygonData = finca.poligono ? JSON.parse(finca.poligono as string) : []
+    let polygonData = []
+    if (finca.poligono) {
+        try {
+            const parsed = typeof finca.poligono === 'string' ? JSON.parse(finca.poligono) : finca.poligono;
+            polygonData = Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.error(e);
+        }
+    }
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
