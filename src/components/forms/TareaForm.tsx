@@ -15,6 +15,8 @@ import { Combobox } from "@/components/ui/combobox"
 import { QuickCreateDialog } from "@/components/common/QuickCreateDialog"
 import { ManageResponsablesDialog } from "@/components/forms/ManageResponsablesDialog"
 import { GoBackButton } from "@/components/ui/GoBackButton"
+import { DatePicker } from "@/components/ui/DatePicker"
+import { createTareasMasivas } from "@/app/actions/tareas"
 import {
     Dialog,
     DialogContent,
@@ -83,7 +85,48 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     const [selectedPrioridad, setSelectedPrioridad] = useState("MEDIA")
     const [selectedEstado, setSelectedEstado] = useState("PROGRAMADA")
     // Changed to string for input type="date"
-    const [fechaProgramada, setFechaProgramada] = useState(new Date().toISOString().split('T')[0])
+    const today = new Date()
+    const todayISO = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+    const [fechaProgramada, setFechaProgramada] = useState(todayISO)
+
+    // Programación Masiva
+    const [modoMasivo, setModoMasivo] = useState(false)
+    const [periodicidadDias, setPeriodicidadDias] = useState("20")
+    const [modoFin, setModoFin] = useState<'repeticiones' | 'fechaFin'>('repeticiones')
+    const [repeticiones, setRepeticiones] = useState("5")
+    const [fechaFin, setFechaFin] = useState("")
+    // Detalle técnico
+    const [insumo, setInsumo] = useState("")
+    const [dosis, setDosis] = useState("")
+    const [metodo, setMetodo] = useState("")
+    // Vista previa de fechas
+    const [previewFechas, setPreviewFechas] = useState<string[]>([])
+
+    // Calcular preview de fechas cuando cambian los parámetros
+    const calcPreview = () => {
+        const fechas: string[] = []
+        if (!fechaProgramada || !periodicidadDias || parseInt(periodicidadDias) < 1) return []
+        const start = new Date(fechaProgramada + 'T12:00:00')
+        const dias = parseInt(periodicidadDias)
+        if (modoFin === 'repeticiones') {
+            const reps = parseInt(repeticiones) || 0
+            for (let i = 0; i < Math.min(reps, 20); i++) {
+                const d = new Date(start)
+                d.setDate(d.getDate() + i * dias)
+                fechas.push(d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }))
+            }
+        } else if (fechaFin) {
+            const end = new Date(fechaFin + 'T12:00:00')
+            let cur = new Date(start)
+            let safety = 0
+            while (cur <= end && safety < 20) {
+                fechas.push(cur.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }))
+                cur.setDate(cur.getDate() + dias)
+                safety++
+            }
+        }
+        return fechas
+    }
 
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [createdTask, setCreatedTask] = useState<{ id: string, responsableId: string, tipo: string, fincaNombre: string } | null>(null)
@@ -138,27 +181,60 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
 
     async function handleSubmit(formData: FormData) {
         setIsSubmitting(true)
-        const result = await createTarea(formData)
-        if (result?.error) {
-            alert(result.error) // Consider replacing this alert too later
-            setIsSubmitting(false)
-        } else {
-            // Success!
-            // Find responsible phone to see if we offer notification
-            const respId = formData.get('responsable') // Wait, formData has name... we need ID.
-            // Actually 'createTarea' action does the lookup? No, formData has names.
-            // But we have 'selectedResponsable' state which IS the ID.
-            const finca = fincas.find(f => f.id === selectedFinca)
 
-            setCreatedTask({
-                id: "new", // effectively we don't have the ID returned by createTarea yet unless we update the action to return it.
-                // But for the link, if we want to link to specific ID, we need the action to return ID.
-                // For now, let's assume valid creation.
-                responsableId: selectedResponsable,
-                tipo: tiposActividad.find(t => t.id === selectedTipo)?.nombre || "Tarea",
-                fincaNombre: finca?.nombre || "Finca"
+        // Construir las observaciones (con detalle técnico si aplica)
+        let obsBase = (formData.get('observaciones') as string) || ''
+        const parts = []
+        if (insumo) parts.push(`[INSUMO: ${insumo}]`)
+        if (dosis) parts.push(`[DOSIS: ${dosis}]`)
+        if (metodo) parts.push(`[MÉTODO: ${metodo}]`)
+        if (parts.length > 0) obsBase = parts.join(' | ') + (obsBase ? ' | ' + obsBase : '')
+
+        if (modoMasivo) {
+            // --- MODO MASIVO ---
+            const result = await createTareasMasivas({
+                fincaId: selectedFinca,
+                loteId: selectedLote || null,
+                tipo: tiposActividad.find(t => t.id === selectedTipo)?.nombre || '',
+                responsable: responsables.find(r => r.id === selectedResponsable)?.nombre || '',
+                prioridad: selectedPrioridad,
+                fechaInicio: fechaProgramada,
+                periodicidadDias: parseInt(periodicidadDias) || 20,
+                modoFin,
+                repeticiones: parseInt(repeticiones) || undefined,
+                fechaFin: fechaFin || undefined,
+                observacionesBase: obsBase,
+                requiereTrazabilidad: formData.get('requiereTrazabilidad') === 'on'
             })
             setIsSubmitting(false)
+            if (result?.error) {
+                alert(result.error)
+            } else {
+                const finca = fincas.find(f => f.id === selectedFinca)
+                setCreatedTask({
+                    id: 'plan',
+                    responsableId: selectedResponsable,
+                    tipo: `Plan Masivo (${result.count} tareas)`,
+                    fincaNombre: finca?.nombre || 'Finca'
+                })
+            }
+        } else {
+            // --- MODO SIMPLE ---
+            formData.set('observaciones', obsBase)
+            const result = await createTarea(formData)
+            if (result?.error) {
+                alert(result.error)
+                setIsSubmitting(false)
+            } else {
+                const finca = fincas.find(f => f.id === selectedFinca)
+                setCreatedTask({
+                    id: "new",
+                    responsableId: selectedResponsable,
+                    tipo: tiposActividad.find(t => t.id === selectedTipo)?.nombre || "Tarea",
+                    fincaNombre: finca?.nombre || "Finca"
+                })
+                setIsSubmitting(false)
+            }
         }
     }
 
@@ -281,16 +357,14 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                                     emptyText="No encontrado."
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="fechaProgramada">Fecha Programada</Label>
-                                <Input
-                                    id="fechaProgramada"
-                                    name="fechaProgramada"
-                                    type="date"
+                        <div className="space-y-2">
+                                <Label htmlFor="fechaProgramada">{modoMasivo ? 'Fecha de Inicio del Plan' : 'Fecha Programada'}</Label>
+                                <DatePicker
                                     value={fechaProgramada}
-                                    onChange={(e) => setFechaProgramada(e.target.value)}
-                                    required
+                                    onChange={setFechaProgramada}
+                                    placeholder="Seleccionar fecha"
                                 />
+                                <input type="hidden" name="fechaProgramada" value={fechaProgramada} />
                             </div>
                         </div>
 
@@ -367,9 +441,11 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                             <Button variant="outline" type="button" onClick={() => router.back()}>
                                 Cancelar
                             </Button>
-                            <Button type="submit" disabled={isSubmitting}>
+                            <Button type="submit" disabled={isSubmitting} className={modoMasivo ? 'bg-green-600 hover:bg-green-700' : ''}>
                                 {isSubmitting ? <Loader2 className="mr-2 w-4 h-4 animate-spin" /> : <Save className="mr-2 w-4 h-4" />}
-                                Guardar Tarea
+                                {modoMasivo
+                                    ? `Generar Plan (${modoFin === 'repeticiones' ? repeticiones + ' tareas' : 'por fechas'})`
+                                    : 'Guardar Tarea'}
                             </Button>
                         </div>
                     </form>

@@ -148,6 +148,123 @@ export async function createTarea(formData: FormData) {
     redirect('/tareas')
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CREACION MASIVA DE TAREAS (Plan de trabajo recurrente)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function createTareasMasivas(payload: {
+    fincaId: string
+    loteId: string | null
+    tipo: string
+    responsable: string
+    prioridad: string
+    fechaInicio: string        // ISO YYYY-MM-DD
+    periodicidadDias: number   // cada cuántos días
+    modoFin: 'repeticiones' | 'fechaFin'
+    repeticiones?: number
+    fechaFin?: string          // ISO YYYY-MM-DD
+    observacionesBase: string  // texto libre + detalle técnico concatenado
+    requiereTrazabilidad: boolean
+}) {
+    const {
+        fincaId, loteId, tipo, responsable, prioridad,
+        fechaInicio, periodicidadDias, modoFin, repeticiones, fechaFin,
+        observacionesBase, requiereTrazabilidad
+    } = payload
+
+    if (!fincaId || !tipo || !responsable || !fechaInicio || periodicidadDias < 1) {
+        return { error: 'Datos incompletos para la programación masiva.' }
+    }
+
+    const nivel: 'FINCA' | 'LOTE' = loteId ? 'LOTE' : 'FINCA'
+    const planId = `PLAN-${Date.now()}`  // ID de grupo único
+
+    // Calcular las fechas del plan
+    const fechas: Date[] = []
+    const startDate = new Date(fechaInicio + 'T12:00:00')
+
+    if (modoFin === 'repeticiones' && repeticiones && repeticiones > 0) {
+        for (let i = 0; i < repeticiones; i++) {
+            const d = new Date(startDate)
+            d.setDate(d.getDate() + i * periodicidadDias)
+            fechas.push(d)
+        }
+    } else if (modoFin === 'fechaFin' && fechaFin) {
+        const endDate = new Date(fechaFin + 'T12:00:00')
+        let current = new Date(startDate)
+        let safety = 0
+        while (current <= endDate && safety < 365) {
+            fechas.push(new Date(current))
+            current.setDate(current.getDate() + periodicidadDias)
+            safety++
+        }
+    } else {
+        return { error: 'Defina el número de repeticiones o la fecha de fin.' }
+    }
+
+    if (fechas.length === 0) {
+        return { error: 'No se generaron fechas con los parámetros indicados.' }
+    }
+    if (fechas.length > 100) {
+        return { error: `Se generarían ${fechas.length} tareas. Reduzca la periodicidad o el rango de fechas (máx 100).` }
+    }
+
+    try {
+        // Obtener el último código para continuar la secuencia
+        const lastTarea = await db.tarea.findFirst({ orderBy: { codigo: 'desc' } })
+        let nextId = 1
+        if (lastTarea?.codigo) {
+            const parts = lastTarea.codigo.split('-')
+            if (parts.length === 2) {
+                const seq = parseInt(parts[1])
+                if (!isNaN(seq)) nextId = seq + 1
+            }
+        }
+
+        // Crear todas las tareas en una transacción
+        await db.$transaction(
+            fechas.map((fecha, idx) => {
+                const codigo = `TAR-${(nextId + idx).toString().padStart(3, '0')}`
+                return db.tarea.create({
+                    data: {
+                        codigo,
+                        fincaId,
+                        nivel,
+                        loteId,
+                        fechaProgramada: fecha,
+                        tipo,
+                        responsable,
+                        prioridad: prioridad as any || 'MEDIA',
+                        estado: 'PROGRAMADA',
+                        observaciones: observacionesBase || null,
+                        requiereTrazabilidad,
+                        planId
+                    }
+                })
+            })
+        )
+
+        revalidatePath('/tareas')
+        return { success: true, count: fechas.length, planId }
+    } catch (error: any) {
+        console.error('Failed to create massive tareas:', error)
+        return { error: `Error al crear el plan: ${error.message}` }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ELIMINAR PLAN MASIVO (todas las tareas del mismo planId)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function deletePlanMasivo(planId: string) {
+    if (!planId) return { error: 'planId requerido' }
+    try {
+        const result = await db.tarea.deleteMany({ where: { planId } })
+        revalidatePath('/tareas')
+        return { success: true, deleted: result.count }
+    } catch (error: any) {
+        return { error: `Error al eliminar el plan: ${error.message}` }
+    }
+}
+
 // EXECUTE TASK ACTION
 export async function executeTarea(id: string, formData: FormData) {
     const estado = formData.get("estado") as any
