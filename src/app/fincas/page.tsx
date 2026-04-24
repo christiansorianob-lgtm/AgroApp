@@ -5,6 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getFincas } from "@/app/actions/fincas"
 import { Plus } from "lucide-react"
 
+export const dynamic = "force-dynamic"
+
 export default async function FincasPage() {
     const { data: fincas, error } = await getFincas()
 

@@ -4,7 +4,7 @@ import { db } from "@/lib/db"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
-export const revalidate = 0; // Ensure dynamic data fetching
+export const dynamic = "force-dynamic" // Ensure dynamic data fetching
 
 export default async function Home() {
   try {
