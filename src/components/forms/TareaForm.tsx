@@ -62,8 +62,16 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     // const initialLoteId = searchParams.get('loteId') || ""
 
     const searchParams = useSearchParams()
-    const initialFincaId = searchParams?.get('fincaId') || ""
     const initialLoteId = searchParams?.get('loteId') || ""
+    let initialFincaId = searchParams?.get('fincaId') || ""
+
+    // Si viene loteId pero no fincaId, deducir la finca a partir del lote
+    if (!initialFincaId && initialLoteId) {
+        const foundLote = lotes.find(l => l.id === initialLoteId)
+        if (foundLote) {
+            initialFincaId = foundLote.fincaId
+        }
+    }
 
     const [selectedFinca, setSelectedFinca] = useState<string>(initialFincaId)
     const [selectedLote, setSelectedLote] = useState<string>(initialLoteId)
