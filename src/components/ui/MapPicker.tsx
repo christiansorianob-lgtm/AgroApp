@@ -41,7 +41,7 @@ function LocationMarker({ position, setPosition, onLocationSelect, drawingMode, 
     return (
         <>
             {position && <Marker position={position} interactive={!drawingMode}></Marker>}
-            {polygonPoints.length > 0 && (
+            {polygonPoints.length >= 3 && (
                 <Polygon positions={polygonPoints} pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.2 }} />
             )}
             {/* Markers for polygon vertices */}
@@ -190,7 +190,7 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({
                     />
 
                     {/* Reference Polygon (Finca) */}
-                    {referencePolygon.length > 0 && (
+                    {Array.isArray(referencePolygon) && referencePolygon.length >= 3 && (
                         <Polygon
                             positions={referencePolygon}
                             pathOptions={{ color: 'yellow', fillColor: 'transparent', dashArray: '10, 10', weight: 2 }}
@@ -199,7 +199,9 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({
                     )}
 
                     {/* Other Lotes Polygons */}
-                    {otherPolygons.map((op) => (
+                    {otherPolygons
+                        .filter(op => Array.isArray(op.points) && op.points.length >= 3)
+                        .map((op) => (
                         <Polygon
                             key={op.id}
                             positions={op.points}
@@ -233,11 +235,12 @@ const MapPicker = forwardRef<MapPickerHandle, MapPickerProps>(({
                             ? '✅ Polígono guardado.'
                             : '👆 Haz clic en el mapa para ubicar el marcador principal.'}
                 </p>
-                {polygonPoints.length > 2 && (
-                    <span className="font-bold text-primary text-sm">
-                        Área: {(area(turf.polygon([[...polygonPoints, polygonPoints[0]].map(p => [p.lng, p.lat])])) / 10000).toFixed(2)} Ha
-                    </span>
-                )}
+                {polygonPoints.length > 2 && (() => {
+                    try {
+                        const areaHa = (area(turf.polygon([[...polygonPoints, polygonPoints[0]].map(p => [p.lng, p.lat])])) / 10000).toFixed(2)
+                        return <span className="font-bold text-primary text-sm">Área: {areaHa} Ha</span>
+                    } catch { return null }
+                })()}
             </div>
         </div>
     )

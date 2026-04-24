@@ -20,10 +20,12 @@ export function FincaMapViewer({ lat, lng, polygon, lotes = [] }: FincaMapViewer
         .filter(l => l.poligono)
         .map(l => {
             try {
+                const pts = typeof l.poligono === 'string' ? JSON.parse(l.poligono) : l.poligono
+                if (!Array.isArray(pts) || pts.length < 3) return null
                 return {
                     id: l.id,
                     name: l.nombre,
-                    points: typeof l.poligono === 'string' ? JSON.parse(l.poligono) : l.poligono
+                    points: pts
                 }
             } catch { return null }
         })
