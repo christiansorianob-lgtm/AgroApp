@@ -15,6 +15,7 @@ import { Combobox } from "@/components/ui/combobox"
 
 import { QuickCreateDialog } from "@/components/common/QuickCreateDialog"
 import { GoBackButton } from "@/components/ui/GoBackButton"
+import { DatePicker } from "@/components/ui/DatePicker"
 
 // Dynamic Map import
 const MapPicker = dynamic(() => import("@/components/ui/MapPicker"), {
@@ -44,10 +45,8 @@ function LoteForm() {
 
     // Date State
     const today = new Date()
-    const [dateDay, setDateDay] = useState(today.getDate().toString().padStart(2, '0'))
-    const [dateMonth, setDateMonth] = useState((today.getMonth() + 1).toString().padStart(2, '0'))
-    const [dateYear, setDateYear] = useState(today.getFullYear().toString())
-    const fechaSiembraValue = `${dateYear}-${dateMonth}-${dateDay}`
+    const todayISO = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+    const [fechaSiembra, setFechaSiembra] = useState(todayISO)
 
     // Map State
     const [showMap, setShowMap] = useState(false)
@@ -163,7 +162,7 @@ function LoteForm() {
                 areaHa: formData.get('areaHa'),
                 tipoCultivo: selectedTipo,
                 variedad: selectedVariedad,
-                fechaSiembra: fechaSiembraValue,
+                fechaSiembra: fechaSiembra,
                 latitud: lat,
                 longitud: lng,
                 poligono: JSON.stringify(polygonPoints),
@@ -436,49 +435,11 @@ function LoteForm() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Fecha de Siembra</Label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-muted-foreground text-center">Día</p>
-                                        <select
-                                            value={dateDay}
-                                            onChange={e => setDateDay(e.target.value)}
-                                            className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                                        >
-                                            {Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0')).map(d => (
-                                                <option key={d} value={d}>{d}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-muted-foreground text-center">Mes</p>
-                                        <select
-                                            value={dateMonth}
-                                            onChange={e => setDateMonth(e.target.value)}
-                                            className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                                        >
-                                            {[
-                                                ['01','Enero'],['02','Febrero'],['03','Marzo'],['04','Abril'],
-                                                ['05','Mayo'],['06','Junio'],['07','Julio'],['08','Agosto'],
-                                                ['09','Septiembre'],['10','Octubre'],['11','Noviembre'],['12','Diciembre']
-                                            ].map(([v, l]) => (
-                                                <option key={v} value={v}>{l}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-muted-foreground text-center">Año</p>
-                                        <select
-                                            value={dateYear}
-                                            onChange={e => setDateYear(e.target.value)}
-                                            className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                                        >
-                                            {Array.from({ length: 30 }, (_, i) => (2010 + i).toString()).map(y => (
-                                                <option key={y} value={y}>{y}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                <p className="text-xs text-muted-foreground">Fecha seleccionada: {dateDay}/{dateMonth}/{dateYear}</p>
+                                <DatePicker
+                                    value={fechaSiembra}
+                                    onChange={setFechaSiembra}
+                                    placeholder="Seleccione la fecha de siembra"
+                                />
                             </div>
                         </CardContent>
                     </Card>
