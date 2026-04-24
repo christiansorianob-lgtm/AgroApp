@@ -167,6 +167,22 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     const tipoOptions = tiposActividad.map(t => ({ value: t.id, label: t.nombre }))
     const responsableOptions = responsables.map(r => ({ value: r.id, label: r.nombre }))
 
+    // Detectar si el tipo seleccionado admite plan masivo
+    const tipoNombreSeleccionado = useMemo(() => 
+        tiposActividad.find(t => t.id === selectedTipo)?.nombre || ''
+    , [selectedTipo, tiposActividad])
+
+    const esFertilizacion = tipoNombreSeleccionado.toLowerCase().includes('fertiliz')
+
+    // Cuando cambia el tipo y ya no es fertilización, cerrar modo masivo
+    const handleTipoChange = (val: string) => {
+        setSelectedTipo(val)
+        const nombre = tiposActividad.find(t => t.id === val)?.nombre || ''
+        if (!nombre.toLowerCase().includes('fertiliz')) {
+            setModoMasivo(false)
+        }
+    }
+
     const prioridadOptions = [
         { value: "ALTA", label: "Alta" },
         { value: "MEDIA", label: "Media" },
@@ -351,11 +367,29 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                                 <Combobox
                                     options={tipoOptions}
                                     value={selectedTipo}
-                                    onSelect={setSelectedTipo}
+                                    onSelect={handleTipoChange}
                                     placeholder="Seleccione tipo..."
                                     searchPlaceholder="Buscar tipo..."
                                     emptyText="No encontrado."
                                 />
+
+                                {/* Botón contextual Plan de Fertilización */}
+                                {esFertilizacion && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setModoMasivo(m => !m)}
+                                        className={`mt-2 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-semibold transition-all ${
+                                            modoMasivo
+                                                ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-900/30'
+                                                : 'bg-green-50 dark:bg-green-950/30 border-green-500/60 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 hover:border-green-500'
+                                        }`}
+                                    >
+                                        <span className="text-base">📅</span>
+                                        {modoMasivo
+                                            ? '✔ Plan de Fertilización Activo — Click para desactivar'
+                                            : 'Plan de Fertilización (Programación Masiva)'}
+                                    </button>
+                                )}
                             </div>
                         <div className="space-y-2">
                                 <Label htmlFor="fechaProgramada">{modoMasivo ? 'Fecha de Inicio del Plan' : 'Fecha Programada'}</Label>
@@ -436,6 +470,135 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                                 Activa el rastreo continuo de ubicación durante la ejecución. Recomendado para campo.
                             </p>
                         </div>
+
+                        {/* ══════════════════════════════════════════════
+                           PANEL DE PLAN DE FERTILIZACIÓN (solo visible si modoMasivo)
+                           ══════════════════════════════════════════════ */}
+                        {modoMasivo && (
+                            <div className="rounded-xl border-2 border-green-500/40 bg-green-50/5 dark:bg-green-950/10 overflow-hidden">
+                                <div className="bg-green-600 px-4 py-2 flex items-center gap-2">
+                                    <span className="text-white font-bold text-sm">📅 Plan de Fertilización</span>
+                                    <span className="text-green-200 text-xs ml-auto">Configure la programación recurrente</span>
+                                </div>
+                                <div className="p-4 space-y-4">
+                                    {/* Periodicidad y Modo Fin */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Repetir cada (días)</Label>
+                                            <Input
+                                                type="number" min="1" max="365"
+                                                value={periodicidadDias}
+                                                onChange={e => setPeriodicidadDias(e.target.value)}
+                                                placeholder="Ej: 20"
+                                            />
+                                            <p className="text-xs text-muted-foreground">Intervalo en días entre cada aplicación</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Definir fin del plan por</Label>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setModoFin('repeticiones')}
+                                                    className={`flex-1 py-2 px-3 text-sm rounded-md border font-medium transition-colors ${
+                                                        modoFin === 'repeticiones'
+                                                            ? 'bg-green-600 text-white border-green-600'
+                                                            : 'bg-background border-input hover:bg-accent'
+                                                    }`}
+                                                >
+                                                    # Aplicaciones
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setModoFin('fechaFin')}
+                                                    className={`flex-1 py-2 px-3 text-sm rounded-md border font-medium transition-colors ${
+                                                        modoFin === 'fechaFin'
+                                                            ? 'bg-green-600 text-white border-green-600'
+                                                            : 'bg-background border-input hover:bg-accent'
+                                                    }`}
+                                                >
+                                                    Fecha Límite
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {modoFin === 'repeticiones' ? (
+                                        <div className="space-y-2">
+                                            <Label>Número de aplicaciones a generar</Label>
+                                            <Input
+                                                type="number" min="2" max="100"
+                                                value={repeticiones}
+                                                onChange={e => setRepeticiones(e.target.value)}
+                                                placeholder="Ej: 5"
+                                            />
+                                            <p className="text-xs text-muted-foreground">Se crearán {repeticiones} tareas iniciando desde la fecha de inicio del plan</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <Label>Generar aplicaciones hasta</Label>
+                                            <DatePicker
+                                                value={fechaFin}
+                                                onChange={setFechaFin}
+                                                placeholder="Seleccione fecha límite del plan"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Detalle Técnico */}
+                                    <div className="space-y-3 border-t border-green-500/20 pt-3">
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-green-600 dark:text-green-400">Detalle por Aplicación</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">Insumo / Producto</Label>
+                                                <Input value={insumo} onChange={e => setInsumo(e.target.value)} placeholder="Ej: DAP, Urea" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">Dosis</Label>
+                                                <Input value={dosis} onChange={e => setDosis(e.target.value)} placeholder="Ej: 2gr/mata" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">Método de Aplicación</Label>
+                                                <Input value={metodo} onChange={e => setMetodo(e.target.value)} placeholder="Ej: Manual, Fumigadora" />
+                                            </div>
+                                        </div>
+                                        {(insumo || dosis || metodo) && (
+                                            <div className="bg-muted/50 rounded p-2 text-xs font-mono text-muted-foreground border">
+                                                <span className="font-semibold text-green-600">Observaciones generadas: </span>
+                                                {[insumo && `[INSUMO: ${insumo}]`, dosis && `[DOSIS: ${dosis}]`, metodo && `[MÉTODO: ${metodo}]`].filter(Boolean).join(' | ')}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Preview de fechas */}
+                                    <div className="space-y-2 border-t border-green-500/20 pt-3">
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-green-600 dark:text-green-400">Vista Previa del Calendario</p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPreviewFechas(calcPreview())}
+                                                className="text-xs bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700 font-medium transition-colors"
+                                            >
+                                                📊 Calcular fechas
+                                            </button>
+                                        </div>
+                                        {previewFechas.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                                                {previewFechas.map((f, i) => (
+                                                    <span key={i} className="text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-300/50 px-2 py-0.5 rounded-full">
+                                                        #{i + 1} {f}
+                                                    </span>
+                                                ))}
+                                                {(modoFin === 'repeticiones' && parseInt(repeticiones) > 20) && (
+                                                    <span className="text-xs text-muted-foreground px-2 py-0.5">...y {parseInt(repeticiones) - 20} más</span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground italic">Presione "Calcular fechas" para previsualizar el plan</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="pt-4 flex justify-end gap-3">
                             <Button variant="outline" type="button" onClick={() => router.back()}>
