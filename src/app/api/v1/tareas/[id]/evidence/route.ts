@@ -1,7 +1,5 @@
 import { db } from "@/lib/db"
 import { NextResponse } from "next/server"
-import { writeFile, mkdir } from "fs/promises"
-import path from "path"
 
 export async function POST(
     request: Request,
@@ -16,21 +14,9 @@ export async function POST(
             return NextResponse.json({ error: "Missing task ID or file" }, { status: 400 })
         }
 
-        // 1. Save File to Disk
+        // 1. Convert File to Base64
         const buffer = Buffer.from(await file.arrayBuffer())
-        const fileName = `evidence_${id}_${Date.now()}_${file.name.replace(/\s/g, '_')}`
-        const uploadDir = path.join(process.cwd(), "public", "uploads", "tareas")
-
-        try {
-            await mkdir(uploadDir, { recursive: true })
-        } catch (e) {
-            // Ignore if exists
-        }
-
-        const filePath = path.join(uploadDir, fileName)
-        await writeFile(filePath, buffer)
-
-        const fileUrl = `/uploads/tareas/${fileName}`
+        const fileUrl = `data:${file.type};base64,${buffer.toString('base64')}`
 
         // 2. Update Task in DB (Append URL)
         // We need to read first to append, as Prisma basic update doesn't support append easily for strings in all DBs
