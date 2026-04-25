@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Save, Loader2, Plus, Trash2, Settings } from "lucide-react"
+import { Save, Loader2, Plus, Trash2, Settings, Calendar } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Combobox } from "@/components/ui/combobox"
 import { ProductCreationDialog } from "./ProductCreationDialog"
@@ -128,11 +128,23 @@ export function ExecutionForm({ tarea, productos, maquinaria }: ExecutionFormPro
                         </div>
                         <div className="space-y-2">
                             <Label>Fecha de Ejecución</Label>
-                            <Input
-                                type="date"
-                                value={executionDate}
-                                onChange={(e) => setExecutionDate(e.target.value)}
-                            />
+                            <div className="relative">
+                                <Input
+                                    type="date"
+                                    value={executionDate}
+                                    onChange={(e) => setExecutionDate(e.target.value)}
+                                    onClick={(e) => {
+                                        try {
+                                            if ('showPicker' in HTMLInputElement.prototype) {
+                                                (e.target as HTMLInputElement).showPicker();
+                                            }
+                                        } catch (err) {}
+                                    }}
+                                    className="pl-10 cursor-pointer"
+                                />
+                                <Calendar className="w-4 h-4 absolute left-3 top-3 text-primary pointer-events-none" />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">Clic en cualquier parte del campo para abrir el calendario.</p>
                         </div>
                     </div>
 

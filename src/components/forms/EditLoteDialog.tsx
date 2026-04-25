@@ -7,7 +7,7 @@ import { updateLote } from "@/app/actions/lotes"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Map as MapIcon, RotateCcw, Trash2, Save, Loader2 } from "lucide-react"
+import { Map as MapIcon, RotateCcw, Trash2, Save, Loader2, Calendar } from "lucide-react"
 import dynamic from "next/dynamic"
 import { Combobox } from "@/components/ui/combobox"
 import {
@@ -276,7 +276,22 @@ export function EditLoteDialog({ lote, open, onOpenChange, onSuccess }: EditLote
                             </div>
                             <div className="space-y-2">
                                 <Label>Fecha Siembra/Inicio</Label>
-                                <Input type="date" value={fechaSiembra} onChange={e => setFechaSiembra(e.target.value)} />
+                                <div className="relative">
+                                    <Input
+                                        type="date"
+                                        value={fechaSiembra}
+                                        onChange={e => setFechaSiembra(e.target.value)}
+                                        onClick={(e) => {
+                                            try {
+                                                if ('showPicker' in HTMLInputElement.prototype) {
+                                                    (e.target as HTMLInputElement).showPicker();
+                                                }
+                                            } catch (err) {}
+                                        }}
+                                        className="pl-10 cursor-pointer"
+                                    />
+                                    <Calendar className="w-4 h-4 absolute left-3 top-3 text-primary pointer-events-none" />
+                                </div>
                             </div>
                         </div>
 
