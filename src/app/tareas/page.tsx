@@ -6,6 +6,15 @@ import { getTareas } from "@/app/actions/tareas"
 import { Plus } from "lucide-react"
 import { BackButton } from "@/components/common/BackButton"
 
+function formatCustomDate(dateString: string | Date) {
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = date.toLocaleString('es-ES', { month: 'long' });
+    const capitalizedMonth = month.charAt(0).toUpperCase() + month.slice(1);
+    const year = date.getFullYear();
+    return `${day}/${capitalizedMonth}/${year}`;
+}
+
 export default async function TareasPage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
     const searchParams = await props.searchParams
     const fincaId = searchParams.fincaId as string | undefined
@@ -140,7 +149,7 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
                                 tareas?.map((tarea) => (
                                     <TableRow key={tarea.id}>
                                         <TableCell className="font-medium">
-                                            {new Date(tarea.fechaProgramada).toLocaleDateString()}
+                                            {formatCustomDate(tarea.fechaProgramada)}
                                         </TableCell>
                                         <TableCell>
                                             <div className="font-medium">{tarea.tipo}</div>
