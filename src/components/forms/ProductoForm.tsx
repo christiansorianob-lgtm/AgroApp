@@ -198,6 +198,17 @@ export function ProductoForm({ nombres, categorias: initialCategorias, unidades:
                             </div>
                         </div>
 
+                        <div className="space-y-2">
+                            <Label>Registro Fotográfico</Label>
+                            <Input
+                                type="file"
+                                name="fotos"
+                                accept="image/*"
+                                multiple
+                            />
+                            <p className="text-[10px] text-muted-foreground">Puede seleccionar varias imágenes.</p>
+                        </div>
+
                         <div className="pt-4 flex justify-end gap-3">
                             <Button variant="outline" type="button" asChild>
                                 <Link href="/almacen">Cancelar</Link>
