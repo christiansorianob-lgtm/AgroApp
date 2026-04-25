@@ -131,10 +131,10 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
                                 </TableHead>
                                 <TableHead>Tarea</TableHead>
                                 <TableHead>Ubicación</TableHead>
-                                <TableHead>Nivel</TableHead>
                                 <TableHead>Responsable</TableHead>
                                 <TableHead>Estado</TableHead>
                                 <TableHead>Prioridad</TableHead>
+                                <TableHead>Observaciones</TableHead>
                                 <TableHead>Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -159,7 +159,6 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
                                             {tarea.finca.nombre}
                                             {tarea.lote && <span className="text-muted-foreground"> / {tarea.lote.nombre}</span>}
                                         </TableCell>
-                                        <TableCell>{tarea.nivel}</TableCell>
                                         <TableCell>{tarea.responsable}</TableCell>
                                         <TableCell>
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${tarea.estado === 'PROGRAMADA' ? 'bg-blue-100 text-blue-800' :
@@ -177,6 +176,9 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
                                                 }`}>
                                                 {tarea.prioridad}
                                             </span>
+                                        </TableCell>
+                                        <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground" title={tarea.observaciones || "Sin observaciones"}>
+                                            {tarea.observaciones || "-"}
                                         </TableCell>
                                         <TableCell>
                                             <Button variant="outline" size="sm" asChild>
