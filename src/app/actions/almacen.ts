@@ -3,6 +3,8 @@
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { writeFile, mkdir } from "fs/promises"
+import path from "path"
 
 export async function getProductos(fincaId?: string) {
     try {
@@ -38,6 +40,26 @@ export async function createProducto(formData: FormData) {
     if (!unidadMedida) return { error: "Debe seleccionar una Unidad de Medida." }
 
     try {
+        // Handle images
+        const fotos = formData.getAll("fotos") as File[]
+        const uploadedUrls: string[] = []
+
+        for (const file of fotos) {
+            if (file && file.size > 0) {
+                const buffer = Buffer.from(await file.arrayBuffer())
+                const fileName = `prod_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`
+                const uploadDir = path.join(process.cwd(), "public", "uploads", "productos")
+                
+                try { await mkdir(uploadDir, { recursive: true }) } catch (e) {}
+                
+                const filePath = path.join(uploadDir, fileName)
+                await writeFile(filePath, buffer)
+                uploadedUrls.push(`/uploads/productos/${fileName}`)
+            }
+        }
+        
+        const imagenesStr = uploadedUrls.length > 0 ? uploadedUrls.join('\n') : null
+
         // Auto-generate code PER FINCA if possible, or global uniqueness?
         // Schema has @@unique([fincaId, codigo]).
         // We need to count products IN THIS FINCA to generate consecutive code.
@@ -51,7 +73,8 @@ export async function createProducto(formData: FormData) {
                 categoria,
                 unidadMedida,
                 stockActual,
-                fincaId
+                fincaId,
+                imagenes: imagenesStr
             }
         })
 

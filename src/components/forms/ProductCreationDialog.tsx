@@ -41,6 +41,7 @@ export function ProductCreationDialog({ onProductCreated, defaultFincaId }: { on
     const [nombre, setNombre] = useState("")
     const [unidadMedida, setUnidadMedida] = useState("")
     const [cantidad, setCantidad] = useState("")
+    const [fotos, setFotos] = useState<File[]>([])
     const [error, setError] = useState("")
 
     useEffect(() => {
@@ -90,6 +91,7 @@ export function ProductCreationDialog({ onProductCreated, defaultFincaId }: { on
         formData.append("unidadMedida", unidadMedida)
         formData.append("cantidad", cantidad)
         formData.append("disable_redirect", "true")
+        fotos.forEach(foto => formData.append("fotos", foto))
 
         const res = await createProducto(formData)
 
@@ -104,6 +106,7 @@ export function ProductCreationDialog({ onProductCreated, defaultFincaId }: { on
             // Reset
             setNombre("")
             setCantidad("")
+            setFotos([])
         }
         setIsSubmitting(false)
     }
@@ -183,6 +186,21 @@ export function ProductCreationDialog({ onProductCreated, defaultFincaId }: { on
                                     placeholder="Und..."
                                 />
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Registro Fotográfico</Label>
+                            <Input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => {
+                                    if (e.target.files) {
+                                        setFotos(Array.from(e.target.files))
+                                    }
+                                }}
+                            />
+                            <p className="text-[10px] text-muted-foreground">Puede seleccionar varias imágenes.</p>
                         </div>
 
                         <div className="flex justify-end gap-2 mt-4">
