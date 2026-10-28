@@ -63,7 +63,6 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
     const [tipos, setTipos] = useState(tiposIniciales)
     const [fincaId, setFincaId] = useState(lote?.fincaId ?? fincaIdInicial ?? "")
     const [form, setForm] = useState({
-        codigo: lote?.codigo ?? "",
         nombre: lote?.nombre ?? "",
         areaHa: lote ? String(lote.areaHa) : "",
         tipoCultivo: lote?.tipoCultivo ?? "",
@@ -127,7 +126,6 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
         const areaTxt = form.areaHa.trim().replace(",", ".")
         const payload: LoteInput = {
             fincaId,
-            codigo: form.codigo || null,
             nombre: form.nombre,
             areaHa: areaTxt ? Number(areaTxt) : null,
             tipoCultivo: form.tipoCultivo,
@@ -170,14 +168,17 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="codigo">Código</Label>
-                            <Input id="codigo" value={form.codigo} onChange={e => set("codigo")(e.target.value)} placeholder={fincaId ? siguienteCodigo : "L-01"} />
+                            <Input id="codigo" value={editando ? lote!.codigo : fincaId ? siguienteCodigo : "—"} disabled readOnly
+                                className="bg-muted/60 font-mono" title="Se asigna automáticamente" />
                         </div>
                         <div className="space-y-2 sm:col-span-2">
                             <Label htmlFor="nombre">Nombre del lote *</Label>
                             <Input id="nombre" value={form.nombre} onChange={e => set("nombre")(e.target.value)} placeholder="Ej: Lote El Palmar" required />
                         </div>
                     </div>
-                    {!editando && <p className="text-xs text-muted-foreground">Si deja el código vacío se asigna automáticamente ({fincaId ? siguienteCodigo : "L-01"}).</p>}
+                    <p className="text-xs text-muted-foreground">
+                        {editando ? "El código del lote no se puede modificar." : "El código se asigna automáticamente al guardar, en orden dentro de la finca."}
+                    </p>
                 </FormSection>
 
                 <FormSection title="Cultivo" description="Especie, material genético y fecha de siembra.">
@@ -229,7 +230,7 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
                         <BoundaryField
                             value={lindero}
                             onChange={v => { setLindero(v); setLinderoTocado(true) }}
-                            titulo={`Lindero del lote ${form.nombre || form.codigo || siguienteCodigo}`}
+                            titulo={`Lindero del lote ${form.nombre || (editando ? lote!.codigo : siguienteCodigo)}`}
                             subtitulo={finca ? `Finca ${finca.nombre}` : undefined}
                             storageKey={`agroapp:recorrido:lote:${lote?.id ?? `nuevo-${fincaId}`}`}
                             contexto={contexto}

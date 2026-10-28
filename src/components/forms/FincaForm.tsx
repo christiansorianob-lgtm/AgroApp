@@ -41,7 +41,7 @@ export interface FincaFormData {
 
 const toISODate = (d: Date | string) => new Date(d).toISOString().slice(0, 10)
 
-export function FincaForm({ finca }: { finca?: FincaFormData }) {
+export function FincaForm({ finca, siguienteCodigo }: { finca?: FincaFormData; siguienteCodigo?: string }) {
     const router = useRouter()
     const editando = !!finca
     const returnTo = rutaSegura(useSearchParams()?.get("returnTo"))
@@ -168,11 +168,21 @@ export function FincaForm({ finca }: { finca?: FincaFormData }) {
 
             <div className="rounded-xl border border-border bg-card px-5 shadow-sm md:px-8">
                 <FormSection title="Información general" description="Datos de identificación de la unidad productiva.">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2 sm:col-span-2">
+                    <div className="grid gap-4 sm:grid-cols-[140px_1fr]">
+                        <div className="space-y-2">
+                            <Label htmlFor="codigo">Código</Label>
+                            <Input id="codigo" value={finca?.codigo ?? siguienteCodigo ?? "FIN-…"} disabled readOnly
+                                className="bg-muted/60 font-mono" title="Se asigna automáticamente" />
+                        </div>
+                        <div className="space-y-2">
                             <Label htmlFor="nombre">Nombre de la finca *</Label>
                             <Input id="nombre" value={form.nombre} onChange={e => set("nombre")(e.target.value)} placeholder="Ej: Hacienda La Esperanza" required />
                         </div>
+                        <p className="-mt-2 text-xs text-muted-foreground sm:col-span-2">
+                            {editando ? "El código de la finca no se puede modificar." : "El código se asigna automáticamente al guardar."}
+                        </p>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                             <Label htmlFor="responsable">Responsable / administrador *</Label>
                             <Input id="responsable" value={form.responsable} onChange={e => set("responsable")(e.target.value)} placeholder="Nombre completo" required />

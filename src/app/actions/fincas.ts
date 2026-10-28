@@ -53,7 +53,7 @@ function validate(input: FincaInput): string | null {
     return null
 }
 
-async function nextFincaCode() {
+export async function nextFincaCode() {
     const codes = await db.finca.findMany({ select: { codigo: true } })
     const max = codes.reduce((n, { codigo }) => {
         const num = parseInt(codigo.replace(/^FIN-/, ""), 10)

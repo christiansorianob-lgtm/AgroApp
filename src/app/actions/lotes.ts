@@ -9,8 +9,6 @@ import { revalidatePath } from "next/cache"
 export interface LoteInput {
     fincaId: string
     nombre: string
-    /** Si se omite al crear se genera L-01, L-02… dentro de la finca */
-    codigo?: string | null
     /** Área productiva registrada. Si se omite se usa el área medida del lindero. */
     areaHa?: number | null
     tipoCultivo: string
@@ -94,7 +92,7 @@ export async function createLote(input: LoteInput): Promise<{ data?: { id: strin
         const lote = await db.lote.create({
             data: {
                 fincaId: input.fincaId,
-                codigo: input.codigo?.trim() || await nextLoteCode(input.fincaId),
+                codigo: await nextLoteCode(input.fincaId), // siempre automático, no editable
                 nombre: input.nombre.trim(),
                 areaHa,
                 tipoCultivo: input.tipoCultivo,
@@ -132,7 +130,6 @@ export async function updateLote(id: string, input: LoteInput): Promise<{ succes
             where: { id },
             data: {
                 nombre: input.nombre.trim(),
-                codigo: input.codigo?.trim() || undefined,
                 areaHa: input.areaHa ?? (geo as any).areaMedidaHa ?? current.areaHa,
                 tipoCultivo: input.tipoCultivo,
                 variedad: input.variedad || null,
