@@ -45,7 +45,7 @@ export function MarcasMaquinariaClient({ initialData }: { initialData: any[] }) 
             <div className="flex items-center gap-4 mb-6">
                 <BackButton fallback="/maquinaria/new" />
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-primary">Marcas de Maquinaria</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Marcas de Maquinaria</h1>
                     <p className="text-muted-foreground">Marcas y fabricantes</p>
                 </div>
             </div>

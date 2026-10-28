@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
 import { createProducto } from "@/app/actions/almacen"
 // Server actions for refreshing lists
-import { getCategoriasProducto, getUnidadesMedida, createCategoriaProducto, createUnidadMedida } from "@/app/actions/configuracion"
+import { getCategoriasProducto, getUnidadesMedida, createCategoriaProducto, createUnidadMedida, getNombresProducto, createNombreProducto } from "@/app/actions/configuracion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -20,10 +20,11 @@ interface ProductoFormProps {
     fincas: any[]
 }
 
-export function ProductoForm({ nombres, categorias: initialCategorias, unidades: initialUnidades, fincas }: ProductoFormProps) {
+export function ProductoForm({ nombres: initialNombres, categorias: initialCategorias, unidades: initialUnidades, fincas }: ProductoFormProps) {
     // Local state for dynamic lists
     const [categorias, setCategorias] = useState(initialCategorias)
     const [unidades, setUnidades] = useState(initialUnidades)
+    const [nombres, setNombres] = useState(initialNombres)
 
     // Form States
     const [selectedFinca, setSelectedFinca] = useState("")
@@ -34,7 +35,6 @@ export function ProductoForm({ nombres, categorias: initialCategorias, unidades:
     // UI States
     const [isSubmitting, setIsSubmitting] = useState(false)
 
-    // Data Refresh Handlers
     const refreshCategorias = async () => {
         const res = await getCategoriasProducto()
         if (res.data) setCategorias(res.data)
@@ -43,6 +43,11 @@ export function ProductoForm({ nombres, categorias: initialCategorias, unidades:
     const refreshUnidades = async () => {
         const res = await getUnidadesMedida()
         if (res.data) setUnidades(res.data)
+    }
+
+    const refreshNombres = async () => {
+        const res = await getNombresProducto()
+        if (res.data) setNombres(res.data)
     }
 
     // Transform data for Combobox
@@ -87,7 +92,7 @@ export function ProductoForm({ nombres, categorias: initialCategorias, unidades:
                     </Link>
                 </Button>
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-primary">Nuevo Producto</h2>
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Nuevo Producto</h2>
                     <p className="text-muted-foreground">Registrar entrada en almacén</p>
                 </div>
             </div>
@@ -155,7 +160,22 @@ export function ProductoForm({ nombres, categorias: initialCategorias, unidades:
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* NOMBRE COMERCIAL - Dependent */}
                             <div className="space-y-2">
-                                <Label>Nombre Comercial</Label>
+                                <div className="flex justify-between items-center">
+                                    <Label>Nombre Comercial</Label>
+                                    {selectedCategoria && (
+                                        <QuickCreateDialog
+                                            triggerLabel="Administrar"
+                                            title="Nuevo Producto"
+                                            description={`Agregue un nuevo producto a la categoría ${selectedCategoria}.`}
+                                            placeholder="Ej: Triple 15"
+                                            action={async (nombre) => {
+                                                const catObj = categorias.find((c: any) => c.nombre === selectedCategoria);
+                                                return await createNombreProducto(nombre, catObj?.id);
+                                            }}
+                                            onSuccess={refreshNombres}
+                                        />
+                                    )}
+                                </div>
                                 <Combobox
                                     options={nombreOptions}
                                     value={selectedNombre}

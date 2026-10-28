@@ -98,7 +98,7 @@ export function MachineryCreationDialog({ onMachineCreated, defaultFincaId }: { 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 text-xs text-primary hover:underline px-2">
+                <Button type="button" variant="ghost" size="sm" className="h-6 text-xs text-primary hover:underline px-2">
                     <Plus className="w-3 h-3 mr-1" /> Crear Nueva
                 </Button>
             </DialogTrigger>

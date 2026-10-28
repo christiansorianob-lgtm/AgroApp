@@ -9,3 +9,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 node_modules
+*.log
+.env*.local
+
+# Variables descargadas de Vercel (credenciales)
+.env.vercel
+.env.*.vercel
+
+# Configuración local de Claude Code
+.claude/

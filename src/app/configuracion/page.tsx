@@ -65,7 +65,7 @@ export default function ConfiguracionPage() {
         <div className="p-6 max-w-6xl mx-auto space-y-6">
             <div className="flex items-center gap-4 mb-6">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-primary">Configuración</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Configuración</h1>
                     <p className="text-muted-foreground">Administración de catálogos del sistema</p>
                 </div>
             </div>

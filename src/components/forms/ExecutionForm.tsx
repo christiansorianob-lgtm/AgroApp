@@ -15,14 +15,23 @@ import { useRouter } from "next/navigation"
 import { Combobox } from "@/components/ui/combobox"
 import { ProductCreationDialog } from "./ProductCreationDialog"
 import { MachineryCreationDialog } from "./MachineryCreationDialog"
+import { DatePicker } from "@/components/ui/DatePicker"
 
 interface ExecutionFormProps {
     tarea: any
     productos: any[]
     maquinaria: any[]
+    returnTo?: string
 }
 
-export function ExecutionForm({ tarea, productos, maquinaria }: ExecutionFormProps) {
+const statusColors: Record<string, string> = {
+    PROGRAMADA: "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-400",
+    EN_PROCESO: "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-400",
+    EJECUTADA: "bg-green-50 border-green-200 text-green-700 dark:bg-green-950/30 dark:border-green-900 dark:text-green-400",
+    CANCELADA: "bg-red-50 border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400",
+}
+
+export function ExecutionForm({ tarea, productos, maquinaria, returnTo }: ExecutionFormProps) {
     const router = useRouter()
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [estado, setEstado] = useState(tarea.estado)
@@ -86,6 +95,9 @@ export function ExecutionForm({ tarea, productos, maquinaria }: ExecutionFormPro
         formData.append("fechaEjecucion", new Date(executionDate).toISOString())
         formData.append("consumos", JSON.stringify(validConsumos))
         formData.append("maquinaria", JSON.stringify(validMaquinaria))
+        if (returnTo) {
+            formData.append("returnTo", returnTo)
+        }
 
         if (files) {
             for (let i = 0; i < files.length; i++) {
@@ -113,37 +125,25 @@ export function ExecutionForm({ tarea, productos, maquinaria }: ExecutionFormPro
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label>Estado Actual</Label>
+                            <Label className="font-semibold">Estado de la Tarea</Label>
                             <Select value={estado} onValueChange={(val: any) => setEstado(val)}>
-                                <SelectTrigger>
+                                <SelectTrigger className={`font-bold border-2 transition-colors ${statusColors[estado] || ""}`}>
                                     <SelectValue placeholder="Estado" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="PROGRAMADA">Programada</SelectItem>
-                                    <SelectItem value="EN_PROCESO">En Proceso</SelectItem>
-                                    <SelectItem value="EJECUTADA">Ejecutada (Finalizada)</SelectItem>
-                                    <SelectItem value="CANCELADA">Cancelada</SelectItem>
+                                    <SelectItem value="PROGRAMADA" className="text-amber-700 font-medium">Programada</SelectItem>
+                                    <SelectItem value="EN_PROCESO" className="text-blue-700 font-medium">En Proceso</SelectItem>
+                                    <SelectItem value="EJECUTADA" className="text-green-700 font-medium">Ejecutada (Finalizada)</SelectItem>
+                                    <SelectItem value="CANCELADA" className="text-red-700 font-medium">Cancelada</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">
                             <Label>Fecha de Ejecución</Label>
-                            <div className="relative">
-                                <Input
-                                    type="date"
-                                    value={executionDate}
-                                    onChange={(e) => setExecutionDate(e.target.value)}
-                                    onClick={(e) => {
-                                        try {
-                                            if ('showPicker' in HTMLInputElement.prototype) {
-                                                (e.target as HTMLInputElement).showPicker();
-                                            }
-                                        } catch (err) {}
-                                    }}
-                                    className="pl-10 cursor-pointer"
-                                />
-                                <Calendar className="w-4 h-4 absolute left-3 top-3 text-primary pointer-events-none" />
-                            </div>
+                            <DatePicker
+                                value={executionDate}
+                                onChange={setExecutionDate}
+                            />
                             <p className="text-[10px] text-muted-foreground">Clic en cualquier parte del campo para abrir el calendario.</p>
                         </div>
                     </div>

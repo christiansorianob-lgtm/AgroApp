@@ -44,7 +44,7 @@ export function UnidadesMedidaClient({ initialData }: { initialData: any[] }) {
             <div className="flex items-center gap-4 mb-6">
                 <BackButton fallback="/configuracion" />
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-primary">Unidades de Medida</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Unidades de Medida</h1>
                     <p className="text-muted-foreground">Catálogo de unidades de medida</p>
                 </div>
             </div>

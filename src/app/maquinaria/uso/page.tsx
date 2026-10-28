@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getUsoMaquinaria } from "@/app/actions/maquinaria"
 import { Plus, ArrowLeft } from "lucide-react"
+import { formatDate } from "@/lib/utils"
 
 export default async function UsoMaquinariaPage() {
     const { data: usos, error } = await getUsoMaquinaria()
@@ -17,7 +18,7 @@ export default async function UsoMaquinariaPage() {
                     </Link>
                 </Button>
                 <div className="flex-1">
-                    <h2 className="text-3xl font-bold tracking-tight text-primary">Historial de Uso</h2>
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Historial de Uso</h2>
                     <p className="text-muted-foreground">Registro operativo de maquinaria</p>
                 </div>
                 <Button asChild>
@@ -55,7 +56,7 @@ export default async function UsoMaquinariaPage() {
                             ) : (
                                 usos?.map((uso) => (
                                     <TableRow key={uso.id}>
-                                        <TableCell className="font-medium">{new Date(uso.fechaInicio).toLocaleDateString()}</TableCell>
+                                        <TableCell className="font-medium">{formatDate(uso.fechaInicio)}</TableCell>
                                         <TableCell>
                                             <div>{uso.maquina.tipo.nombre}</div>
                                             <div className="text-xs text-muted-foreground">{uso.maquina.codigo}</div>

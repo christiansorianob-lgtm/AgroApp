@@ -28,37 +28,49 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-muted: hsl(var(--sidebar-muted));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-border: hsl(var(--sidebar-border));
 }
 
 :root {
-  /* KGB Taller / Enterprise Blue Palette */
-  --background: 222 47% 11%;
-  --foreground: 210 40% 98%;
+  /* AgroApp: neutros cálidos con verde palma. Tema claro para leer bien bajo el sol. */
+  --background: 60 10% 97%;
+  --foreground: 160 18% 11%;
 
-  --card: 217 33% 17%;
-  --card-foreground: 210 40% 98%;
+  --card: 0 0% 100%;
+  --card-foreground: 160 18% 11%;
 
-  --popover: 222 47% 11%;
-  --popover-foreground: 210 40% 98%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 160 18% 11%;
 
-  --primary: 217 91% 60%;
-  --primary-foreground: 222 47% 11%;
+  --primary: 154 62% 29%;
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 150 18% 93%;
+  --secondary-foreground: 155 40% 18%;
 
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20.2% 65.1%;
+  --muted: 60 8% 94%;
+  --muted-foreground: 160 6% 38%;
 
-  --accent: 217 33% 17%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 150 24% 93%;
+  --accent-foreground: 155 48% 20%;
 
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 72% 46%;
+  --destructive-foreground: 0 0% 100%;
 
-  --border: 217 33% 17%;
-  --input: 217 33% 17%;
-  --ring: 224.3 76.3% 48%;
+  --border: 60 7% 88%;
+  --input: 60 6% 84%;
+  --ring: 154 62% 34%;
+
+  --sidebar: 160 32% 11%;
+  --sidebar-foreground: 150 20% 92%;
+  --sidebar-muted: 152 12% 62%;
+  --sidebar-accent: 156 30% 18%;
+  --sidebar-border: 158 22% 17%;
 }
 
 @layer base {
@@ -67,25 +79,97 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
 }
 
-/* Scrollbar Customization */
+/* Barras de desplazamiento */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--background));
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground));
-  border-radius: 4px;
+  background: hsl(var(--border));
+  border-radius: 999px;
+  border: 2px solid hsl(var(--background));
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary));
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* ── Mapas (Leaflet) ───────────────────────────────────────────────────── */
+.leaflet-container {
+  font-family: inherit;
+  background: #1f2a24;
+}
+
+.leaflet-control-layers,
+.leaflet-bar {
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25), 0 4px 12px rgb(0 0 0 / 0.12) !important;
+}
+
+.leaflet-control-layers-expanded {
+  padding: 8px 12px !important;
+  font-size: 13px;
+}
+
+/* Etiquetas permanentes de lotes sobre el satélite */
+.leaflet-tooltip.map-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9), 0 0 6px rgb(0 0 0 / 0.6);
+  white-space: nowrap;
+}
+
+.leaflet-tooltip.map-label::before {
+  display: none;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 10px;
+}
+
+.map-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  min-width: 140px;
+}
+
+.map-popup span {
+  color: #57606a;
+  font-size: 12px;
+}
+
+.map-popup a {
+  margin-top: 4px;
+  color: hsl(var(--primary));
+  font-weight: 600;
+}
+
+/* Vértices de Geoman más visibles y fáciles de tocar en pantalla táctil */
+.marker-icon {
+  border-color: #0891b2 !important;
+}
+
+@media (pointer: coarse) {
+  .marker-icon {
+    width: 20px !important;
+    height: 20px !important;
+    margin-left: -10px !important;
+    margin-top: -10px !important;
+  }
 }

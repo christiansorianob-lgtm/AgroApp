@@ -21,9 +21,18 @@ model Finca {
   areaTotalHa     Float
   latitud         Float?
   longitud        Float?
-  poligono        Json?    // Array of {lat, lng} for boundaries
+  poligono        Json?    // OBSOLETO: reemplazado por `geometria`. Se eliminará cuando el despliegue no lo lea.
+  // Georreferenciación (GeoJSON WGS84, coordenadas [lng, lat])
+  geometria                Json?     // GeoJSON Polygon | MultiPolygon del lindero
+  areaMedidaHa             Float?    // Área calculada a partir de la geometría
+  perimetroM               Float?    // Perímetro calculado (metros)
+  metodoGeorreferenciacion MetodoGeorreferenciacion?
+  precisionM               Float?    // Precisión GPS promedio (m) cuando se levantó caminando
+  georreferenciadoEn       DateTime?
   estado          EstadoFinca @default(ACTIVO)
   observaciones   String?  @db.Text
+  logo            String?  // URL of the finca logo
+  fotos           String?  @db.Text // JSON array of photo URLs
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -34,6 +43,7 @@ model Finca {
   movimientosInventario MovimientoInventario[]
   maquinarias     Maquinaria[]
   productos       Producto[]
+  levantamientos  LevantamientoLindero[]
 }
 
 enum EstadoFinca {
@@ -56,7 +66,14 @@ model Lote {
   areaHa          Float // Redundant if calculated from polygon, but kept for cache/manual entry
   latitud         Float?
   longitud        Float?
-  poligono        Json?    // Array of {lat, lng} for boundaries
+  poligono        Json?    // OBSOLETO: reemplazado por `geometria`. Se eliminará cuando el despliegue no lo lea.
+  // Georreferenciación (GeoJSON WGS84, coordenadas [lng, lat])
+  geometria                Json?     // GeoJSON Polygon | MultiPolygon del lindero
+  areaMedidaHa             Float?    // Área calculada a partir de la geometría
+  perimetroM               Float?    // Perímetro calculado (metros)
+  metodoGeorreferenciacion MetodoGeorreferenciacion?
+  precisionM               Float?    // Precisión GPS promedio (m) cuando se levantó caminando
+  georreferenciadoEn       DateTime?
   estado          EstadoLote @default(ACTIVO)
   observaciones   String?  @db.Text
   createdAt       DateTime @default(now())
@@ -68,8 +85,38 @@ model Lote {
   tareas          Tarea[]
   usosMaquinaria  UsoMaquinaria[]
   movimientosInventario MovimientoInventario[]
+  levantamientos  LevantamientoLindero[]
 
   @@unique([fincaId, codigo]) // Codigo unico por finca
+}
+
+enum MetodoGeorreferenciacion {
+  DIBUJO_MAPA         // Vértices dibujados sobre imagen satelital
+  IMPORTACION_ARCHIVO // GeoJSON / KML / GPX / coordenadas pegadas
+  RECORRIDO_GPS       // Levantamiento caminando el lindero
+}
+
+// Historial de linderos: cada vez que cambia la geometría de una finca o lote
+// se guarda un levantamiento, para auditar quién, cómo y con qué precisión se midió.
+model LevantamientoLindero {
+  id            String   @id @default(uuid())
+  fincaId       String?
+  loteId        String?
+  metodo        MetodoGeorreferenciacion
+  geometria     Json     // GeoJSON Polygon | MultiPolygon
+  areaHa        Float
+  perimetroM    Float
+  precisionM    Float?
+  puntosCrudos  Json?    // Recorrido GPS original: [{lat, lng, acc, ts}]
+  archivoOrigen String?  // Nombre del archivo importado
+  realizadoPor  String?
+  createdAt     DateTime @default(now())
+
+  finca         Finca?   @relation(fields: [fincaId], references: [id], onDelete: Cascade)
+  lote          Lote?    @relation(fields: [loteId], references: [id], onDelete: Cascade)
+
+  @@index([fincaId])
+  @@index([loteId])
 }
 
 enum EstadoLote {

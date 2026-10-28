@@ -45,7 +45,7 @@ export function UbicacionesMaquinariaClient({ initialData }: { initialData: any[
             <div className="flex items-center gap-4 mb-6">
                 <BackButton fallback="/maquinaria/new" />
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-primary">Ubicaciones de Maquinaria</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Ubicaciones de Maquinaria</h1>
                     <p className="text-muted-foreground">Lugares de almacenamiento (Bodegas, Talleres)</p>
                 </div>
             </div>

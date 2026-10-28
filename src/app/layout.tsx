@@ -6,8 +6,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Sistema de Palmicultura - AgroApp",
-  description: "Gestión operativa de fincas palmeras",
+  title: "AgroApp · Gestión de palmicultura",
+  description: "Gestión operativa y georreferenciación de fincas palmeras",
 };
 
 export default function RootLayout({

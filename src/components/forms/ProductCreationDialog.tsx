@@ -16,7 +16,8 @@ import { Label } from "@/components/ui/label"
 import { Combobox } from "@/components/ui/combobox"
 import { Loader2, Plus } from "lucide-react"
 import { createProducto } from "@/app/actions/almacen"
-import { getCategoriasProducto, getUnidadesMedida } from "@/app/actions/configuracion"
+import { getCategoriasProducto, getUnidadesMedida, getNombresProducto, createNombreProducto } from "@/app/actions/configuracion"
+import { QuickCreateDialog } from "@/components/common/QuickCreateDialog"
 // Note: getCatalogosAlmacen might be better if I create it, but let's use what we have or generic list fetchers.
 // Checking ProductoForm imports: getCategoriasProducto, getUnidadesMedida. Fincas come from somewhere else? 
 // Usually fincas from getFincas().
@@ -34,6 +35,7 @@ export function ProductCreationDialog({ onProductCreated, defaultFincaId }: { on
     const [fincas, setFincas] = useState<any[]>([])
     const [categorias, setCategorias] = useState<any[]>([])
     const [unidades, setUnidades] = useState<any[]>([])
+    const [nombres, setNombres] = useState<any[]>([])
 
     // Form State
     const [fincaId, setFincaId] = useState(defaultFincaId || "")
@@ -53,19 +55,26 @@ export function ProductCreationDialog({ onProductCreated, defaultFincaId }: { on
     async function loadCatalogs() {
         setLoading(true)
         try {
-            const [resFincas, resCats, resUnits] = await Promise.all([
+            const [resFincas, resCats, resUnits, resNombres] = await Promise.all([
                 getAllFincas(),
                 getCategoriasProducto(),
-                getUnidadesMedida()
+                getUnidadesMedida(),
+                getNombresProducto()
             ])
             if (resFincas.data) setFincas(resFincas.data)
             if (resCats.data) setCategorias(resCats.data)
             if (resUnits.data) setUnidades(resUnits.data)
+            if (resNombres.data) setNombres(resNombres.data)
         } catch (e) {
             console.error(e)
         } finally {
             setLoading(false)
         }
+    }
+
+    async function refreshNombres() {
+        const res = await getNombresProducto()
+        if (res.data) setNombres(res.data)
     }
 
     async function handleSubmit(e: React.FormEvent) {
@@ -115,10 +124,19 @@ export function ProductCreationDialog({ onProductCreated, defaultFincaId }: { on
     const catOptions = useMemo(() => categorias.map(c => ({ value: c.nombre, label: c.nombre })), [categorias])
     const unitOptions = useMemo(() => unidades.map(u => ({ value: u.nombre, label: u.nombre })), [unidades])
 
+    const nombreOptions = useMemo(() => {
+        if (!categoria) return []
+        const catObj = categorias.find((c: any) => c.nombre === categoria)
+        if (!catObj) return []
+        return nombres
+            .filter(n => n.categoriaId === catObj.id)
+            .map(n => ({ value: n.nombre, label: n.nombre }))
+    }, [categoria, nombres, categorias])
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 text-xs text-primary hover:underline px-2">
+                <Button type="button" variant="ghost" size="sm" className="h-6 text-xs text-primary hover:underline px-2">
                     <Plus className="w-3 h-3 mr-1" /> Crear Nuevo
                 </Button>
             </DialogTrigger>
@@ -152,18 +170,37 @@ export function ProductCreationDialog({ onProductCreated, defaultFincaId }: { on
                             <Combobox
                                 options={catOptions}
                                 value={categoria}
-                                onSelect={setCategoria}
+                                onSelect={(val) => {
+                                    setCategoria(val)
+                                    setNombre("")
+                                }}
                                 placeholder="Seleccione Categoría..."
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Nombre Comercial</Label>
-                            <Input
+                            <div className="flex justify-between items-center">
+                                <Label>Nombre Comercial</Label>
+                                {categoria && (
+                                    <QuickCreateDialog
+                                        triggerLabel="Administrar"
+                                        title="Nuevo Producto"
+                                        description={`Agregue un nuevo producto a la categoría ${categoria}.`}
+                                        placeholder="Ej: Triple 15"
+                                        action={async (newNombre) => {
+                                            const catObj = categorias.find((c: any) => c.nombre === categoria);
+                                            return await createNombreProducto(newNombre, catObj?.id);
+                                        }}
+                                        onSuccess={refreshNombres}
+                                    />
+                                )}
+                            </div>
+                            <Combobox
+                                options={nombreOptions}
                                 value={nombre}
-                                onChange={e => setNombre(e.target.value)}
-                                placeholder="Ej: Fertilizante Triple 15"
-                                required
+                                onSelect={setNombre}
+                                placeholder={categoria ? "Seleccione producto..." : "Primero seleccione categoría"}
+                                disabled={!categoria}
                             />
                         </div>
 

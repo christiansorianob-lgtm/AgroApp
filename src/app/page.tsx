@@ -3,10 +3,14 @@ import { Activity, AlertTriangle, Calendar, Tractor, Package, ArrowRight } from 
 import { db } from "@/lib/db"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { formatDate } from "@/lib/utils"
 
 export const dynamic = "force-dynamic" // Ensure dynamic data fetching
 
-export default async function Home() {
+export default async function Home(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  const searchParams = await props.searchParams
+  const sortDir = searchParams.sort === 'asc' ? 'asc' : 'desc'
+
   try {
     // 1. Fetch Key Metrics
     const pendingTasks = await db.tarea.count({
@@ -46,15 +50,15 @@ export default async function Home() {
       where: { activo: true }
     })
 
-    // 2. Fetch Recent Activity (Last 5 created/updated tasks, EXCLUDING executed)
+    // 2. Fetch Recent Activity (EXCLUDING executed)
     const recentActivity = await db.tarea.findMany({
       where: {
         estado: {
           not: 'EJECUTADA'
         }
       },
-      take: 5,
-      orderBy: { updatedAt: 'desc' },
+      take: 10, // Show a few more if we are sorting
+      orderBy: { fechaProgramada: sortDir },
       include: { finca: true, lote: true }
     })
 
@@ -96,7 +100,7 @@ export default async function Home() {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-primary">Panel de Control</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Panel de Control</h2>
           <p className="text-muted-foreground">Resumen operativo de AgroApp</p>
         </div>
 
@@ -125,7 +129,17 @@ export default async function Home() {
         </div>
 
         <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-6">
-          <h3 className="font-semibold text-lg mb-4">Actividad Reciente (Pendientes)</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-lg">Actividad Reciente (Pendientes)</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-medium">Ordenar por Fecha:</span>
+              <Button variant="outline" size="sm" asChild className="h-8 text-xs">
+                <Link href={`/?sort=${sortDir === 'asc' ? 'desc' : 'asc'}`}>
+                  {sortDir === 'asc' ? 'Más Recientes' : 'Más Antiguos'}
+                </Link>
+              </Button>
+            </div>
+          </div>
 
           {recentActivity.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -143,8 +157,26 @@ export default async function Home() {
                       {item.tipo} - <span className="text-muted-foreground">{item.codigo}</span>
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {item.finca.nombre} {item.lote && `• Lote ${item.lote.nombre}`} • {new Date(item.updatedAt).toLocaleDateString()}
+                      {item.finca.nombre} {item.lote && `• Lote ${item.lote.nombre}`} • <span className="font-semibold text-primary/80">Prog: {formatDate(item.fechaProgramada)}</span>
                     </p>
+                    {item.observaciones && (
+                      <div className="text-xs max-w-[400px] mt-2">
+                        <div className="bg-primary/5 border-l-2 border-primary/30 p-1.5 rounded-r-md italic text-muted-foreground leading-relaxed">
+                          {item.observaciones.split(' | ').map((part: string, i: number) => {
+                            if (part.startsWith('[') && part.includes(':')) {
+                              const [label, val] = part.replace('[', '').replace(']', '').split(': ');
+                              return (
+                                <span key={i} className="block mb-0.5 last:mb-0">
+                                  <strong className="text-primary/80 not-italic uppercase text-[9px] mr-1">{label}:</strong>
+                                  <span className="not-italic text-foreground font-medium">{val}</span>
+                                </span>
+                              )
+                            }
+                            return <span key={i} className="block">{part}</span>
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-4">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${item.estado === 'PROGRAMADA' ? 'bg-blue-100 text-blue-800' :
@@ -155,7 +187,7 @@ export default async function Home() {
                       {item.estado.replace('_', ' ')}
                     </span>
 
-                    <Link href={`/tareas/${item.id}/execute`} className="text-sm font-medium text-blue-600 hover:underline flex items-center gap-1">
+                    <Link href={`/tareas/${item.id}/execute?returnTo=/`} className="text-sm font-medium text-blue-600 hover:underline flex items-center gap-1">
                       Gestionar <ArrowRight className="h-4 w-4" />
                     </Link>
                   </div>

@@ -21,7 +21,7 @@ export default async function MaquinariaPage(props: { searchParams: Promise<{ [k
                 <div className="flex items-center gap-4">
                     <BackButton fallback="/dashboard" />
                     <div>
-                        <h2 className="text-3xl font-bold tracking-tight text-primary">Maquinaria</h2>
+                        <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Maquinaria</h2>
                         <div className="text-muted-foreground flex items-center gap-2">
                             <p>Flota de vehículos y equipos</p>
                             {statusParam && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Estado: {statusParam.replace('_', ' ')}</span>}

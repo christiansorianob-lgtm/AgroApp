@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { formatDate } from '@/lib/utils';
 
 // Fix for default marker icons in Leaflet with Next.js/Webpack
 const iconRetinaUrl = 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png';
@@ -159,7 +160,7 @@ export default function TrackingMap({ points }: TrackingMapProps) {
             <Marker position={[startPoint.lat, startPoint.lng]}>
                 <Popup>
                     <strong>Inicio</strong><br />
-                    {new Date(startPoint.timestamp).toLocaleString()}
+                    {formatDate(startPoint.timestamp)}
                 </Popup>
             </Marker>
 
@@ -167,7 +168,7 @@ export default function TrackingMap({ points }: TrackingMapProps) {
                 <Marker position={[endPoint.lat, endPoint.lng]}>
                     <Popup>
                         <strong>Fin</strong><br />
-                        {new Date(endPoint.timestamp).toLocaleString()}
+                        {formatDate(endPoint.timestamp)}
                     </Popup>
                 </Marker>
             )}

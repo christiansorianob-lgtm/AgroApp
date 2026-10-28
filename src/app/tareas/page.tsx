@@ -5,15 +5,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getTareas } from "@/app/actions/tareas"
 import { Plus } from "lucide-react"
 import { BackButton } from "@/components/common/BackButton"
+import { formatDate } from "@/lib/utils"
 
-function formatCustomDate(dateString: string | Date) {
-    const date = new Date(dateString);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = date.toLocaleString('es-ES', { month: 'long' });
-    const capitalizedMonth = month.charAt(0).toUpperCase() + month.slice(1);
-    const year = date.getFullYear();
-    return `${day}/${capitalizedMonth}/${year}`;
-}
+
 
 export default async function TareasPage(props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
     const searchParams = await props.searchParams
@@ -64,6 +58,16 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
         toggleFilterParams.set('filter', 'finca_only') // Add filter
     }
     const toggleFilterHref = `/tareas?${toggleFilterParams.toString()}`
+    
+    // Build returnTo for Gestionar buttons to preserve filters
+    const returnToParams = new URLSearchParams()
+    if (fincaId) returnToParams.set('fincaId', fincaId)
+    if (loteId) returnToParams.set('loteId', loteId)
+    if (filterNivel) returnToParams.set('filter', filterNivel)
+    if (statusParam) returnToParams.set('status', statusParam)
+    if (delayedParam) returnToParams.set('delayed', delayedParam)
+    if (sortParam) returnToParams.set('sort', sortParam)
+    const currentReturnTo = `/tareas?${returnToParams.toString()}`
 
     return (
         <div className="space-y-6">
@@ -71,7 +75,7 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
                 <div className="flex items-center gap-4">
                     <BackButton fallback="/" />
                     <div>
-                        <h2 className="text-3xl font-bold tracking-tight text-primary">Tareas</h2>
+                        <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Tareas</h2>
                         <div className="text-muted-foreground flex items-center gap-2">
                             <p>Programación y ejecución de actividades</p>
                             {loteId && <span className="text-xs bg-muted px-2 py-1 rounded">Filtrado por Lote</span>}
@@ -149,7 +153,7 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
                                 tareas?.map((tarea) => (
                                     <TableRow key={tarea.id}>
                                         <TableCell className="font-medium">
-                                            {formatCustomDate(tarea.fechaProgramada)}
+                                            {formatDate(tarea.fechaProgramada)}
                                         </TableCell>
                                         <TableCell>
                                             <div className="font-medium">{tarea.tipo}</div>
@@ -177,12 +181,31 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
                                                 {tarea.prioridad}
                                             </span>
                                         </TableCell>
-                                        <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground" title={tarea.observaciones || "Sin observaciones"}>
-                                            {tarea.observaciones || "-"}
+                                        <TableCell className="min-w-[250px]">
+                                            {tarea.observaciones ? (
+                                                <div className="text-xs max-w-[400px]">
+                                                    <div className="bg-primary/5 border-l-2 border-primary/30 p-1.5 rounded-r-md italic text-muted-foreground leading-relaxed">
+                                                        {tarea.observaciones.split(' | ').map((part: string, i: number) => {
+                                                            if (part.startsWith('[') && part.includes(':')) {
+                                                                const [label, val] = part.replace('[', '').replace(']', '').split(': ');
+                                                                return (
+                                                                    <span key={i} className="block mb-0.5 last:mb-0">
+                                                                        <strong className="text-primary/80 not-italic uppercase text-[9px] mr-1">{label}:</strong>
+                                                                        <span className="not-italic text-foreground font-medium">{val}</span>
+                                                                    </span>
+                                                                )
+                                                            }
+                                                            return <span key={i} className="block">{part}</span>
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span className="text-muted-foreground/30 italic text-xs">-</span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <Button variant="outline" size="sm" asChild>
-                                                <Link href={`/tareas/${tarea.id}/execute?fincaId=${fincaId || ''}&loteId=${loteId || ''}`}>
+                                                <Link href={`/tareas/${tarea.id}/execute?returnTo=${encodeURIComponent(currentReturnTo)}`}>
                                                     Gestionar
                                                 </Link>
                                             </Button>

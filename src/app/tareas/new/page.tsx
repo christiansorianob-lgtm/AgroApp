@@ -1,7 +1,7 @@
 import { Suspense } from "react"
 import { getFincas } from "@/app/actions/fincas"
 import { getLotes } from "@/app/actions/lotes"
-import { getTiposActividad, getResponsables, getCargos } from "@/app/actions/configuracion"
+import { getTiposActividad, getResponsables, getCargos, getNombresProducto, getCategoriasProducto } from "@/app/actions/configuracion"
 import { TareaForm } from "@/components/forms/TareaForm"
 
 export default async function NewTareaPage() {
@@ -10,6 +10,8 @@ export default async function NewTareaPage() {
     const tiposRes = await getTiposActividad()
     const respRes = await getResponsables()
     const cargosRes = await getCargos()
+    const nombresRes = await getNombresProducto()
+    const categoriasRes = await getCategoriasProducto()
 
     if (!fincasData.data || fincasData.data.length === 0) {
         return (
@@ -58,6 +60,8 @@ export default async function NewTareaPage() {
                 tiposActividad={tiposRes.data || []}
                 responsables={respRes.data || []}
                 cargos={cargosRes.data || []}
+                nombres={nombresRes.data || []}
+                categorias={categoriasRes.data || []}
             />
         </Suspense>
     )

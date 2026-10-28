@@ -11,9 +11,16 @@ import { BackButton } from "@/components/common/BackButton"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { TaskExecutionDetails } from "@/components/tareas/TaskExecutionDetails"
+import { formatDate } from "@/lib/utils"
 
-export default async function ExecuteTaskPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params
+export default async function ExecuteTaskPage(props: { 
+    params: Promise<{ id: string }>,
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+    const { id } = await props.params
+    const searchParams = await props.searchParams
+    const returnTo = searchParams.returnTo as string | undefined
+
     // Fetch task first to get fincaId
     const tareaRes = await getTareaById(id)
 
@@ -36,9 +43,9 @@ export default async function ExecuteTaskPage({ params }: { params: Promise<{ id
     return (
         <div className="max-w-4xl mx-auto space-y-6 pb-20">
             <div className="flex items-center gap-4">
-                <BackButton fallback="/tareas" />
+                <BackButton fallback={returnTo || "/tareas"} />
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-primary">Ejecutar Tarea</h2>
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Ejecutar Tarea</h2>
                     <p className="text-muted-foreground">{tarea.codigo}</p>
                 </div>
             </div>
@@ -59,7 +66,7 @@ export default async function ExecuteTaskPage({ params }: { params: Promise<{ id
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-muted-foreground" />
-                            <span>Prog: {new Date(tarea.fechaProgramada).toLocaleDateString()}</span>
+                            <span>Prog: {formatDate(tarea.fechaProgramada)}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <User className="w-4 h-4 text-muted-foreground" />
@@ -93,7 +100,7 @@ export default async function ExecuteTaskPage({ params }: { params: Promise<{ id
             {(tarea.estado === 'EJECUTADA' || tarea.estado === 'CANCELADA') ? (
                 <TaskExecutionDetails tarea={tarea} />
             ) : (
-                <ExecutionForm tarea={tarea} productos={productos} maquinaria={maquinaria} />
+                <ExecutionForm tarea={tarea} productos={productos} maquinaria={maquinaria} returnTo={returnTo} />
             )}
         </div>
     )

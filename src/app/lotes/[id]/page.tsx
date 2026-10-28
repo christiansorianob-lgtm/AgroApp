@@ -1,151 +1,124 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { getLoteById } from "@/app/actions/lotes"
+import { getTareas } from "@/app/actions/tareas"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, MapPin, Ruler, Calendar, Leaf, ClipboardList, Plus } from "lucide-react"
-import { FincaMapViewer } from "@/components/ui/FincaMapViewer" // Reuse map viewer
-import { EditLoteButton } from "./EditLoteButton" // Client component for dialog
-import { GoBackButton } from "@/components/ui/GoBackButton"
+import { PageHeader, StatItem } from "@/components/layout/PageHeader"
+import { GeoViewer } from "@/components/geo/GeoViewer"
+import { LevantamientosList } from "@/components/geo/LevantamientosList"
+import { TareasResumenTable, StatusPill } from "@/components/tareas/TareasResumenTable"
+import { formatHa, formatMeters, METODO_LABELS } from "@/lib/geo"
+import { formatDate } from "@/lib/utils"
+import { Calendar, Leaf, Pencil, Plus, Spline, Hash, Sprout, Ruler, Layers, ExternalLink } from "lucide-react"
 
-export default async function LoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params
+export const dynamic = "force-dynamic"
+
+const ESTADO_LOTE: Record<string, [string, string]> = {
+    ACTIVO: ["Activo", "bg-emerald-50 text-emerald-700 ring-emerald-600/20"],
+    EN_RENOVACION: ["En renovación", "bg-amber-50 text-amber-800 ring-amber-600/20"],
+    INACTIVO: ["Inactivo", "bg-slate-100 text-slate-600 ring-slate-500/20"],
+}
+
+function edad(fecha: Date | null) {
+    if (!fecha) return null
+    const meses = Math.floor((Date.now() - new Date(fecha).getTime()) / (30.44 * 24 * 3600 * 1000))
+    if (meses < 0) return null
+    return meses < 12 ? `${meses} meses` : `${Math.floor(meses / 12)} años ${meses % 12 ? `${meses % 12} m` : ""}`.trim()
+}
+
+export default async function LoteDetailPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ sort?: string }> }) {
+    const { id } = await props.params
+    const sort = (await props.searchParams).sort === "asc" ? "asc" : "desc"
     const res = await getLoteById(id)
-
-    if (res.error || !res.data) {
-        notFound()
-    }
+    if (res.error || !res.data) notFound()
 
     const lote = res.data
     const finca = lote.finca
+    const { data: tareas = [] } = await getTareas({ loteId: id, sort })
+    const [estadoLabel, estadoCls] = ESTADO_LOTE[lote.estado] ?? ESTADO_LOTE.ACTIVO
 
-    // Prepare polygon data
-    let polygonData = []
-    if (lote.poligono) {
-        try {
-            const parsed = typeof lote.poligono === 'string' ? JSON.parse(lote.poligono) : lote.poligono;
-            polygonData = Array.isArray(parsed) ? parsed : [];
-        } catch (e) { }
-    }
-
-    let fincaPolygon = []
-    if (finca.poligono) {
-        try {
-            const parsed = typeof finca.poligono === 'string' ? JSON.parse(finca.poligono) : finca.poligono;
-            fincaPolygon = Array.isArray(parsed) ? parsed : [];
-        } catch (e) { }
-    }
-
-    // Pass lote as "lotes" array to map viewer to visualize it
-    const loteAsArrayItem = {
-        ...lote,
-        poligono: polygonData
-    }
+    const capas = [
+        ...(finca.geometria ? [{ id: finca.id, nombre: finca.nombre, geometria: finca.geometria, estilo: "finca" as const }] : []),
+        ...finca.lotes.filter(l => l.geometria && l.id !== lote.id).map(l => ({
+            id: l.id, nombre: `${l.codigo} ${l.nombre}`, geometria: l.geometria, estilo: "tenue" as const, href: `/lotes/${l.id}`, areaHa: l.areaHa,
+        })),
+        ...(lote.geometria ? [{ id: lote.id, nombre: `${lote.codigo} ${lote.nombre}`, geometria: lote.geometria, estilo: "destacado" as const, areaHa: lote.areaMedidaHa }] : []),
+    ]
+    const puntos = !lote.geometria && lote.latitud != null && lote.longitud != null
+        ? [{ id: lote.id, nombre: lote.nombre, lat: lote.latitud, lng: lote.longitud }] : []
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <GoBackButton fallbackRoute={`/fincas/${finca.id}`} />
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
-                            {lote.nombre}
-                            <Badge variant={lote.estado === 'ACTIVO' ? 'default' : 'secondary'}>
-                                {lote.estado}
-                            </Badge>
-                        </h1>
-                        <p className="text-muted-foreground flex items-center gap-2">
-                            {lote.codigo} • {finca.nombre}
-                        </p>
+        <div className="mx-auto max-w-7xl space-y-6">
+            <PageHeader
+                breadcrumbs={[{ label: "Fincas", href: "/fincas" }, { label: finca.nombre, href: `/fincas/${finca.id}` }, { label: lote.nombre }]}
+                title={lote.nombre}
+                badge={<StatusPill className={estadoCls}>{estadoLabel}</StatusPill>}
+                description={<><span className="font-mono">{lote.codigo}</span> · Finca {finca.nombre}</>}
+                actions={<>
+                    <Button variant="outline" asChild><Link href={`/lotes/${id}/edit`}><Pencil className="mr-2 h-4 w-4" />Editar</Link></Button>
+                    <Button asChild><Link href={`/tareas/new?fincaId=${finca.id}&loteId=${id}`}><Plus className="mr-2 h-4 w-4" />Nueva tarea</Link></Button>
+                </>}
+            />
+
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {[
+                    ["Área registrada", formatHa(lote.areaHa), ""],
+                    ["Área medida", lote.areaMedidaHa != null ? formatHa(lote.areaMedidaHa) : "—", lote.perimetroM ? `Perímetro ${formatMeters(lote.perimetroM)}` : "Sin lindero"],
+                    ["Cultivo", lote.tipoCultivo || "—", lote.variedad || ""],
+                    ["Edad del cultivo", edad(lote.fechaSiembra) ?? "—", lote.fechaSiembra ? `Sembrado ${formatDate(lote.fechaSiembra)}` : ""],
+                ].map(([k, v, h]) => (
+                    <Card key={k} className="p-4">
+                        <div className="text-xs font-medium text-muted-foreground">{k}</div>
+                        <div className="mt-1 truncate text-xl font-semibold tabular-nums">{v}</div>
+                        <div className="mt-0.5 truncate text-xs text-muted-foreground">{h}</div>
+                    </Card>
+                ))}
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-3">
+                <Card className="overflow-hidden lg:col-span-2">
+                    <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                        <h2 className="flex items-center gap-2 text-sm font-semibold"><Layers className="h-4 w-4 text-primary" /> Ubicación del lote</h2>
+                        {lote.latitud != null && lote.longitud != null && (
+                            <a href={`https://www.google.com/maps?q=${lote.latitud},${lote.longitud}`} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-primary">
+                                {lote.latitud.toFixed(5)}, {lote.longitud.toFixed(5)} <ExternalLink className="h-3 w-3" />
+                            </a>
+                        )}
                     </div>
-                </div>
-                <div className="flex gap-2">
-                    <EditLoteButton lote={lote} />
+                    <div className="h-[440px]">
+                        <GeoViewer layers={capas} points={puntos} emptyText="Este lote aún no tiene lindero. Edítelo para georreferenciarlo." />
+                    </div>
+                </Card>
 
-                    <Button variant="outline" asChild>
-                        <Link href={`/tareas?loteId=${lote.id}`}>
-                            <ClipboardList className="mr-2 h-4 w-4" />
-                            Tareas
-                        </Link>
-                    </Button>
-                    <Button asChild>
-                        <Link href={`/tareas/new?fincaId=${finca.id}&loteId=${lote.id}`}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Nueva Tarea
-                        </Link>
-                    </Button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Main Info */}
-                <div className="lg:col-span-1 space-y-6">
+                <div className="space-y-6">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Información del Lote</CardTitle>
-                        </CardHeader>
+                        <CardHeader className="pb-3"><CardTitle className="text-base">Ficha</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex items-center justify-between border-b pb-2">
-                                <span className="text-muted-foreground flex items-center gap-2">
-                                    <Leaf className="w-4 h-4" /> Cultivo
-                                </span>
-                                <div className="text-right">
-                                    <span className="font-medium block">{lote.tipoCultivo || "No definido"}</span>
-                                    {lote.variedad && <span className="text-xs text-muted-foreground">{lote.variedad}</span>}
-                                </div>
-                            </div>
-                            <div className="flex items-center justify-between border-b pb-2">
-                                <span className="text-muted-foreground flex items-center gap-2">
-                                    <Ruler className="w-4 h-4" /> Área
-                                </span>
-                                <span className="font-medium">{lote.areaHa} Ha</span>
-                            </div>
-                            <div className="flex items-center justify-between border-b pb-2">
-                                <span className="text-muted-foreground flex items-center gap-2">
-                                    <Calendar className="w-4 h-4" /> Siembra
-                                </span>
-                                <span className="font-medium">
-                                    {lote.fechaSiembra ? new Date(lote.fechaSiembra).toLocaleDateString() : 'N/A'}
-                                </span>
-                            </div>
-                            <div className="flex items-center justify-between border-b pb-2">
-                                <span className="text-muted-foreground flex items-center gap-2">
-                                    <MapPin className="w-4 h-4" /> Coordenadas
-                                </span>
-                                <span className="font-mono text-xs">
-                                    {lote.latitud?.toFixed(5) || '?'}, {lote.longitud?.toFixed(5) || '?'}
-                                </span>
-                            </div>
-                            {lote.observaciones && (
-                                <div className="pt-2">
-                                    <span className="text-muted-foreground block mb-1 text-sm">Observaciones:</span>
-                                    <p className="text-sm bg-muted p-2 rounded">{lote.observaciones}</p>
-                                </div>
-                            )}
+                            <StatItem icon={Hash} label="Código" value={<span className="font-mono">{lote.codigo}</span>} />
+                            <StatItem icon={Sprout} label="Cultivo" value={lote.tipoCultivo || "—"} hint={lote.variedad || undefined} />
+                            <StatItem icon={Calendar} label="Fecha de siembra" value={lote.fechaSiembra ? formatDate(lote.fechaSiembra) : "—"} />
+                            <StatItem icon={Spline} label="Georreferenciación"
+                                value={lote.metodoGeorreferenciacion ? METODO_LABELS[lote.metodoGeorreferenciacion] : "Pendiente"}
+                                hint={lote.precisionM != null ? `Precisión ±${lote.precisionM.toFixed(1)} m` : lote.georreferenciadoEn ? formatDate(lote.georreferenciadoEn) : undefined} />
+                            {lote.observaciones && <p className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground">{lote.observaciones}</p>}
                         </CardContent>
                     </Card>
-                </div>
-
-                {/* Map View */}
-                <div className="lg:col-span-2">
-                    <Card className="h-[500px] flex flex-col">
-                        <CardHeader>
-                            <CardTitle>Geolocalización</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex-1 p-0 overflow-hidden relative">
-                            {/* Reusing FincaMapViewer but focusing on this Lote */}
-                            <FincaMapViewer
-                                lat={lote.latitud || finca.latitud || 0}
-                                lng={lote.longitud || finca.longitud || 0}
-                                polygon={fincaPolygon} // Show finca boundary for context
-                                lotes={[loteAsArrayItem]} // Show this lote
-                            />
-                        </CardContent>
+                    <Card>
+                        <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Ruler className="h-4 w-4 text-primary" /> Historial del lindero</CardTitle></CardHeader>
+                        <CardContent><LevantamientosList items={lote.levantamientos} /></CardContent>
                     </Card>
                 </div>
             </div>
+
+            <Card className="overflow-hidden">
+                <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                    <h2 className="flex items-center gap-2 text-sm font-semibold"><Leaf className="h-4 w-4 text-primary" /> Tareas del lote <span className="text-muted-foreground">({tareas.length})</span></h2>
+                    <Button variant="ghost" size="sm" asChild><Link href={`/tareas?loteId=${id}`}>Ver todas</Link></Button>
+                </div>
+                <TareasResumenTable tareas={tareas} sort={sort} returnTo={`/lotes/${id}`} emptyText="No hay tareas registradas para este lote." />
+            </Card>
         </div>
     )
 }

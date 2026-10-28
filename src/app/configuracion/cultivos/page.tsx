@@ -91,7 +91,7 @@ export default function CultivosConfigPage() {
                     <ArrowLeft className="w-5 h-5" />
                 </Button>
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-primary">Configuración de Cultivos</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Configuración de Cultivos</h1>
                     <p className="text-muted-foreground">Administre los tipos de cultivos y sus variedades</p>
                 </div>
             </div>

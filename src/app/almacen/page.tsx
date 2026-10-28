@@ -15,7 +15,7 @@ export default async function InsumosPage() {
                 <div className="flex items-center gap-4">
                     <BackButton fallback="/dashboard" />
                     <div>
-                        <h2 className="text-3xl font-bold tracking-tight text-primary">Gestión de Almacén</h2>
+                        <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Gestión de Almacén</h2>
                         <p className="text-muted-foreground">Inventario y existencias</p>
                     </div>
                 </div>

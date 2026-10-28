@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 
 const MONTHS = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -37,7 +37,7 @@ function toISO(date: Date): string {
 function formatDisplay(iso: string): string {
     const d = parseLocalDate(iso)
     if (!d) return ''
-    return `${String(d.getDate()).padStart(2, '0')} de ${MONTHS[d.getMonth()]} de ${d.getFullYear()}`
+    return formatDate(d)
 }
 
 export function DatePicker({ value, onChange, placeholder = 'Seleccionar fecha', className, disabled }: DatePickerProps) {
@@ -103,7 +103,7 @@ export function DatePicker({ value, onChange, placeholder = 'Seleccionar fecha',
                     type="button"
                     disabled={disabled}
                     className={cn(
-                        'flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors',
+                        'flex h-10 w-full items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm transition-colors',
                         'hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring',
                         'disabled:cursor-not-allowed disabled:opacity-50',
                         !selected && 'text-muted-foreground',

@@ -1,10 +1,11 @@
 'use client'
+import { formatDate } from "@/lib/utils"
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createTarea } from '@/app/actions/tareas'
-import { createTipoActividad, getTiposActividad, createResponsable, getResponsables, updateResponsable, deleteResponsable, getCargos, createCargo, deleteCargo } from "@/app/actions/configuracion"
+import { createTipoActividad, getTiposActividad, createResponsable, getResponsables, updateResponsable, deleteResponsable, getCargos, createCargo, deleteCargo, getNombresProducto, createNombreProducto, getCategoriasProducto, createCategoriaProducto } from "@/app/actions/configuracion"
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -49,15 +50,19 @@ interface TareaFormProps {
     tiposActividad: { id: string, nombre: string }[]
     responsables: { id: string, nombre: string, celular?: string | null }[]
     cargos: { id: string, nombre: string }[]
+    nombres: { id: string, nombre: string, categoriaId?: string | null }[]
+    categorias: { id: string, nombre: string }[]
 }
 
-export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, responsables: initialResponsables, cargos: initialCargos }: TareaFormProps) {
+export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, responsables: initialResponsables, cargos: initialCargos, nombres: initialNombres, categorias: initialCategorias }: TareaFormProps) {
     const router = useRouter()
 
     // Local state for catalogs
     const [tiposActividad, setTiposActividad] = useState(initialTipos)
     const [responsables, setResponsables] = useState(initialResponsables)
     const [cargos, setCargos] = useState(initialCargos)
+    const [nombres, setNombres] = useState(initialNombres)
+    const [categorias, setCategorias] = useState(initialCategorias)
 
     // Initialize state from URL params (removed as per instruction, but keeping the original logic for selectedFinca/Lote if no initial value is provided)
     // const initialFincaId = searchParams.get('fincaId') || ""
@@ -113,14 +118,14 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
             for (let i = 0; i < Math.min(reps, 20); i++) {
                 const d = new Date(start)
                 d.setDate(d.getDate() + i * dias)
-                fechas.push(d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }))
+                fechas.push(formatDate(d))
             }
         } else if (fechaFin) {
             const end = new Date(fechaFin + 'T12:00:00')
             let cur = new Date(start)
             let safety = 0
             while (cur <= end && safety < 20) {
-                fechas.push(cur.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }))
+                fechas.push(formatDate(cur))
                 cur.setDate(cur.getDate() + dias)
                 safety++
             }
@@ -147,6 +152,16 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
         if (res.data) setCargos(res.data)
     }
 
+    const refreshNombres = async () => {
+        const res = await getNombresProducto()
+        if (res.data) setNombres(res.data)
+    }
+
+    const refreshCategorias = async () => {
+        const res = await getCategoriasProducto()
+        if (res.data) setCategorias(res.data)
+    }
+
     // Filter lotes based on selected Finca
     const loteOptions = useMemo(() => {
         if (!selectedFinca) return []
@@ -166,6 +181,8 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     // Note: Server expects Names for Tipo and Responsable, not IDs
     const tipoOptions = tiposActividad.map(t => ({ value: t.id, label: t.nombre }))
     const responsableOptions = responsables.map(r => ({ value: r.id, label: r.nombre }))
+    const categoriaOptions = categorias.map(c => ({ value: c.nombre, label: c.nombre }))
+    const nombreOptions = nombres.map(n => ({ value: n.nombre, label: n.nombre }))
 
     // Detectar si el tipo seleccionado admite plan masivo
     const tipoNombreSeleccionado = useMemo(() => 
@@ -281,7 +298,7 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
             <div className="flex items-center gap-4">
                 <GoBackButton fallbackRoute="/tareas" />
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-primary">Nueva Tarea</h2>
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Nueva Tarea</h2>
                     <p className="text-muted-foreground">Programe una actividad de campo</p>
                 </div>
             </div>
@@ -526,7 +543,7 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                                         <div className="space-y-2">
                                             <Label>Número de aplicaciones a generar</Label>
                                             <Input
-                                                type="number" min="2" max="100"
+                                                type="number" min="1" max="100"
                                                 value={repeticiones}
                                                 onChange={e => setRepeticiones(e.target.value)}
                                                 placeholder="Ej: 5"
@@ -544,22 +561,46 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                                         </div>
                                     )}
 
-                                    {/* Detalle Técnico */}
                                     <div className="space-y-3 border-t border-green-500/20 pt-3">
                                         <p className="text-xs font-semibold uppercase tracking-wider text-green-600 dark:text-green-400">Detalle por Aplicación</p>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="space-y-1">
-                                                <Label className="text-xs">Insumo / Producto</Label>
-                                                <Input value={insumo} onChange={e => setInsumo(e.target.value)} placeholder="Ej: DAP, Urea" />
+                                                <div className="flex justify-between items-center">
+                                                    <Label className="text-xs">Insumo / Producto</Label>
+                                                    <QuickCreateDialog
+                                                        triggerLabel="Administrar"
+                                                        title="Nuevo Nombre de Producto"
+                                                        description="Agregue un nuevo producto al catálogo global."
+                                                        placeholder="Ej: Urea 46%, DAP..."
+                                                        action={async (nombre) => {
+                                                            // For the plan, we can just create it without a category or find a default one
+                                                            return await createNombreProducto(nombre);
+                                                        }}
+                                                        onSuccess={refreshNombres}
+                                                    />
+                                                </div>
+                                                <Combobox
+                                                    options={nombreOptions}
+                                                    value={insumo}
+                                                    onSelect={setInsumo}
+                                                    placeholder="Seleccione o busque insumo..."
+                                                    className="h-9"
+                                                />
                                             </div>
                                             <div className="space-y-1">
                                                 <Label className="text-xs">Dosis</Label>
-                                                <Input value={dosis} onChange={e => setDosis(e.target.value)} placeholder="Ej: 2gr/mata" />
+                                                <Input value={dosis} onChange={e => setDosis(e.target.value)} placeholder="Ej: 2gr/mata" className="h-9" />
                                             </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="space-y-1">
                                                 <Label className="text-xs">Método de Aplicación</Label>
-                                                <Input value={metodo} onChange={e => setMetodo(e.target.value)} placeholder="Ej: Manual, Fumigadora" />
+                                                <Input value={metodo} onChange={e => setMetodo(e.target.value)} placeholder="Ej: Manual, Fumigadora" className="h-9" />
                                             </div>
+                                            {/* Empty space for alignment if needed */}
+                                            <div></div>
                                         </div>
                                         {(insumo || dosis || metodo) && (
                                             <div className="bg-muted/50 rounded p-2 text-xs font-mono text-muted-foreground border">

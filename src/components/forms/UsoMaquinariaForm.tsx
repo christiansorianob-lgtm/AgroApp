@@ -1,4 +1,5 @@
 'use client'
+import { formatDate } from "@/lib/utils"
 
 import React, { useState, useMemo } from "react"
 import Link from "next/link"
@@ -31,7 +32,7 @@ export function UsoMaquinariaForm({ maquinas, tareas }: UsoMaquinariaFormProps) 
     const tareaOptions = useMemo(() =>
         tareas.filter(t => t.estado === 'PROGRAMADA' || t.estado === 'EN_PROCESO').map(t => ({
             value: t.id,
-            label: `${t.tipo} ({new Date(t.fechaProgramada).toLocaleDateString()}) - ${t.finca.nombre}`
+            label: `${t.tipo} ({formatDate(t.fechaProgramada)}) - ${t.finca.nombre}`
         }))
         , [tareas])
 
@@ -44,7 +45,7 @@ export function UsoMaquinariaForm({ maquinas, tareas }: UsoMaquinariaFormProps) 
                     </Link>
                 </Button>
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-primary">Registrar Uso</h2>
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Registrar Uso</h2>
                     <p className="text-muted-foreground">Asignar maquinaria a una tarea</p>
                 </div>
             </div>

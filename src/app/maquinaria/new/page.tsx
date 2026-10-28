@@ -23,7 +23,7 @@ export default async function NewMaquinariaPage() {
                     </Link>
                 </Button>
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight text-primary">Nueva Máquina</h2>
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Nueva Máquina</h2>
                     <p className="text-muted-foreground">Registre un nuevo equipo o vehículo</p>
                 </div>
             </div>

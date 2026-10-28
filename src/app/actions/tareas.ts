@@ -400,5 +400,11 @@ export async function executeTarea(id: string, formData: FormData) {
 
     revalidatePath('/tareas')
     revalidatePath('/almacen')
+    
+    const returnTo = formData.get("returnTo") as string
+    if (returnTo) {
+        redirect(returnTo)
+    }
+    
     redirect('/tareas')
 }

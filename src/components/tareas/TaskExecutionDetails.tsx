@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import Image from "next/image"
 import dynamic from "next/dynamic"
 import { Dialog, DialogContent, DialogClose, DialogTitle } from "@/components/ui/dialog"
+import { formatDate } from "@/lib/utils"
 
 const TrackingMap = dynamic(() => import("./TrackingMap"), {
     loading: () => <div className="h-[400px] w-full bg-muted animate-pulse rounded-lg" />,
@@ -43,7 +44,7 @@ export function TaskExecutionDetails({ tarea }: TaskExecutionDetailsProps) {
                                     <div className="flex items-center gap-2 mt-1">
                                         <Calendar className="w-4 h-4 text-green-600" />
                                         <span className="font-medium text-sm">
-                                            {tarea.fechaInicioReal ? new Date(tarea.fechaInicioReal).toLocaleString('es-CO') : 'No registrada'}
+                                            {formatDate(tarea.fechaInicioReal)}
                                         </span>
                                     </div>
                                 </div>
@@ -52,7 +53,7 @@ export function TaskExecutionDetails({ tarea }: TaskExecutionDetailsProps) {
                                     <div className="flex items-center gap-2 mt-1">
                                         <Calendar className="w-4 h-4 text-green-600" />
                                         <span className="font-medium text-sm">
-                                            {tarea.fechaEjecucion ? new Date(tarea.fechaEjecucion).toLocaleString('es-CO') : 'No registrada'}
+                                            {formatDate(tarea.fechaEjecucion)}
                                         </span>
                                     </div>
                                 </div>

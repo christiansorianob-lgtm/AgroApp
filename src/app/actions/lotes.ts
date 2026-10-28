@@ -1,16 +1,33 @@
 'use server'
 
 import { db } from "@/lib/db"
+import { parseFechaCalendario } from "@/lib/utils"
+import { buildLinderoData, sameGeometry } from "@/services/linderos"
+import type { BoundaryValue } from "@/lib/geo"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
+
+export interface LoteInput {
+    fincaId: string
+    nombre: string
+    /** Si se omite al crear se genera L-01, L-02… dentro de la finca */
+    codigo?: string | null
+    /** Área productiva registrada. Si se omite se usa el área medida del lindero. */
+    areaHa?: number | null
+    tipoCultivo: string
+    variedad?: string | null
+    fechaSiembra?: string | null
+    estado?: "ACTIVO" | "INACTIVO" | "EN_RENOVACION"
+    observaciones?: string | null
+    ubicacion?: { lat: number; lng: number } | null
+    /** undefined = sin cambios, null = borrar lindero */
+    lindero?: BoundaryValue | null
+}
 
 export async function getLotes() {
     try {
         const lotes = await db.lote.findMany({
-            include: {
-                finca: true
-            },
-            orderBy: { createdAt: 'desc' }
+            include: { finca: { select: { id: true, nombre: true, codigo: true } } },
+            orderBy: [{ finca: { nombre: "asc" } }, { codigo: "asc" }],
         })
         return { data: lotes }
     } catch (error) {
@@ -19,50 +36,14 @@ export async function getLotes() {
     }
 }
 
-export async function createLote(formData: FormData) {
-    const fincaId = formData.get("fincaId") as string
-    const nombre = formData.get("nombre") as string
-    const codigo = formData.get("codigo") as string
-    const areaHa = parseFloat(formData.get("areaHa") as string)
-    const tipoCultivo = formData.get("tipoCultivo") as string
-    const variedad = formData.get("variedad") as string
-    const fechaSiembra = formData.get("fechaSiembra") as string
-    const observaciones = formData.get("observaciones") as string
-
-    if (!fincaId || !nombre || !codigo || !areaHa) {
-        return { error: "Campos obligatorios faltantes." }
-    }
-
-    try {
-        await db.lote.create({
-            data: {
-                fincaId,
-                codigo,
-                nombre,
-                areaHa,
-                tipoCultivo,
-                variedad,
-                fechaSiembra: fechaSiembra ? new Date(fechaSiembra) : null,
-                observaciones,
-                estado: 'ACTIVO'
-            }
-        })
-    } catch (error) {
-        console.error("Failed to create lote:", error)
-        return { error: "Error al crear el lote. Verifique datos." }
-    }
-
-    revalidatePath('/lotes')
-    redirect('/lotes')
-}
-
 export async function getLoteById(id: string) {
     try {
         const lote = await db.lote.findUnique({
             where: { id },
             include: {
-                finca: true
-            }
+                finca: { include: { lotes: { select: { id: true, nombre: true, codigo: true, geometria: true, tipoCultivo: true, areaHa: true } } } },
+                levantamientos: { orderBy: { createdAt: "desc" }, take: 10 },
+            },
         })
         return { data: lote }
     } catch (error) {
@@ -71,56 +52,104 @@ export async function getLoteById(id: string) {
     }
 }
 
-export async function updateLote(id: string, formData: FormData) {
-    const nombre = formData.get("nombre") as string
-    const areaHa = parseFloat(formData.get("areaHa") as string)
-    const tipoCultivo = formData.get("tipoCultivo") as string
-    const variedad = formData.get("variedad") as string
-    const fechaSiembra = formData.get("fechaSiembra") as string
-    const observaciones = formData.get("observaciones") as string
-
-    // Coordinates & Polygon
-    const latitud = formData.get("latitud") as string
-    const longitud = formData.get("longitud") as string
-    const poligonoStr = formData.get("poligono") as string
-
-    if (!nombre || !areaHa) {
-        return { error: "Campos obligatorios faltantes." }
+function validate(input: LoteInput): string | null {
+    if (!input.fincaId) return "Seleccione la finca a la que pertenece el lote."
+    if (!input.nombre?.trim()) return "El nombre del lote es obligatorio."
+    if (!input.tipoCultivo) return "Seleccione el tipo de cultivo."
+    if (input.areaHa != null && (!Number.isFinite(input.areaHa) || input.areaHa <= 0)) {
+        return "El área debe ser un número mayor que cero."
     }
+    return null
+}
+
+function ubicacionData(input: LoteInput) {
+    if (input.lindero || !input.ubicacion) return {}
+    const { lat, lng } = input.ubicacion
+    return Number.isFinite(lat) && Number.isFinite(lng) ? { latitud: lat, longitud: lng } : {}
+}
+
+async function nextLoteCode(fincaId: string) {
+    const codes = await db.lote.findMany({ where: { fincaId }, select: { codigo: true } })
+    const max = codes.reduce((n, { codigo }) => {
+        const num = parseInt(codigo.replace(/^L-/, ""), 10)
+        return Number.isFinite(num) && num > n ? num : n
+    }, 0)
+    return `L-${String(max + 1).padStart(2, "0")}`
+}
+
+function friendlyError(error: any, fallback: string) {
+    if (error?.code === "P2002") return "Ya existe un lote con ese código en esta finca."
+    return error?.message || fallback
+}
+
+export async function createLote(input: LoteInput): Promise<{ data?: { id: string }; error?: string }> {
+    const invalid = validate(input)
+    if (invalid) return { error: invalid }
 
     try {
-        let poligonoJson = undefined
-        if (poligonoStr) {
-            try {
-                poligonoJson = JSON.parse(poligonoStr)
-            } catch (e) {
-                console.error("Error parsing polygon JSON", e)
-            }
-        }
+        const { data: geo, levantamiento } = buildLinderoData(input.lindero ?? undefined)
+        const areaHa = input.areaHa ?? (geo as any).areaMedidaHa
+        if (!areaHa) return { error: "Indique el área del lote o defina su lindero en el mapa." }
+
+        const lote = await db.lote.create({
+            data: {
+                fincaId: input.fincaId,
+                codigo: input.codigo?.trim() || await nextLoteCode(input.fincaId),
+                nombre: input.nombre.trim(),
+                areaHa,
+                tipoCultivo: input.tipoCultivo,
+                variedad: input.variedad || null,
+                fechaSiembra: parseFechaCalendario(input.fechaSiembra),
+                estado: input.estado || "ACTIVO",
+                observaciones: input.observaciones?.trim() || null,
+                ...ubicacionData(input),
+                ...geo,
+                levantamientos: levantamiento ? { create: { ...levantamiento, fincaId: input.fincaId } } : undefined,
+            },
+        })
+        revalidatePath("/lotes")
+        revalidatePath(`/fincas/${input.fincaId}`)
+        return { data: { id: lote.id } }
+    } catch (error: any) {
+        console.error("Failed to create lote:", error)
+        return { error: friendlyError(error, "Error al crear el lote.") }
+    }
+}
+
+export async function updateLote(id: string, input: LoteInput): Promise<{ success?: boolean; error?: string }> {
+    const invalid = validate(input)
+    if (invalid) return { error: invalid }
+
+    try {
+        const current = await db.lote.findUnique({ where: { id }, select: { geometria: true, areaHa: true, fincaId: true } })
+        if (!current) return { error: "El lote no existe." }
+
+        const changed = input.lindero !== undefined &&
+            !(input.lindero && sameGeometry(current.geometria, input.lindero.geometria as any))
+        const { data: geo, levantamiento } = buildLinderoData(changed ? input.lindero : undefined)
 
         await db.lote.update({
             where: { id },
             data: {
-                nombre,
-                areaHa,
-                tipoCultivo,
-                variedad,
-                fechaSiembra: fechaSiembra ? new Date(fechaSiembra) : null,
-                observaciones,
-                latitud: latitud ? parseFloat(latitud) : undefined,
-                longitud: longitud ? parseFloat(longitud) : undefined,
-                poligono: poligonoJson
-            }
+                nombre: input.nombre.trim(),
+                codigo: input.codigo?.trim() || undefined,
+                areaHa: input.areaHa ?? (geo as any).areaMedidaHa ?? current.areaHa,
+                tipoCultivo: input.tipoCultivo,
+                variedad: input.variedad || null,
+                fechaSiembra: parseFechaCalendario(input.fechaSiembra),
+                estado: input.estado || undefined,
+                observaciones: input.observaciones?.trim() || null,
+                ...ubicacionData(input),
+                ...geo,
+                levantamientos: levantamiento ? { create: { ...levantamiento, fincaId: current.fincaId } } : undefined,
+            },
         })
-    } catch (error) {
+        revalidatePath("/lotes")
+        revalidatePath(`/lotes/${id}`)
+        revalidatePath(`/fincas/${current.fincaId}`)
+        return { success: true }
+    } catch (error: any) {
         console.error("Failed to update lote:", error)
-        return { error: "Error al actualizar el lote." }
+        return { error: friendlyError(error, "Error al actualizar el lote.") }
     }
-
-    revalidatePath('/lotes') // Revalidate list
-    revalidatePath(`/lotes/${id}/edit`) // Revalidate edit page
-    // Note: We don't redirect here to allow the caller to decide, or we can redirect to the Finca page.
-    // The previous createLote redirects, but typically update actions might just return success.
-    // However, to keep it consistent with the form usage in the plan, I'll return success and let the client redirect.
-    return { success: true }
 }

@@ -7,6 +7,7 @@ import { db } from "@/lib/db"
 import { getProductos } from "@/app/actions/almacen"
 import { getFincas } from "@/app/actions/fincas"
 import { NewAdjustmentDialog } from "@/components/forms/NewAdjustmentDialog"
+import { formatDate } from "@/lib/utils"
 
 async function getMovimientos() {
     'use server'
@@ -44,7 +45,7 @@ export default async function MovimientosPage() {
                     </Link>
                 </Button>
                 <div className="flex-1">
-                    <h2 className="text-3xl font-bold tracking-tight text-primary">Movimientos de Inventario</h2>
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Movimientos de Inventario</h2>
                     <p className="text-muted-foreground">Entradas, Salidas y Ajustes</p>
                 </div>
 
@@ -85,7 +86,7 @@ export default async function MovimientosPage() {
 
                                     return (
                                         <TableRow key={mov.id}>
-                                            <TableCell className="font-medium">{new Date(mov.fecha).toLocaleDateString()}</TableCell>
+                                            <TableCell className="font-medium">{formatDate(mov.fecha)}</TableCell>
                                             <TableCell>
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${mov.tipoMovimiento === 'ENTRADA' ? 'bg-green-100 text-green-800' :
                                                     mov.tipoMovimiento === 'SALIDA' ? 'bg-red-100 text-red-800' :
