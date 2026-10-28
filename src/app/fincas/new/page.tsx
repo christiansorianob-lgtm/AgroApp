@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { FincaForm } from "@/components/forms/FincaForm"
 
@@ -9,7 +10,9 @@ export default function NewFincaPage() {
                 description="Registre una unidad productiva y georreferencie su lindero."
                 breadcrumbs={[{ label: "Fincas", href: "/fincas" }, { label: "Nueva" }]}
             />
-            <FincaForm />
+            <Suspense fallback={null}>
+                <FincaForm />
+            </Suspense>
         </div>
     )
 }

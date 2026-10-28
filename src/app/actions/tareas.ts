@@ -3,6 +3,8 @@
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { rutaSegura } from "@/lib/navegacion"
+import { parseFechaCalendario } from "@/lib/utils"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
 
@@ -83,8 +85,9 @@ export async function createTarea(formData: FormData) {
     const rawLoteId = formData.get("loteId") as string | null
     const loteId = rawLoteId && rawLoteId.trim() !== "" ? rawLoteId : null
 
-    // Infer nivel based on loteId presence
-    const nivel: "FINCA" | "LOTE" = loteId ? "LOTE" : "FINCA"
+    // El formulario envía el nivel elegido explícitamente; si falta se deduce del lote
+    const nivelForm = formData.get("nivel") as string | null
+    const nivel: "FINCA" | "LOTE" = nivelForm === "LOTE" || nivelForm === "FINCA" ? nivelForm : loteId ? "LOTE" : "FINCA"
 
     const fechaProgramada = formData.get("fechaProgramada") as string
     const tipo = formData.get("tipo") as string
@@ -102,6 +105,9 @@ export async function createTarea(formData: FormData) {
 
     if (nivel === 'LOTE' && !loteId) {
         return { error: "Debe seleccionar un lote para tareas de nivel Lote." }
+    }
+    if (nivel === 'FINCA' && loteId) {
+        return { error: "Una tarea de nivel Finca no puede tener lote." }
     }
 
     try {
@@ -128,8 +134,8 @@ export async function createTarea(formData: FormData) {
                 codigo,
                 fincaId,
                 nivel,
-                loteId: loteId, // Already null if empty
-                fechaProgramada: new Date(fechaProgramada),
+                loteId: nivel === 'LOTE' ? loteId : null,
+                fechaProgramada: parseFechaCalendario(fechaProgramada) ?? new Date(),
                 tipo,
                 responsable,
                 prioridad: prioridad || 'MEDIA',
@@ -144,8 +150,11 @@ export async function createTarea(formData: FormData) {
         return { error: `Error al crear la tarea: ${error.message}` }
     }
 
+    // El formulario decide a dónde volver (memoria de navegación)
     revalidatePath('/tareas')
-    redirect('/tareas')
+    revalidatePath(`/fincas/${fincaId}`)
+    if (loteId) revalidatePath(`/lotes/${loteId}`)
+    return { success: true }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,6 +173,7 @@ export async function createTareasMasivas(payload: {
     fechaFin?: string          // ISO YYYY-MM-DD
     observacionesBase: string  // texto libre + detalle técnico concatenado
     requiereTrazabilidad: boolean
+    nivel?: 'FINCA' | 'LOTE'
 }) {
     const {
         fincaId, loteId, tipo, responsable, prioridad,
@@ -175,7 +185,8 @@ export async function createTareasMasivas(payload: {
         return { error: 'Datos incompletos para la programación masiva.' }
     }
 
-    const nivel: 'FINCA' | 'LOTE' = loteId ? 'LOTE' : 'FINCA'
+    const nivel: 'FINCA' | 'LOTE' = payload.nivel ?? (loteId ? 'LOTE' : 'FINCA')
+    if (nivel === 'LOTE' && !loteId) return { error: 'Seleccione el lote para el plan.' }
     const planId = `PLAN-${Date.now()}`  // ID de grupo único
 
     // Calcular las fechas del plan
@@ -229,7 +240,7 @@ export async function createTareasMasivas(payload: {
                         codigo,
                         fincaId,
                         nivel,
-                        loteId,
+                        loteId: nivel === 'LOTE' ? loteId : null,
                         fechaProgramada: fecha,
                         tipo,
                         responsable,
@@ -244,6 +255,8 @@ export async function createTareasMasivas(payload: {
         )
 
         revalidatePath('/tareas')
+        revalidatePath(`/fincas/${fincaId}`)
+        if (loteId) revalidatePath(`/lotes/${loteId}`)
         return { success: true, count: fechas.length, planId }
     } catch (error: any) {
         console.error('Failed to create massive tareas:', error)
@@ -401,10 +414,5 @@ export async function executeTarea(id: string, formData: FormData) {
     revalidatePath('/tareas')
     revalidatePath('/almacen')
     
-    const returnTo = formData.get("returnTo") as string
-    if (returnTo) {
-        redirect(returnTo)
-    }
-    
-    redirect('/tareas')
+    redirect(rutaSegura(formData.get("returnTo") as string) ?? '/tareas')
 }

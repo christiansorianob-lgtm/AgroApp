@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { Button, ButtonProps } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
+import { rutaSegura } from '@/lib/navegacion'
 
 interface GoBackButtonProps extends ButtonProps {
     fallbackRoute?: string
@@ -12,7 +13,11 @@ export function GoBackButton({ className, variant = "ghost", size = "icon", chil
     const router = useRouter()
 
     const handleBack = () => {
-        if (window.history.length > 2) {
+        // Memoria de navegación: si la pantalla se abrió con ?returnTo=, se vuelve ahí
+        const retorno = rutaSegura(new URLSearchParams(window.location.search).get("returnTo"))
+        if (retorno) {
+            router.push(retorno)
+        } else if (window.history.length > 2) {
             router.back()
         } else {
             router.push(fallbackRoute)

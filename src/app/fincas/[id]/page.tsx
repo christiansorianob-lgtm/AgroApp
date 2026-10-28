@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { conRetorno } from "@/lib/navegacion"
 import { notFound } from "next/navigation"
 import { getFincaById } from "@/services/fincas"
 import { getTareas } from "@/app/actions/tareas"
@@ -49,9 +50,9 @@ export default async function FincaDetailPage(props: { params: Promise<{ id: str
                 badge={<StatusPill className={finca.estado === "ACTIVO" ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20" : "bg-slate-100 text-slate-600 ring-slate-500/20"}>{finca.estado === "ACTIVO" ? "Activa" : "Inactiva"}</StatusPill>}
                 description={<span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{finca.veredaSector} · {finca.municipio}, {finca.departamento}</span>}
                 actions={<>
-                    <Button variant="outline" asChild><Link href={`/fincas/${id}/edit`}><Pencil className="mr-2 h-4 w-4" />Editar</Link></Button>
-                    <Button variant="outline" asChild><Link href={`/tareas/new?fincaId=${id}`}><ClipboardList className="mr-2 h-4 w-4" />Nueva tarea</Link></Button>
-                    <Button asChild><Link href={`/lotes/new?fincaId=${id}`}><Plus className="mr-2 h-4 w-4" />Nuevo lote</Link></Button>
+                    <Button variant="outline" asChild><Link href={conRetorno(`/fincas/${id}/edit`, `/fincas/${id}`)}><Pencil className="mr-2 h-4 w-4" />Editar</Link></Button>
+                    <Button variant="outline" asChild><Link href={conRetorno(`/tareas/new`, `/fincas/${id}`, { fincaId: id })}><ClipboardList className="mr-2 h-4 w-4" />Nueva tarea</Link></Button>
+                    <Button asChild><Link href={conRetorno(`/lotes/new`, `/fincas/${id}`, { fincaId: id })}><Plus className="mr-2 h-4 w-4" />Nuevo lote</Link></Button>
                 </>}
             />
 
@@ -111,7 +112,7 @@ export default async function FincaDetailPage(props: { params: Promise<{ id: str
             <Card className="overflow-hidden">
                 <div className="flex items-center justify-between border-b border-border px-5 py-3">
                     <h2 className="text-sm font-semibold">Lotes <span className="text-muted-foreground">({finca.lotes.length})</span></h2>
-                    <Button variant="ghost" size="sm" asChild><Link href={`/lotes/new?fincaId=${id}`}><Plus className="mr-1.5 h-4 w-4" />Agregar</Link></Button>
+                    <Button variant="ghost" size="sm" asChild><Link href={conRetorno(`/lotes/new`, `/fincas/${id}`, { fincaId: id })}><Plus className="mr-1.5 h-4 w-4" />Agregar</Link></Button>
                 </div>
                 {finca.lotes.length === 0 ? (
                     <div className="flex flex-col items-center gap-3 py-12 text-center">
@@ -120,7 +121,7 @@ export default async function FincaDetailPage(props: { params: Promise<{ id: str
                             <p className="font-medium">Aún no hay lotes</p>
                             <p className="text-sm text-muted-foreground">Divida la finca en lotes para programar labores y medir su producción.</p>
                         </div>
-                        <Button asChild><Link href={`/lotes/new?fincaId=${id}`}>Registrar primer lote</Link></Button>
+                        <Button asChild><Link href={conRetorno(`/lotes/new`, `/fincas/${id}`, { fincaId: id })}>Registrar primer lote</Link></Button>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">

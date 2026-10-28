@@ -27,7 +27,7 @@ export default async function FincasPage() {
             <PageHeader
                 title="Fincas"
                 description={fincas.length ? `${fincas.length} ${fincas.length === 1 ? "finca" : "fincas"} · ${formatHa(totalHa, 1)} · ${totalLotes} ${totalLotes === 1 ? "lote" : "lotes"}` : "Unidades productivas de la empresa"}
-                actions={<Button asChild><Link href="/fincas/new"><Plus className="mr-2 h-4 w-4" />Nueva finca</Link></Button>}
+                actions={<Button asChild><Link href="/fincas/new?returnTo=/fincas"><Plus className="mr-2 h-4 w-4" />Nueva finca</Link></Button>}
             />
 
             {error && <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}

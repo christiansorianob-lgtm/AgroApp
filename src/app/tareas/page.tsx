@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { conRetorno } from "@/lib/navegacion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -38,7 +39,6 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
     const newParams = new URLSearchParams()
     if (fincaId) newParams.set('fincaId', fincaId)
     if (loteId) newParams.set('loteId', loteId)
-    const newHref = `/tareas/new?${newParams.toString()}`
 
     // Build sort toggle URL (flips asc <-> desc, keeps all other params)
     const sortToggleParams = new URLSearchParams()
@@ -68,6 +68,7 @@ export default async function TareasPage(props: { searchParams: Promise<{ [key: 
     if (delayedParam) returnToParams.set('delayed', delayedParam)
     if (sortParam) returnToParams.set('sort', sortParam)
     const currentReturnTo = `/tareas?${returnToParams.toString()}`
+    const newHref = conRetorno(`/tareas/new?${newParams.toString()}`, currentReturnTo)
 
     return (
         <div className="space-y-6">

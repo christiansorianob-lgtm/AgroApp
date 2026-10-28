@@ -99,9 +99,14 @@ export default async function Home(props: { searchParams: Promise<{ [key: string
 
     return (
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Panel de Control</h2>
-          <p className="text-muted-foreground">Resumen operativo de AgroApp</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Panel de Control</h2>
+            <p className="text-muted-foreground">Resumen operativo de AgroApp</p>
+          </div>
+          <Link href="/tareas/new?returnTo=/" className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+            + Nueva tarea
+          </Link>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -144,7 +149,7 @@ export default async function Home(props: { searchParams: Promise<{ [key: string
           {recentActivity.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <p>No hay tareas pendientes recientes.</p>
-              <Link href="/tareas/new" className="text-primary hover:underline text-sm font-medium mt-2 inline-block">
+              <Link href="/tareas/new?returnTo=/" className="text-primary hover:underline text-sm font-medium mt-2 inline-block">
                 + Crear nueva tarea
               </Link>
             </div>

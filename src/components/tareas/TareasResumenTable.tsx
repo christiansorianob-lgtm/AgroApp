@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { conRetorno } from "@/lib/navegacion"
 import { ArrowDown, ArrowUp, ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -70,7 +71,7 @@ export function TareasResumenTable({ tareas, sort, returnTo, emptyText }: {
                         </TableCell>
                         <TableCell className="pr-5 text-right">
                             <Button variant="ghost" size="sm" asChild>
-                                <Link href={`/tareas/${t.id}/execute?returnTo=${returnTo}`}>Gestionar</Link>
+                                <Link href={conRetorno(`/tareas/${t.id}/execute`, returnTo)}>Gestionar</Link>
                             </Button>
                         </TableCell>
                     </TableRow>

@@ -15,7 +15,6 @@ import { ArrowLeft, Save, Loader2 } from 'lucide-react'
 import { Combobox } from "@/components/ui/combobox"
 import { QuickCreateDialog } from "@/components/common/QuickCreateDialog"
 import { ManageResponsablesDialog } from "@/components/forms/ManageResponsablesDialog"
-import { GoBackButton } from "@/components/ui/GoBackButton"
 import { DatePicker } from "@/components/ui/DatePicker"
 import { createTareasMasivas } from "@/app/actions/tareas"
 import {
@@ -26,7 +25,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { ExternalLink } from "lucide-react"
+import { ExternalLink, MapPin, Grid3x3, Map as MapIcon } from "lucide-react"
+import { PageHeader, type Breadcrumb } from "@/components/layout/PageHeader"
+import { rutaSegura } from "@/lib/navegacion"
+import { cn } from "@/lib/utils"
 
 // ... imports
 
@@ -64,25 +66,25 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     const [nombres, setNombres] = useState(initialNombres)
     const [categorias, setCategorias] = useState(initialCategorias)
 
-    // Initialize state from URL params (removed as per instruction, but keeping the original logic for selectedFinca/Lote if no initial value is provided)
-    // const initialFincaId = searchParams.get('fincaId') || ""
-    // const initialLoteId = searchParams.get('loteId') || ""
-
+    // Memoria de navegación: de dónde viene el usuario define el nivel de la tarea.
+    //  - desde un lote  → tarea de ese lote
+    //  - desde una finca → tarea general de la finca (puede pasarla a un lote de la misma finca)
+    //  - sin contexto (panel, menú) → el usuario elige explícitamente finca o lote
     const searchParams = useSearchParams()
     const initialLoteId = searchParams?.get('loteId') || ""
     let initialFincaId = searchParams?.get('fincaId') || ""
-
-    // Si viene loteId pero no fincaId, deducir la finca a partir del lote
     if (!initialFincaId && initialLoteId) {
-        const foundLote = lotes.find(l => l.id === initialLoteId)
-        if (foundLote) {
-            initialFincaId = foundLote.fincaId
-        }
+        initialFincaId = lotes.find(l => l.id === initialLoteId)?.fincaId || ""
     }
+    const origen: "lote" | "finca" | "libre" = initialLoteId ? "lote" : initialFincaId ? "finca" : "libre"
+    const returnTo = rutaSegura(searchParams?.get('returnTo'))
+    const destino = returnTo
+        ?? (origen === "lote" ? `/lotes/${initialLoteId}` : origen === "finca" ? `/fincas/${initialFincaId}` : "/tareas")
 
     const [selectedFinca, setSelectedFinca] = useState<string>(initialFincaId)
     const [selectedLote, setSelectedLote] = useState<string>(initialLoteId)
-    // const [nivel, setNivel] = useState<"FINCA" | "LOTE">(initialLoteId ? "LOTE" : "FINCA") // Removed as per instruction
+    const [nivel, setNivel] = useState<"" | "FINCA" | "LOTE">(origen === "lote" ? "LOTE" : origen === "finca" ? "FINCA" : "")
+    const [errorForm, setErrorForm] = useState<string | null>(null)
 
     // Controlled states for other Comboboxes
     const [selectedTipo, setSelectedTipo] = useState("")
@@ -170,6 +172,14 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
             .map(l => ({ value: l.id, label: `${l.nombre} (${l.codigo})` }))
     }, [selectedFinca, lotes])
 
+    const fincaSeleccionada = fincas.find(f => f.id === selectedFinca)
+    const loteSeleccionado = lotes.find(l => l.id === selectedLote)
+    const migas: Breadcrumb[] = origen === "lote"
+        ? [{ label: "Fincas", href: "/fincas" }, { label: fincaSeleccionada?.nombre ?? "Finca", href: `/fincas/${initialFincaId}` }, { label: loteSeleccionado?.nombre ?? "Lote", href: `/lotes/${initialLoteId}` }, { label: "Nueva tarea" }]
+        : origen === "finca"
+            ? [{ label: "Fincas", href: "/fincas" }, { label: fincaSeleccionada?.nombre ?? "Finca", href: `/fincas/${initialFincaId}` }, { label: "Nueva tarea" }]
+            : [{ label: "Tareas", href: "/tareas" }, { label: "Nueva tarea" }]
+
     // Options for Comboboxes
     const fincaOptions = fincas.map(f => ({ value: f.id, label: `${f.nombre} (${f.codigo})` }))
 
@@ -213,6 +223,19 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     ]
 
     async function handleSubmit(formData: FormData) {
+        setErrorForm(null)
+        const faltante = !nivel ? "Indique si la tarea es para toda la finca o para un lote."
+            : !selectedFinca ? "Seleccione la finca."
+                : nivel === "LOTE" && !selectedLote ? "Seleccione el lote."
+                    : !selectedTipo ? "Seleccione el tipo de actividad."
+                        : !selectedResponsable ? "Seleccione el responsable." : null
+        if (faltante) {
+            setErrorForm(faltante)
+            window.scrollTo({ top: 0, behavior: "smooth" })
+            return
+        }
+        formData.set('nivel', nivel)
+        formData.set('loteId', nivel === "LOTE" ? selectedLote : "")
         setIsSubmitting(true)
 
         // Construir las observaciones (con detalle técnico si aplica)
@@ -227,7 +250,8 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
             // --- MODO MASIVO ---
             const result = await createTareasMasivas({
                 fincaId: selectedFinca,
-                loteId: selectedLote || null,
+                loteId: nivel === "LOTE" ? selectedLote : null,
+                nivel: nivel as "FINCA" | "LOTE",
                 tipo: tiposActividad.find(t => t.id === selectedTipo)?.nombre || '',
                 responsable: responsables.find(r => r.id === selectedResponsable)?.nombre || '',
                 prioridad: selectedPrioridad,
@@ -272,7 +296,8 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     }
 
     const handleClose = () => {
-        router.back()
+        router.push(destino)
+        router.refresh()
     }
 
     const handleNotify = () => {
@@ -286,22 +311,20 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
             window.open(whatsappUrl, '_blank')
         }
 
-        if (window.history.length > 2) {
-            router.back()
-        } else {
-            router.push("/tareas")
-        }
+        handleClose()
     }
 
     return (
         <div className="max-w-3xl mx-auto space-y-6">
-            <div className="flex items-center gap-4">
-                <GoBackButton fallbackRoute="/tareas" />
-                <div>
-                    <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Nueva Tarea</h2>
-                    <p className="text-muted-foreground">Programe una actividad de campo</p>
-                </div>
-            </div>
+            <PageHeader
+                title="Nueva tarea"
+                description={origen === "lote" ? `${loteSeleccionado?.nombre ?? ""} · ${fincaSeleccionada?.nombre ?? ""}`
+                    : origen === "finca" ? fincaSeleccionada?.nombre : "Programe una actividad de campo"}
+                breadcrumbs={migas}
+            />
+            {errorForm && (
+                <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{errorForm}</div>
+            )}
 
             <Card>
                 <CardHeader>
@@ -312,59 +335,83 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
 
                         {/* Hidden Inputs for Combobox Data */}
                         <input type="hidden" name="fincaId" value={selectedFinca} />
-                        <input type="hidden" name="loteId" value={selectedLote} />
-                        {/* <input type="hidden" name="nivel" value={nivel} /> */} {/* Removed */}
+                        <input type="hidden" name="loteId" value={nivel === "LOTE" ? selectedLote : ""} />
+                        <input type="hidden" name="nivel" value={nivel} />
                         <input type="hidden" name="tipo" value={tiposActividad.find(t => t.id === selectedTipo)?.nombre || ""} />
                         <input type="hidden" name="responsable" value={responsables.find(r => r.id === selectedResponsable)?.nombre || ""} />
                         <input type="hidden" name="prioridad" value={selectedPrioridad} />
                         <input type="hidden" name="estado" value={selectedEstado} />
                         {/* <input type="hidden" name="fechaProgramada" value={fechaProgramada?.toISOString() || ""} /> */} {/* Removed, handled by visible input */}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="fincaId">Finca (Obligatorio)</Label>
-                                <Combobox
-                                    options={fincaOptions}
-                                    value={selectedFinca}
-                                    onSelect={(val) => {
-                                        setSelectedFinca(val)
-                                        setSelectedLote("") // Reset lote
-                                    }}
-                                    placeholder="Seleccione una Finca..."
-                                    searchPlaceholder="Buscar finca..."
-                                    emptyText="No encontrada."
-                                    disabled={!!initialFincaId}
-                                />
+                        {/* ── ¿Dónde se hace la tarea? ── */}
+                        {origen === "libre" ? (
+                            <div className="space-y-3">
+                                <Label>¿Dónde se realizará la tarea? *</Label>
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    {([
+                                        ["FINCA", MapIcon, "Toda la finca", "Labores generales: vías, cercas, infraestructura…"],
+                                        ["LOTE", Grid3x3, "Un lote específico", "Fertilización, cosecha, sanidad de un lote."],
+                                    ] as const).map(([valor, Icon, titulo, desc]) => (
+                                        <button key={valor} type="button"
+                                            onClick={() => { setNivel(valor); if (valor === "FINCA") setSelectedLote(""); setErrorForm(null) }}
+                                            className={cn("flex items-start gap-3 rounded-xl border p-4 text-left transition-colors",
+                                                nivel === valor ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:bg-muted/50")}>
+                                            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", nivel === valor ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                                                <Icon className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-semibold">{titulo}</div>
+                                                <div className="text-xs text-muted-foreground">{desc}</div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                                {nivel && (
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label>Finca *</Label>
+                                            <Combobox options={fincaOptions} value={selectedFinca}
+                                                onSelect={(val) => { setSelectedFinca(val); setSelectedLote("") }}
+                                                placeholder="Seleccione una finca…" />
+                                        </div>
+                                        {nivel === "LOTE" && (
+                                            <div className="space-y-2">
+                                                <Label>Lote *</Label>
+                                                <Combobox options={loteOptions} value={selectedLote} onSelect={setSelectedLote}
+                                                    placeholder={!selectedFinca ? "Seleccione la finca primero" : loteOptions.length ? "Seleccione un lote…" : "Esta finca no tiene lotes"}
+                                                    disabled={!selectedFinca || loteOptions.length === 0} />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-
-                            {/* Removed Nivel selector as per instruction */}
-                            {/* <div className="space-y-2">
-                                <Label htmlFor="nivel">Nivel de la Tarea</Label>
-                                <Combobox
-                                    options={nivelOptions}
-                                    value={nivel}
-                                    onSelect={(val) => setNivel(val as "FINCA" | "LOTE")}
-                                    placeholder="Seleccione nivel..."
-                                    searchPlaceholder="Buscar nivel..."
-                                    emptyText="No encontrado."
-                                />
-                            </div> */}
-                        </div>
-
-                        {/* Lote Selector - Hidden if creating task strictly for Finca (context mode) */}
-                        {!(initialFincaId && !initialLoteId) && (
-                            <div className="space-y-2 p-4 border rounded-md bg-muted/20">
-                                <Label htmlFor="loteId">Seleccione el Lote (Opcional)</Label>
-                                <Combobox
-                                    options={loteOptions}
-                                    value={selectedLote}
-                                    onSelect={setSelectedLote}
-                                    placeholder={selectedFinca ? "Seleccione un Lote..." : "Seleccione una finca primero"}
-                                    searchPlaceholder="Buscar lote..."
-                                    emptyText={selectedFinca ? "No hay lotes en esta finca." : "Seleccione una finca primero."}
-                                    disabled={!selectedFinca || loteOptions.length === 0 || !!initialLoteId}
-                                />
-                                {!selectedFinca && <p className="text-xs text-muted-foreground">Seleccione una finca primero para ver sus lotes.</p>}
+                        ) : (
+                            <div className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                                    {nivel === "LOTE" ? <Grid3x3 className="h-5 w-5" /> : <MapIcon className="h-5 w-5" />}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="text-xs font-medium uppercase tracking-wide text-primary">
+                                        {nivel === "LOTE" ? "Tarea de lote" : "Tarea general de la finca"}
+                                    </div>
+                                    {nivel === "LOTE" && origen === "lote" ? (
+                                        <div className="text-sm font-semibold">{loteSeleccionado?.nombre} <span className="font-normal text-muted-foreground">({loteSeleccionado?.codigo}) · {fincaSeleccionada?.nombre}</span></div>
+                                    ) : (
+                                        <div className="text-sm font-semibold"><MapPin className="mr-1 inline h-3.5 w-3.5" />{fincaSeleccionada?.nombre}</div>
+                                    )}
+                                    {origen === "finca" && nivel === "LOTE" && (
+                                        <div className="mt-2 max-w-sm">
+                                            <Combobox options={loteOptions} value={selectedLote} onSelect={setSelectedLote}
+                                                placeholder={loteOptions.length ? "Seleccione el lote…" : "Esta finca no tiene lotes"} disabled={loteOptions.length === 0} />
+                                        </div>
+                                    )}
+                                </div>
+                                {origen === "finca" && loteOptions.length > 0 && (
+                                    <Button type="button" variant="outline" size="sm"
+                                        onClick={() => { setNivel(nivel === "LOTE" ? "FINCA" : "LOTE"); setSelectedLote("") }}>
+                                        {nivel === "LOTE" ? "Es para toda la finca" : "Asignar a un lote"}
+                                    </Button>
+                                )}
                             </div>
                         )}
 
@@ -642,7 +689,7 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                         )}
 
                         <div className="pt-4 flex justify-end gap-3">
-                            <Button variant="outline" type="button" onClick={() => router.back()}>
+                            <Button variant="outline" type="button" onClick={() => router.push(destino)}>
                                 Cancelar
                             </Button>
                             <Button type="submit" disabled={isSubmitting} className={modoMasivo ? 'bg-green-600 hover:bg-green-700' : ''}>

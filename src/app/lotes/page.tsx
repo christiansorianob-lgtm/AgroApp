@@ -25,7 +25,7 @@ export default async function LotesPage() {
             <PageHeader
                 title="Lotes"
                 description={lotes.length ? `${lotes.length} ${lotes.length === 1 ? "lote" : "lotes"} · ${formatHa(totalHa, 1)}` : "Lotes productivos de todas las fincas"}
-                actions={<Button asChild><Link href="/lotes/new"><Plus className="mr-2 h-4 w-4" />Nuevo lote</Link></Button>}
+                actions={<Button asChild><Link href="/lotes/new?returnTo=/lotes"><Plus className="mr-2 h-4 w-4" />Nuevo lote</Link></Button>}
             />
             {error && <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
 

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { conRetorno } from "@/lib/navegacion"
 import { notFound } from "next/navigation"
 import { getLoteById } from "@/app/actions/lotes"
 import { getTareas } from "@/app/actions/tareas"
@@ -56,8 +57,8 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                 badge={<StatusPill className={estadoCls}>{estadoLabel}</StatusPill>}
                 description={<><span className="font-mono">{lote.codigo}</span> · Finca {finca.nombre}</>}
                 actions={<>
-                    <Button variant="outline" asChild><Link href={`/lotes/${id}/edit`}><Pencil className="mr-2 h-4 w-4" />Editar</Link></Button>
-                    <Button asChild><Link href={`/tareas/new?fincaId=${finca.id}&loteId=${id}`}><Plus className="mr-2 h-4 w-4" />Nueva tarea</Link></Button>
+                    <Button variant="outline" asChild><Link href={conRetorno(`/lotes/${id}/edit`, `/lotes/${id}`)}><Pencil className="mr-2 h-4 w-4" />Editar</Link></Button>
+                    <Button asChild><Link href={conRetorno(`/tareas/new`, `/lotes/${id}`, { fincaId: finca.id, loteId: id })}><Plus className="mr-2 h-4 w-4" />Nueva tarea</Link></Button>
                 </>}
             />
 

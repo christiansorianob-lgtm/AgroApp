@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import { rutaSegura } from "@/lib/navegacion"
 import { Loader2, Save, AlertCircle, LocateFixed } from "lucide-react"
 import { createFinca, updateFinca, type FincaInput } from "@/app/actions/fincas"
 import { getDepartamentos, getMunicipios } from "@/app/actions/locations"
@@ -43,6 +44,7 @@ const toISODate = (d: Date | string) => new Date(d).toISOString().slice(0, 10)
 export function FincaForm({ finca }: { finca?: FincaFormData }) {
     const router = useRouter()
     const editando = !!finca
+    const returnTo = rutaSegura(useSearchParams()?.get("returnTo"))
 
     const [departamentos, setDepartamentos] = useState<{ id: string; nombre: string }[]>([])
     const [municipios, setMunicipios] = useState<{ id: string; nombre: string }[]>([])
@@ -152,7 +154,7 @@ export function FincaForm({ finca }: { finca?: FincaFormData }) {
             return
         }
         const id = editando ? finca!.id : (res as any).data.id
-        router.push(`/fincas/${id}`)
+        router.push(editando && returnTo ? returnTo : `/fincas/${id}`)
         router.refresh()
     }
 
@@ -270,7 +272,7 @@ export function FincaForm({ finca }: { finca?: FincaFormData }) {
             {/* Barra de acciones fija */}
             <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur md:left-64">
                 <div className="mx-auto flex max-w-5xl items-center justify-end gap-3 px-4 py-3 md:px-8">
-                    <Button type="button" variant="outline" onClick={() => router.back()} disabled={guardando}>Cancelar</Button>
+                    <Button type="button" variant="outline" onClick={() => router.push(returnTo ?? (editando ? `/fincas/${finca!.id}` : "/fincas"))} disabled={guardando}>Cancelar</Button>
                     <Button type="submit" disabled={guardando}>
                         {guardando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         {editando ? "Guardar cambios" : "Registrar finca"}
