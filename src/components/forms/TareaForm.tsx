@@ -83,7 +83,9 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
 
     const [selectedFinca, setSelectedFinca] = useState<string>(initialFincaId)
     const [selectedLote, setSelectedLote] = useState<string>(initialLoteId)
-    const [nivel, setNivel] = useState<"" | "FINCA" | "LOTE">(origen === "lote" ? "LOTE" : origen === "finca" ? "FINCA" : "")
+    const fincaTieneLotes = lotes.some(l => l.fincaId === initialFincaId)
+    const [nivel, setNivel] = useState<"" | "FINCA" | "LOTE">(
+        origen === "lote" ? "LOTE" : origen === "finca" && !fincaTieneLotes ? "FINCA" : "")
     const [errorForm, setErrorForm] = useState<string | null>(null)
 
     // Controlled states for other Comboboxes
@@ -344,17 +346,21 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                         {/* <input type="hidden" name="fechaProgramada" value={fechaProgramada?.toISOString() || ""} /> */} {/* Removed, handled by visible input */}
 
                         {/* ── ¿Dónde se hace la tarea? ── */}
-                        {origen === "libre" ? (
+                        {origen !== "lote" ? (
                             <div className="space-y-3">
-                                <Label>¿Dónde se realizará la tarea? *</Label>
+                                <Label>
+                                    {origen === "finca" ? <>¿Dónde se realizará la tarea en <span className="font-semibold">{fincaSeleccionada?.nombre}</span>? *</> : "¿Dónde se realizará la tarea? *"}
+                                </Label>
                                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     {([
                                         ["FINCA", MapIcon, "Toda la finca", "Labores generales: vías, cercas, infraestructura…"],
-                                        ["LOTE", Grid3x3, "Un lote específico", "Fertilización, cosecha, sanidad de un lote."],
+                                        ["LOTE", Grid3x3, origen === "finca" ? "Un lote de esta finca" : "Un lote específico",
+                                            origen === "finca" && !fincaTieneLotes ? "Esta finca aún no tiene lotes registrados." : "Siembra, fertilización, cosecha, sanidad de un lote."],
                                     ] as const).map(([valor, Icon, titulo, desc]) => (
                                         <button key={valor} type="button"
+                                            disabled={valor === "LOTE" && origen === "finca" && !fincaTieneLotes}
                                             onClick={() => { setNivel(valor); if (valor === "FINCA") setSelectedLote(""); setErrorForm(null) }}
-                                            className={cn("flex items-start gap-3 rounded-xl border p-4 text-left transition-colors",
+                                            className={cn("flex items-start gap-3 rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                                                 nivel === valor ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:bg-muted/50")}>
                                             <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", nivel === valor ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
                                                 <Icon className="h-5 w-5" />
@@ -368,12 +374,14 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                                 </div>
                                 {nivel && (
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                        <div className="space-y-2">
-                                            <Label>Finca *</Label>
-                                            <Combobox options={fincaOptions} value={selectedFinca}
-                                                onSelect={(val) => { setSelectedFinca(val); setSelectedLote("") }}
-                                                placeholder="Seleccione una finca…" />
-                                        </div>
+                                        {origen === "libre" && (
+                                            <div className="space-y-2">
+                                                <Label>Finca *</Label>
+                                                <Combobox options={fincaOptions} value={selectedFinca}
+                                                    onSelect={(val) => { setSelectedFinca(val); setSelectedLote("") }}
+                                                    placeholder="Seleccione una finca…" />
+                                            </div>
+                                        )}
                                         {nivel === "LOTE" && (
                                             <div className="space-y-2">
                                                 <Label>Lote *</Label>
@@ -399,19 +407,7 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                                     ) : (
                                         <div className="text-sm font-semibold"><MapPin className="mr-1 inline h-3.5 w-3.5" />{fincaSeleccionada?.nombre}</div>
                                     )}
-                                    {origen === "finca" && nivel === "LOTE" && (
-                                        <div className="mt-2 max-w-sm">
-                                            <Combobox options={loteOptions} value={selectedLote} onSelect={setSelectedLote}
-                                                placeholder={loteOptions.length ? "Seleccione el lote…" : "Esta finca no tiene lotes"} disabled={loteOptions.length === 0} />
-                                        </div>
-                                    )}
                                 </div>
-                                {origen === "finca" && loteOptions.length > 0 && (
-                                    <Button type="button" variant="outline" size="sm"
-                                        onClick={() => { setNivel(nivel === "LOTE" ? "FINCA" : "LOTE"); setSelectedLote("") }}>
-                                        {nivel === "LOTE" ? "Es para toda la finca" : "Asignar a un lote"}
-                                    </Button>
-                                )}
                             </div>
                         )}
 
