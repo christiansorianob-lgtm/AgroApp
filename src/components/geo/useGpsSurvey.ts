@@ -17,13 +17,14 @@ export interface AjustesRecorrido {
 
 export const AJUSTES_POR_DEFECTO: AjustesRecorrido = { precisionMaxM: 15, distanciaMinM: 3, segundosPromedio: 5 }
 
-interface Guardado { puntos: GpsPoint[]; modo: ModoRecorrido; inicio: number | null }
+/** `cerrado`: el recorrido ya se convirtió en polígono, pero la finca/lote aún no se ha guardado. */
+interface Guardado { puntos: GpsPoint[]; modo: ModoRecorrido; inicio: number | null; cerrado?: boolean }
 
 /**
- * Levantamiento de linderos caminando: escucha el GPS del dispositivo, filtra lecturas imprecisas y
- * guarda el recorrido en el navegador para no perderlo si se recarga la página o se bloquea el teléfono.
+ * Lee el recorrido guardado en este dispositivo. El recorrido se conserva hasta que la finca o el lote
+ * se guardan en la base de datos (ver `limpiarRecorrido`), para no perder el trabajo de campo.
  */
-function leerGuardado(storageKey: string): Guardado | null {
+export function leerGuardado(storageKey: string): Guardado | null {
     try {
         const raw = localStorage.getItem(storageKey)
         const g: Guardado | null = raw ? JSON.parse(raw) : null
@@ -31,6 +32,11 @@ function leerGuardado(storageKey: string): Guardado | null {
     } catch {
         return null // almacenamiento no disponible
     }
+}
+
+/** Borra el respaldo local del recorrido. Se llama cuando el lindero ya quedó guardado en el servidor. */
+export function limpiarRecorrido(storageKey: string) {
+    try { localStorage.removeItem(storageKey) } catch { /* ignore */ }
 }
 
 function errorDeSoporte(): string | null {
@@ -52,6 +58,7 @@ export function useGpsSurvey(storageKey: string, activo: boolean) {
     const [muestreo, setMuestreo] = useState<{ restante: number; muestras: number } | null>(null)
     const [inicio, setInicio] = useState<number | null>(guardado?.inicio ?? null)
     const [recuperado, setRecuperado] = useState(!!guardado)
+    const [cerrado, setCerrado] = useState(!!guardado?.cerrado)
     const [soporte] = useState(errorDeSoporte)
     const error = soporte ?? errorGps
 
@@ -69,9 +76,9 @@ export function useGpsSurvey(storageKey: string, activo: boolean) {
 
     useEffect(() => {
         try {
-            if (puntos.length) localStorage.setItem(storageKey, JSON.stringify({ puntos, modo, inicio } satisfies Guardado))
+            if (puntos.length) localStorage.setItem(storageKey, JSON.stringify({ puntos, modo, inicio, cerrado } satisfies Guardado))
         } catch { /* ignore */ }
-    }, [puntos, modo, inicio, storageKey])
+    }, [puntos, modo, inicio, cerrado, storageKey])
 
     // Escucha del GPS mientras el panel está abierto
     useEffect(() => {
@@ -154,8 +161,22 @@ export function useGpsSurvey(storageKey: string, activo: boolean) {
 
     const deshacer = useCallback(() => setPuntos(prev => prev.slice(0, -1)), [])
 
+    /** El recorrido pasó a ser el lindero: deja de grabar pero se conserva el respaldo hasta guardar. */
+    const marcarCerrado = useCallback(() => {
+        setCerrado(true); setEstado("pausado")
+        soltarWakeLock()
+        // Se escribe ya: el editor puede cerrarse en este mismo instante y el efecto no alcanzaría a correr
+        try {
+            const g = leerGuardado(storageKey)
+            if (g) localStorage.setItem(storageKey, JSON.stringify({ ...g, cerrado: true } satisfies Guardado))
+        } catch { /* ignore */ }
+    }, [soltarWakeLock, storageKey])
+
+    /** Permite seguir agregando puntos a un recorrido ya cerrado. */
+    const reabrir = useCallback(() => { setCerrado(false); setRecuperado(false) }, [])
+
     const descartar = useCallback(() => {
-        setPuntos([]); setInicio(null); setEstado("inactivo"); setRecuperado(false)
+        setPuntos([]); setInicio(null); setEstado("inactivo"); setRecuperado(false); setCerrado(false)
         soltarWakeLock()
         try { localStorage.removeItem(storageKey) } catch { /* ignore */ }
     }, [storageKey, soltarWakeLock])
@@ -166,8 +187,8 @@ export function useGpsSurvey(storageKey: string, activo: boolean) {
         : null
 
     return {
-        estado, modo, setModo, ajustes, setAjustes, puntos, actual, error, muestreo, inicio, recuperado,
+        estado, modo, setModo, ajustes, setAjustes, puntos, actual, error, muestreo, inicio, recuperado, cerrado,
         distanciaRecorrida, precisionPromedio,
-        iniciar, pausar, marcarVertice, deshacer, descartar,
+        iniciar, pausar, marcarVertice, deshacer, descartar, marcarCerrado, reabrir,
     }
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { GeoJSON, Polyline, CircleMarker, Circle, Tooltip, useMap } from "react-leaflet"
+import { GeoJSON, Polyline, Polygon, CircleMarker, Circle, Tooltip, useMap } from "react-leaflet"
 import L from "leaflet"
 import "@geoman-io/leaflet-geoman-free"
 import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css"
@@ -10,7 +10,7 @@ import {
     AlertTriangle, CheckCircle2, Download, FileUp, Loader2, Satellite, Ruler, Spline, Navigation, Info,
 } from "lucide-react"
 import MapBase, { FitBounds, type LatLngBoundsTuple } from "./MapBase"
-import { useGpsSurvey, type ModoRecorrido } from "./useGpsSurvey"
+import { useGpsSurvey, leerGuardado, type ModoRecorrido } from "./useGpsSurvey"
 import {
     computeMetrics, validateBoundary, normalizeGeometry, polygonFromPoints, simplifyGeometry, geometryBounds,
     parseBoundaryFile, parseTextInput, toGeoJSONString, toKMLString, formatHa, formatMeters, METODO_LABELS,
@@ -135,14 +135,21 @@ function GpsLayer({ puntos, actual, seguir, cerrado }: { puntos: GpsPoint[]; act
     const line = puntos.map(p => [p.lat, p.lng] as [number, number])
     return (
         <>
-            {line.length > 1 && <Polyline positions={line} pathOptions={{ color: "#f97316", weight: 4 }} />}
-            {line.length > 2 && !cerrado && (
-                <Polyline positions={[line[line.length - 1], line[0]]} pathOptions={{ color: "#f97316", weight: 2, dashArray: "6 6" }} />
+            {/* Vista previa del polígono: el último punto se une con el primero */}
+            {line.length > 2 && (
+                <Polygon positions={line} pathOptions={{ stroke: false, fillColor: cerrado ? "#22c55e" : "#f97316", fillOpacity: 0.18 }} interactive={false} />
+            )}
+            {line.length > 1 && <Polyline positions={line} pathOptions={{ color: cerrado ? "#22c55e" : "#f97316", weight: 4 }} />}
+            {line.length > 2 && (
+                <Polyline positions={[line[line.length - 1], line[0]]}
+                    pathOptions={cerrado ? { color: "#22c55e", weight: 4 } : { color: "#f97316", weight: 3, dashArray: "8 8" }} />
             )}
             {puntos.map((p, i) => (
-                <CircleMarker key={`${p.ts}-${i}`} center={[p.lat, p.lng]} radius={4}
-                    pathOptions={{ color: "#fff", weight: 1.5, fillColor: "#f97316", fillOpacity: 1 }}>
-                    <Tooltip>Punto {i + 1}{p.acc != null ? ` · ±${p.acc.toFixed(1)} m` : ""}</Tooltip>
+                <CircleMarker key={`${p.ts}-${i}`} center={[p.lat, p.lng]} radius={i === 0 ? 7 : 4}
+                    pathOptions={{ color: "#fff", weight: i === 0 ? 3 : 1.5, fillColor: i === 0 ? "#16a34a" : "#f97316", fillOpacity: 1 }}>
+                    <Tooltip permanent={i === 0} direction="top" offset={[0, -6]}>
+                        {i === 0 ? "Inicio" : `Punto ${i + 1}`}{p.acc != null && i !== 0 ? ` · ±${p.acc.toFixed(1)} m` : ""}
+                    </Tooltip>
                 </CircleMarker>
             ))}
             {actual && (
@@ -171,7 +178,9 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
     const [archivoOrigen, setArchivoOrigen] = useState<string | null>(valorInicial?.archivoOrigen ?? null)
     const [historial, setHistorial] = useState<(BoundaryGeometry | null)[]>([])
 
-    const [pestana, setPestana] = useState<Pestana>("dibujar")
+    // Si en este dispositivo quedó un recorrido sin guardar, se abre directamente para recuperarlo
+    const [pestana, setPestana] = useState<Pestana>(() => (leerGuardado(storageKey) ? "gps" : "dibujar"))
+    const [confirmacion, setConfirmacion] = useState<null | "cerrar-recorrido" | "recorrido-corto">(null)
     const [drawing, setDrawing] = useState(false)
     const [editing, setEditing] = useState(false)
     const [map, setMap] = useState<L.Map | null>(null)
@@ -222,7 +231,20 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
         )
     }
 
+    const geometriaInicialKey = useMemo(() => JSON.stringify(normalizeGeometry(valorInicial?.geometria) ?? null), []) // eslint-disable-line react-hooks/exhaustive-deps
+    const hayCambios = JSON.stringify(geometry ?? null) !== geometriaInicialKey
+    const recorridoAbierto = gps.puntos.length > 0 && !gps.cerrado
+
     const guardar = () => {
+        // Un recorrido GPS sin cerrar nunca se ignora en silencio
+        if (recorridoAbierto) {
+            setConfirmacion(gps.puntos.length >= 3 ? "cerrar-recorrido" : "recorrido-corto")
+            return
+        }
+        aplicar(geometry, metodo, precisionM, puntosCrudos)
+    }
+
+    const aplicar = (geometry: BoundaryGeometry | null, metodo: MetodoGeorreferenciacion, precisionM: number | null, puntosCrudos: GpsPoint[] | null) => {
         if (!geometry) {
             if (valorInicial?.geometria && !confirm("¿Guardar sin lindero? Se eliminará el lindero actual.")) return
             onSave(null)
@@ -301,22 +323,26 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
         return g ? computeMetrics(g).areaHa : null
     }, [gps.puntos])
 
-    const terminarRecorrido = () => {
+    /** Une el último punto con el primero y convierte el recorrido en el lindero. */
+    const terminarRecorrido = (guardarDespues = false) => {
         let g = polygonFromPoints(gps.puntos)
         if (!g) return
         // En modo continuo se quitan vértices redundantes causados por el ruido del GPS
         if (gps.modo === "continuo") g = simplifyGeometry(g, Math.max(0.5, Math.min(2, (gps.precisionPromedio ?? 2) / 3)))
+        const precision = gps.precisionPromedio != null ? +gps.precisionPromedio.toFixed(1) : null
         cambiarGeometria(g, "RECORRIDO_GPS")
-        setPrecisionM(gps.precisionPromedio != null ? +gps.precisionPromedio.toFixed(1) : null)
+        setPrecisionM(precision)
         setPuntosCrudos(gps.puntos)
         setArchivoOrigen(null)
-        gps.descartar()
+        // El respaldo del recorrido se conserva en el teléfono hasta que la finca/lote se guarde
+        gps.marcarCerrado()
         setFit(geometryBounds([g]))
-        setPestana("dibujar"); setEditing(true)
+        if (guardarDespues) aplicar(g, "RECORRIDO_GPS", precision, gps.puntos)
     }
 
     const cerrar = () => {
-        if (gps.puntos.length > 0 && !confirm("Hay un recorrido GPS sin terminar. Quedará guardado en este dispositivo para continuarlo después. ¿Cerrar el editor?")) return
+        if (recorridoAbierto && !confirm("Hay un recorrido GPS sin cerrar. Quedará guardado en este teléfono para continuarlo después. ¿Salir del editor?")) return
+        if (!recorridoAbierto && hayCambios && !confirm("El lindero tiene cambios que no se han guardado. ¿Salir y descartarlos?")) return
         onCancel()
     }
 
@@ -339,8 +365,9 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                     {subtitulo && <p className="truncate text-xs text-muted-foreground">{subtitulo}</p>}
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={cerrar} className="hidden sm:inline-flex">Cancelar</Button>
-                <Button type="button" size="sm" onClick={guardar} disabled={hayErrores}>
-                    <Save className="mr-1.5 h-4 w-4" /> Aplicar lindero
+                <Button type="button" size="sm" onClick={guardar} disabled={hayErrores}
+                    className={cn((hayCambios || recorridoAbierto) && !hayErrores && "animate-pulse bg-emerald-600 shadow-lg shadow-emerald-600/40 ring-2 ring-emerald-400 hover:bg-emerald-700")}>
+                    <Save className="mr-1.5 h-4 w-4" /> Guardar lindero
                 </Button>
             </header>
 
@@ -365,6 +392,20 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                     </nav>
 
                     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+                        {hayCambios && metricas && !recorridoAbierto && (
+                            <div className="rounded-xl border-2 border-emerald-500 bg-emerald-50 p-3 shadow-sm">
+                                <div className="flex items-center gap-2 text-sm font-semibold text-emerald-800">
+                                    <CheckCircle2 className="h-5 w-5" /> Polígono cerrado: {formatHa(metricas.areaHa)}
+                                </div>
+                                <p className="mt-0.5 text-xs text-emerald-900/80">
+                                    Perímetro {formatMeters(metricas.perimetroM)} · {metricas.vertices} vértices. Falta guardarlo.
+                                </p>
+                                <Button type="button" onClick={guardar} disabled={hayErrores}
+                                    className="mt-2 h-11 w-full animate-pulse bg-emerald-600 text-base text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-700">
+                                    <Save className="mr-2 h-5 w-5" /> Guardar lindero
+                                </Button>
+                            </div>
+                        )}
                         {pestana === "dibujar" && (
                             <PanelDibujo
                                 hayGeometria={!!geometry}
@@ -402,7 +443,7 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                                 areaParcial={areaParcial}
                                 seguir={seguir}
                                 setSeguir={setSeguir}
-                                onTerminar={terminarRecorrido}
+                                onTerminar={() => terminarRecorrido(false)}
                             />
                         )}
 
@@ -438,7 +479,7 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                             onChange={g => cambiarGeometria(g)}
                             onDrawn={g => { cambiarGeometria(g, "DIBUJO_MAPA"); setPrecisionM(null); setPuntosCrudos(null); setArchivoOrigen(null); setDrawing(false); setEditing(true) }}
                         />
-                        {pestana === "gps" && <GpsLayer puntos={gps.puntos} actual={gps.actual} seguir={seguir} cerrado={false} />}
+                        {pestana === "gps" && <GpsLayer puntos={gps.puntos} actual={gps.actual} seguir={seguir} cerrado={gps.cerrado} />}
                         {miUbicacion && pestana !== "gps" && (
                             <CircleMarker center={[miUbicacion.lat, miUbicacion.lng]} radius={7}
                                 pathOptions={{ color: "#fff", weight: 3, fillColor: "#2563eb", fillOpacity: 1 }}>
@@ -455,6 +496,11 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                                 : "Arrastre los vértices para ajustar. Arrastre un punto intermedio para crear un vértice. Clic derecho sobre un vértice para quitarlo."}
                         </div>
                     )}
+                    {pestana === "gps" && recorridoAbierto && gps.puntos.length >= 3 && (
+                        <div className="pointer-events-none absolute left-1/2 top-3 z-[500] w-[min(92%,520px)] -translate-x-1/2 rounded-lg bg-orange-600/90 px-3 py-2 text-center text-xs font-medium text-white shadow-lg backdrop-blur">
+                            La línea punteada une el último punto con el inicio. Al terminar pulse «Cerrar polígono».
+                        </div>
+                    )}
                     {metricas && (
                         <div className="absolute bottom-6 right-3 z-[500] rounded-lg bg-slate-900/85 px-3 py-2 text-right text-white shadow-lg backdrop-blur">
                             <div className="text-lg font-semibold leading-tight tabular-nums">{formatHa(metricas.areaHa)}</div>
@@ -463,6 +509,39 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                     )}
                 </div>
             </div>
+
+            {confirmacion && (
+                <div className="fixed inset-0 z-[1100] flex items-end justify-center bg-black/50 p-4 sm:items-center" role="alertdialog" aria-modal="true">
+                    <div className="w-full max-w-md rounded-2xl bg-card p-5 shadow-2xl">
+                        {confirmacion === "cerrar-recorrido" ? (
+                            <>
+                                <h3 className="flex items-center gap-2 text-base font-semibold"><Footprints className="h-5 w-5 text-orange-600" /> El recorrido aún no está cerrado</h3>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    Tiene {gps.puntos.length} puntos tomados con GPS ({areaParcial != null ? formatHa(areaParcial) : "—"}).
+                                    Se unirá el último punto con el primero para formar el polígono y se guardará como lindero.
+                                </p>
+                                <div className="mt-4 grid gap-2">
+                                    <Button type="button" className="h-11 bg-emerald-600 text-white hover:bg-emerald-700"
+                                        onClick={() => { setConfirmacion(null); terminarRecorrido(true) }}>
+                                        <CheckCircle2 className="mr-2 h-5 w-5" /> Cerrar polígono y guardar
+                                    </Button>
+                                    <Button type="button" variant="outline" onClick={() => { setConfirmacion(null); setPestana("gps") }}>Seguir caminando</Button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <h3 className="flex items-center gap-2 text-base font-semibold"><AlertTriangle className="h-5 w-5 text-amber-600" /> Recorrido incompleto</h3>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    El recorrido tiene {gps.puntos.length} punto(s). Se necesitan al menos 3 para formar un polígono. El recorrido queda guardado en este teléfono.
+                                </p>
+                                <div className="mt-4 grid gap-2">
+                                    <Button type="button" onClick={() => { setConfirmacion(null); setPestana("gps") }}>Seguir caminando</Button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
@@ -661,9 +740,23 @@ function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar }: {
                     <AlertTriangle className="h-4 w-4 shrink-0" /> {gps.error}
                 </div>
             )}
-            {gps.recuperado && (
+            {gps.recuperado && !gps.cerrado && (
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
-                    Se recuperó un recorrido sin terminar con {gps.puntos.length} puntos. Continúe o descártelo.
+                    <strong>Recorrido recuperado:</strong> {gps.puntos.length} puntos guardados en este teléfono. Puede seguir caminando o cerrar el polígono.
+                </div>
+            )}
+            {gps.cerrado && (
+                <div className="rounded-xl border-2 border-emerald-500 bg-emerald-50 p-3 text-sm text-emerald-900">
+                    <p className="flex items-center gap-1.5 font-semibold"><CheckCircle2 className="h-4 w-4" /> Recorrido cerrado ({gps.puntos.length} puntos)</p>
+                    <p className="mt-0.5 text-xs">
+                        {gps.recuperado
+                            ? "Este recorrido se cerró pero la finca o el lote no se llegó a guardar. Úselo y luego guarde."
+                            : "Ya es el lindero. Pulse «Guardar lindero» para aplicarlo."}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {gps.recuperado && <Button type="button" size="sm" className="bg-emerald-600 text-white hover:bg-emerald-700" onClick={onTerminar}>Usar este recorrido</Button>}
+                        <Button type="button" size="sm" variant="outline" onClick={gps.reabrir}>Seguir agregando puntos</Button>
+                    </div>
                 </div>
             )}
 
@@ -712,7 +805,7 @@ function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar }: {
             )}
 
             {/* Controles */}
-            <div className="space-y-2">
+            {!gps.cerrado && <div className="space-y-2">
                 {gps.estado !== "grabando" ? (
                     <Button type="button" className="h-11 w-full" onClick={gps.iniciar}>
                         <Play className="mr-2 h-4 w-4" /> {gps.puntos.length ? "Continuar recorrido" : "Iniciar recorrido"}
@@ -742,10 +835,16 @@ function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar }: {
                         <Trash2 className="mr-1.5 h-4 w-4" /> Descartar
                     </Button>
                 </div>
-                <Button type="button" variant="secondary" className="w-full" onClick={onTerminar} disabled={gps.puntos.length < 3 || grabando && !!gps.muestreo}>
-                    <CheckCircle2 className="mr-2 h-4 w-4" /> Terminar y cerrar lindero
+                <Button type="button" onClick={onTerminar} disabled={gps.puntos.length < 3 || !!gps.muestreo}
+                    className={cn("h-12 w-full text-base",
+                        gps.puntos.length >= 3 ? "animate-pulse bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-700" : "")}
+                    variant={gps.puntos.length >= 3 ? "default" : "secondary"}>
+                    <CheckCircle2 className="mr-2 h-5 w-5" /> Cerrar polígono (unir con el inicio)
                 </Button>
-            </div>
+                {gps.puntos.length > 0 && gps.puntos.length < 3 && (
+                    <p className="text-center text-xs text-muted-foreground">Faltan {3 - gps.puntos.length} punto(s) para poder cerrar el polígono.</p>
+                )}
+            </div>}
 
             {/* Estadísticas */}
             <dl className="grid grid-cols-2 gap-2 text-center">

@@ -1,8 +1,10 @@
 'use client'
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { rutaSegura } from "@/lib/navegacion"
+import { limpiarRecorrido } from "@/components/geo/useGpsSurvey"
+import { cn } from "@/lib/utils"
 import { Loader2, Save, AlertCircle, LocateFixed } from "lucide-react"
 import { createLote, updateLote, type LoteInput } from "@/app/actions/lotes"
 import { getTiposCultivo, createTipoCultivo } from "@/app/actions/cultivos"
@@ -78,6 +80,16 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
         geometriaInicial ? { geometria: geometriaInicial, metodo: lote?.metodoGeorreferenciacion || "DIBUJO_MAPA", precisionM: lote?.precisionM } : null,
     )
     const [linderoTocado, setLinderoTocado] = useState(false)
+    const storageKey = `agroapp:recorrido:lote:${lote?.id ?? `nuevo-${fincaId}`}`
+    const pendienteGuardar = linderoTocado
+
+    // Avisar antes de salir si el lindero (p. ej. un recorrido GPS) no se ha guardado
+    useEffect(() => {
+        if (!pendienteGuardar) return
+        const aviso = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = "" }
+        window.addEventListener("beforeunload", aviso)
+        return () => window.removeEventListener("beforeunload", aviso)
+    }, [pendienteGuardar])
     const [ubicacion, setUbicacion] = useState<{ lat: number; lng: number } | null>(
         lote?.latitud != null && lote?.longitud != null ? { lat: lote.latitud, lng: lote.longitud } : null,
     )
@@ -144,6 +156,9 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
             window.scrollTo({ top: 0, behavior: "smooth" })
             return
         }
+        // Ya quedó en la base de datos: se libera el respaldo del recorrido GPS del teléfono
+        limpiarRecorrido(storageKey)
+        setLinderoTocado(false)
         router.push(returnTo ?? (editando ? `/lotes/${lote!.id}` : `/fincas/${fincaId}`))
         router.refresh()
     }
@@ -232,7 +247,7 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
                             onChange={v => { setLindero(v); setLinderoTocado(true) }}
                             titulo={`Lindero del lote ${form.nombre || (editando ? lote!.codigo : siguienteCodigo)}`}
                             subtitulo={finca ? `Finca ${finca.nombre}` : undefined}
-                            storageKey={`agroapp:recorrido:lote:${lote?.id ?? `nuevo-${fincaId}`}`}
+                            storageKey={storageKey}
                             contexto={contexto}
                             capasReferencia={[
                                 ...(fincaGeom ? [{ id: "finca", nombre: finca!.nombre, geometria: fincaGeom, estilo: "finca" as const }] : []),
@@ -274,9 +289,15 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
             </div>
 
             <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur md:left-64">
+                {pendienteGuardar && (
+                    <div className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-sm font-medium text-amber-900">
+                        El lindero está listo pero <strong>aún no se ha guardado</strong>. Pulse «{editando ? "Guardar cambios" : "Registrar lote"}» para no perderlo.
+                    </div>
+                )}
                 <div className="mx-auto flex max-w-5xl items-center justify-end gap-3 px-4 py-3 md:px-8">
                     <Button type="button" variant="outline" onClick={() => router.push(returnTo ?? (editando ? `/lotes/${lote!.id}` : fincaIdInicial ? `/fincas/${fincaIdInicial}` : "/lotes"))} disabled={guardando}>Cancelar</Button>
-                    <Button type="submit" disabled={guardando}>
+                    <Button type="submit" disabled={guardando}
+                        className={cn(pendienteGuardar && !guardando && "animate-pulse bg-emerald-600 shadow-lg shadow-emerald-600/40 ring-2 ring-emerald-400 hover:bg-emerald-700")}>
                         {guardando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         {editando ? "Guardar cambios" : "Registrar lote"}
                     </Button>

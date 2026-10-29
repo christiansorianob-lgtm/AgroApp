@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { rutaSegura } from "@/lib/navegacion"
+import { limpiarRecorrido } from "@/components/geo/useGpsSurvey"
+import { cn } from "@/lib/utils"
 import { Loader2, Save, AlertCircle, LocateFixed } from "lucide-react"
 import { createFinca, updateFinca, type FincaInput } from "@/app/actions/fincas"
 import { getDepartamentos, getMunicipios } from "@/app/actions/locations"
@@ -67,6 +69,16 @@ export function FincaForm({ finca, siguienteCodigo }: { finca?: FincaFormData; s
         geometriaInicial ? { geometria: geometriaInicial, metodo: finca?.metodoGeorreferenciacion || "DIBUJO_MAPA", precisionM: finca?.precisionM } : null,
     )
     const [linderoTocado, setLinderoTocado] = useState(false)
+    const storageKey = `agroapp:recorrido:finca:${finca?.id ?? "nueva"}`
+    const pendienteGuardar = linderoTocado
+
+    // Avisar antes de salir si el lindero (p. ej. un recorrido GPS) no se ha guardado
+    useEffect(() => {
+        if (!pendienteGuardar) return
+        const aviso = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = "" }
+        window.addEventListener("beforeunload", aviso)
+        return () => window.removeEventListener("beforeunload", aviso)
+    }, [pendienteGuardar])
     const [ubicacion, setUbicacion] = useState<{ lat: number; lng: number } | null>(
         finca?.latitud != null && finca?.longitud != null ? { lat: finca.latitud, lng: finca.longitud } : null,
     )
@@ -153,6 +165,9 @@ export function FincaForm({ finca, siguienteCodigo }: { finca?: FincaFormData; s
             window.scrollTo({ top: 0, behavior: "smooth" })
             return
         }
+        // Ya quedó en la base de datos: se libera el respaldo del recorrido GPS del teléfono
+        limpiarRecorrido(storageKey)
+        setLinderoTocado(false)
         const id = editando ? finca!.id : (res as any).data.id
         router.push(editando && returnTo ? returnTo : `/fincas/${id}`)
         router.refresh()
@@ -230,7 +245,7 @@ export function FincaForm({ finca, siguienteCodigo }: { finca?: FincaFormData; s
                         onChange={v => { setLindero(v); setLinderoTocado(true) }}
                         titulo={`Lindero de la finca ${form.nombre || "nueva"}`}
                         subtitulo={[form.veredaSector, municipios.find(m => m.id === muniId)?.nombre].filter(Boolean).join(" · ")}
-                        storageKey={`agroapp:recorrido:finca:${finca?.id ?? "nueva"}`}
+                        storageKey={storageKey}
                         contexto={{
                             vecinos,
                             areaDeclaradaHa: form.areaTotalHa ? Number(form.areaTotalHa.replace(",", ".")) : null,
@@ -281,9 +296,15 @@ export function FincaForm({ finca, siguienteCodigo }: { finca?: FincaFormData; s
 
             {/* Barra de acciones fija */}
             <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur md:left-64">
+                {pendienteGuardar && (
+                    <div className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-sm font-medium text-amber-900">
+                        El lindero está listo pero <strong>aún no se ha guardado</strong>. Pulse «{editando ? "Guardar cambios" : "Registrar finca"}» para no perderlo.
+                    </div>
+                )}
                 <div className="mx-auto flex max-w-5xl items-center justify-end gap-3 px-4 py-3 md:px-8">
                     <Button type="button" variant="outline" onClick={() => router.push(returnTo ?? (editando ? `/fincas/${finca!.id}` : "/fincas"))} disabled={guardando}>Cancelar</Button>
-                    <Button type="submit" disabled={guardando}>
+                    <Button type="submit" disabled={guardando}
+                        className={cn(pendienteGuardar && !guardando && "animate-pulse bg-emerald-600 shadow-lg shadow-emerald-600/40 ring-2 ring-emerald-400 hover:bg-emerald-700")}>
                         {guardando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         {editando ? "Guardar cambios" : "Registrar finca"}
                     </Button>

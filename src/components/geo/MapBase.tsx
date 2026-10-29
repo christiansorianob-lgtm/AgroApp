@@ -78,7 +78,7 @@ export default function MapBase({
             maxZoom={21}
             scrollWheelZoom={scrollWheelZoom}
             className={className}
-            style={{ height: "100%", width: "100%" }}
+            style={{ height: "100%", width: "100%", zIndex: 0 }}
             attributionControl={true}
         >
             <LayersControl position={layersPosition}>
