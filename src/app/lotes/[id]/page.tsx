@@ -11,7 +11,7 @@ import { DescargarKMLButton } from "@/components/geo/DescargarKMLButton"
 import { LevantamientosList } from "@/components/geo/LevantamientosList"
 import { TareasResumenTable, StatusPill } from "@/components/tareas/TareasResumenTable"
 import { formatHa, formatMeters, METODO_LABELS } from "@/lib/geo"
-import { formatDate } from "@/lib/utils"
+import { formatDate, cn } from "@/lib/utils"
 import { describirMaterial } from "@/lib/cultivos"
 import { Calendar, Leaf, Pencil, Plus, Spline, Hash, Sprout, Ruler, Layers, ExternalLink } from "lucide-react"
 
@@ -73,8 +73,10 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                 ].map(([k, v, h]) => (
                     <Card key={k} className="p-4">
                         <div className="text-xs font-medium text-muted-foreground">{k}</div>
-                        <div className="mt-1 truncate text-xl font-semibold tabular-nums">{v}</div>
-                        <div className="mt-0.5 truncate text-xs text-muted-foreground">{h}</div>
+                        {/* Textos largos (p. ej. "Palma de Aceite") pasan a dos líneas con letra más pequeña en vez de recortarse */}
+                        <div title={v} className={cn("mt-1 line-clamp-2 break-words font-semibold tabular-nums",
+                            v.length > 12 ? "text-base leading-snug" : "text-xl")}>{v}</div>
+                        <div title={h} className="mt-0.5 line-clamp-3 break-words text-xs text-muted-foreground">{h}</div>
                     </Card>
                 ))}
             </div>

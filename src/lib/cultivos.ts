@@ -11,8 +11,11 @@ export interface MaterialLote {
 
 /** "Deli x La Mé #S #PC (Alta Extracción) — PalmElit" */
 export function describirMaterial(m: MaterialLote, { conCasa = true } = {}): string {
-    const base = [m.variedad, ...(m.opcionesGeneticas ?? [])].filter(Boolean).join(" ")
-    const comercial = m.nombreComercial && !base.includes(m.nombreComercial) ? ` (${m.nombreComercial})` : ""
+    const codigos = m.opcionesGeneticas ?? []
+    const base = [m.variedad, ...codigos].filter(Boolean).join(" ")
+    // Si el nombre comercial repite los códigos ("#S Alta Extracción"), se muestra solo lo nuevo
+    const limpio = (m.nombreComercial ?? "").split(/\s+/).filter(p => p && !codigos.includes(p)).join(" ")
+    const comercial = limpio && !base.includes(limpio) ? ` (${limpio})` : ""
     const casa = conCasa && m.casaGenetica ? ` — ${m.casaGenetica}` : ""
     return `${base}${comercial}${casa}`.trim()
 }

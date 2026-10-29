@@ -68,7 +68,7 @@ export function StatItem({ label, value, hint, icon: Icon }: { label: string; va
             )}
             <div className="min-w-0">
                 <div className="text-xs text-muted-foreground">{label}</div>
-                <div className="truncate text-sm font-medium text-foreground">{value}</div>
+                <div className="break-words text-sm font-medium text-foreground">{value}</div>
                 {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
             </div>
         </div>
