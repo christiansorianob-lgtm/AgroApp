@@ -47,7 +47,7 @@ export interface LoteFormData {
     finalidad?: Finalidad
     usoDetalle?: string | null
     numeroPlantas?: number | null
-    materialesVivero?: { tipoCultivo: string; especie: string | null; variedad: string | null; casaGenetica: string | null; etapa: EtapaVivero; ubicacion?: string | null; cantidad: number; fechaIngreso: Date | string | null }[]
+    materialesVivero?: { tipoCultivo: string; especie: string | null; variedad: string | null; casaGenetica: string | null; opcionesGeneticas?: string[]; etapa: EtapaVivero; ubicacion?: string | null; cantidad: number; fechaIngreso: Date | string | null }[]
     tipoCultivo: string | null
     especie?: string | null
     variedad: string | null
@@ -104,7 +104,7 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, opcionesGenetic
         lote?.materialesVivero?.length
             ? lote.materialesVivero.map(m => ({
                 ...filaVacia(m.etapa, m.tipoCultivo), especie: m.especie ?? "", variedad: m.variedad ?? "", casaGenetica: m.casaGenetica ?? "",
-                ubicacion: m.ubicacion ?? "", cantidad: String(m.cantidad), fechaIngreso: toISODate(m.fechaIngreso),
+                opciones: m.opcionesGeneticas ?? [], ubicacion: m.ubicacion ?? "", cantidad: String(m.cantidad), fechaIngreso: toISODate(m.fechaIngreso),
             }))
             : [filaVacia("PREVIVERO")])
 
@@ -194,6 +194,7 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, opcionesGenetic
             numeroPlantas: numeroPlantas ? parseInt(numeroPlantas, 10) : null,
             materialesVivero: filasVivero.filter(f => f.tipoCultivo || f.cantidad).map(f => ({
                 tipoCultivo: f.tipoCultivo, especie: f.especie || null, variedad: f.variedad || null, casaGenetica: f.casaGenetica || null,
+                opcionesGeneticas: f.opciones,
                 etapa: f.etapa, ubicacion: f.ubicacion || null, cantidad: parseInt(f.cantidad, 10) || 0, fechaIngreso: f.fechaIngreso || null,
             })),
             tipoCultivo: form.tipoCultivo,
@@ -374,7 +375,7 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, opcionesGenetic
 
                 {finalidad === "VIVERO" && (
                     <FormSection title="Inventario del vivero" description="Materiales que hay en el vivero, con su etapa y cantidad de plantas. Use el mismo catálogo de cultivos y variedades.">
-                        <ViveroMaterialesEditor filas={filasVivero} onChange={setFilasVivero} catalogo={tipos} />
+                        <ViveroMaterialesEditor filas={filasVivero} onChange={setFilasVivero} catalogo={tipos} opcionesGeneticas={opcionesGeneticas} />
                     </FormSection>
                 )}
 

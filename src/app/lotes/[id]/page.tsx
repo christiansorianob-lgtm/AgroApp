@@ -181,7 +181,7 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                                         {e.items.map(m => (
                                             <tr key={m.id}>
                                                 <td className="px-5 py-2.5">{m.tipoCultivo}{m.especie && <div className="text-xs italic text-muted-foreground">{m.especie}</div>}</td>
-                                                <td className="px-3 py-2.5">{m.variedad || "—"}</td>
+                                                <td className="px-3 py-2.5">{m.variedad ? describirMaterial({ variedad: m.variedad, opcionesGeneticas: m.opcionesGeneticas }, { conCasa: false }) : "—"}</td>
                                                 <td className="px-3 py-2.5 text-muted-foreground">{m.casaGenetica || "—"}</td>
                                                 <td className="px-3 py-2.5">{m.ubicacion || "—"}</td>
                                                 <td className="whitespace-nowrap px-3 py-2.5 tabular-nums">{m.fechaIngreso ? formatDate(m.fechaIngreso) : "—"}</td>

@@ -13,8 +13,11 @@ export interface CatalogoCultivo {
     variedades: { id: string; nombre: string; especieId?: string | null; casaGenetica?: string | null }[]
 }
 
+export interface OpcionGeneticaRef { id: string; codigo: string; nombre: string; casaGenetica: string; descripcion: string | null }
+
 export interface FilaVivero {
     clave: string
+    opciones: string[]
     tipoCultivo: string
     especie: string
     variedad: string
@@ -27,7 +30,7 @@ export interface FilaVivero {
 
 export const filaVacia = (etapa: EtapaVivero = "VIVERO", tipoCultivo = ""): FilaVivero => ({
     clave: Math.random().toString(36).slice(2),
-    tipoCultivo, especie: "", variedad: "", casaGenetica: "", etapa, ubicacion: "", cantidad: "", fechaIngreso: "",
+    tipoCultivo, especie: "", variedad: "", casaGenetica: "", opciones: [], etapa, ubicacion: "", cantidad: "", fechaIngreso: "",
 })
 
 const AYUDA_ETAPA: Record<EtapaVivero, string> = {
@@ -42,10 +45,12 @@ const sel = "h-9 w-full min-w-0 rounded-md border border-input bg-card px-2 text
  * Inventario de un lote de vivero, organizado por etapa (previvero, vivero, lista para siembra).
  * Cada fila es un material (cultivo, especie, variedad) con su ubicación (cama, era…) y cantidad.
  */
-export function ViveroMaterialesEditor({ filas, onChange, catalogo }: {
+export function ViveroMaterialesEditor({ filas, onChange, catalogo, opcionesGeneticas = [] }: {
     filas: FilaVivero[]
     onChange: (filas: FilaVivero[]) => void
     catalogo: CatalogoCultivo[]
+    /** Catálogo de opciones genéticas (#S, #PC…); se muestran las de la casa del material */
+    opcionesGeneticas?: OpcionGeneticaRef[]
 }) {
     const actualizar = (clave: string, cambios: Partial<FilaVivero>) => onChange(filas.map(f => (f.clave === clave ? { ...f, ...cambios } : f)))
     const quitar = (clave: string) => onChange(filas.filter(f => f.clave !== clave))
@@ -93,7 +98,7 @@ export function ViveroMaterialesEditor({ filas, onChange, catalogo }: {
                                             <label className="space-y-1 text-xs">
                                                 <span className="text-muted-foreground">Cultivo *</span>
                                                 <select className={sel} value={f.tipoCultivo}
-                                                    onChange={e => actualizar(f.clave, { tipoCultivo: e.target.value, especie: "", variedad: "", casaGenetica: "" })}>
+                                                    onChange={e => actualizar(f.clave, { tipoCultivo: e.target.value, especie: "", variedad: "", casaGenetica: "", opciones: [] })}>
                                                     <option value="">Seleccione…</option>
                                                     {catalogo.map(t => <option key={t.id}>{t.nombre}</option>)}
                                                 </select>
@@ -102,7 +107,7 @@ export function ViveroMaterialesEditor({ filas, onChange, catalogo }: {
                                                 <label className="space-y-1 text-xs">
                                                     <span className="text-muted-foreground">Especie</span>
                                                     <select className={sel} value={f.especie}
-                                                        onChange={e => actualizar(f.clave, { especie: e.target.value, variedad: "", casaGenetica: "" })}>
+                                                        onChange={e => actualizar(f.clave, { especie: e.target.value, variedad: "", casaGenetica: "", opciones: [] })}>
                                                         <option value="">—</option>
                                                         {especies.map(e => <option key={e.id}>{e.nombre}</option>)}
                                                     </select>
@@ -114,7 +119,12 @@ export function ViveroMaterialesEditor({ filas, onChange, catalogo }: {
                                                     onChange={e => {
                                                         const v = tipo?.variedades.find(x => x.nombre === e.target.value)
                                                         const esp = v?.especieId ? especies.find(x => x.id === v.especieId)?.nombre : undefined
-                                                        actualizar(f.clave, { variedad: e.target.value, casaGenetica: v?.casaGenetica ?? "", especie: esp ?? f.especie })
+                                                        const casa = v?.casaGenetica ?? ""
+                                                        actualizar(f.clave, {
+                                                            variedad: e.target.value, casaGenetica: casa, especie: esp ?? f.especie,
+                                                            // Conserva solo las opciones que existen en la nueva casa genética
+                                                            opciones: f.opciones.filter(c => opcionesGeneticas.some(o => o.codigo === c && o.casaGenetica === casa)),
+                                                        })
                                                     }}>
                                                     <option value="">{variedades.length ? "—" : "Sin variedades"}</option>
                                                     {variedades.map(v => <option key={v.id} value={v.nombre}>{v.casaGenetica ? `${v.nombre} · ${v.casaGenetica}` : v.nombre}</option>)}
@@ -142,6 +152,28 @@ export function ViveroMaterialesEditor({ filas, onChange, catalogo }: {
                                             </label>
                                         </div>
                                         {f.casaGenetica && <p className="mt-1.5 text-xs text-muted-foreground">Casa genética: {f.casaGenetica}</p>}
+                                        {(() => {
+                                            const disponibles = f.casaGenetica ? opcionesGeneticas.filter(o => o.casaGenetica === f.casaGenetica) : []
+                                            if (!disponibles.length) return null
+                                            return (
+                                                <div className="mt-2 space-y-1">
+                                                    <span className="text-xs text-muted-foreground">Opciones genéticas</span>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {disponibles.map(o => {
+                                                            const activa = f.opciones.includes(o.codigo)
+                                                            return (
+                                                                <button key={o.id} type="button" aria-pressed={activa} title={o.descripcion ?? o.nombre}
+                                                                    onClick={() => actualizar(f.clave, { opciones: activa ? f.opciones.filter(c => c !== o.codigo) : [...f.opciones, o.codigo] })}
+                                                                    className={cn("rounded-md border px-2 py-1 text-xs transition-colors",
+                                                                        activa ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/50")}>
+                                                                    <span className="font-mono font-semibold">{o.codigo}</span> {o.nombre}
+                                                                </button>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })()}
                                     </div>
                                 )
                             })}
