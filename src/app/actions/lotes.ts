@@ -12,7 +12,9 @@ export interface LoteInput {
     /** Área productiva registrada. Si se omite se usa el área medida del lindero. */
     areaHa?: number | null
     tipoCultivo: string
+    especie?: string | null
     variedad?: string | null
+    casaGenetica?: string | null
     fechaSiembra?: string | null
     estado?: "ACTIVO" | "INACTIVO" | "EN_RENOVACION"
     observaciones?: string | null
@@ -96,7 +98,9 @@ export async function createLote(input: LoteInput): Promise<{ data?: { id: strin
                 nombre: input.nombre.trim(),
                 areaHa,
                 tipoCultivo: input.tipoCultivo,
+                especie: input.especie || null,
                 variedad: input.variedad || null,
+                casaGenetica: input.casaGenetica || null,
                 fechaSiembra: parseFechaCalendario(input.fechaSiembra),
                 estado: input.estado || "ACTIVO",
                 observaciones: input.observaciones?.trim() || null,
@@ -132,7 +136,9 @@ export async function updateLote(id: string, input: LoteInput): Promise<{ succes
                 nombre: input.nombre.trim(),
                 areaHa: input.areaHa ?? (geo as any).areaMedidaHa ?? current.areaHa,
                 tipoCultivo: input.tipoCultivo,
+                especie: input.especie || null,
                 variedad: input.variedad || null,
+                casaGenetica: input.casaGenetica || null,
                 fechaSiembra: parseFechaCalendario(input.fechaSiembra),
                 estado: input.estado || undefined,
                 observaciones: input.observaciones?.trim() || null,

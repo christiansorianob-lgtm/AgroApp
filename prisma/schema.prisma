@@ -61,7 +61,9 @@ model Lote {
   nombre          String
 
   tipoCultivo     String
-  variedad        String?
+  especie         String?  // Especie botánica (Elaeis guineensis, Híbrido OxG…)
+  variedad        String?  // Variedad o cruce (Deli x La Mé…)
+  casaGenetica    String?  // Casa genética / proveedor de la semilla
   fechaSiembra    DateTime?
   areaHa          Float // Redundant if calculated from polygon, but kept for cache/manual entry
   latitud         Float?
@@ -390,14 +392,30 @@ model UnidadMedida {
 model TipoCultivo {
   id          String            @id @default(uuid())
   nombre      String            @unique
+  especies    EspecieCultivo[]
   variedades  VariedadCultivo[]
+}
+
+// Especie botánica dentro de un cultivo (p. ej. Palma de Aceite → Elaeis guineensis, Híbrido OxG)
+model EspecieCultivo {
+  id            String            @id @default(uuid())
+  nombre        String            // Nombre científico o de grupo: "Elaeis guineensis"
+  nombreComun   String?           // "Palma africana (Tenera D×P)"
+  tipoCultivoId String
+  tipoCultivo   TipoCultivo       @relation(fields: [tipoCultivoId], references: [id], onDelete: Cascade)
+  variedades    VariedadCultivo[]
+
+  @@unique([tipoCultivoId, nombre])
 }
 
 model VariedadCultivo {
   id            String      @id @default(uuid())
-  nombre        String
+  nombre        String      // Variedad o cruce: "Deli x La Mé"
+  casaGenetica  String?     // Proveedor del material: "PalmElit", "ASD Costa Rica"
   tipoCultivoId String
   tipoCultivo   TipoCultivo @relation(fields: [tipoCultivoId], references: [id])
+  especieId     String?
+  especie       EspecieCultivo? @relation(fields: [especieId], references: [id], onDelete: SetNull)
 
   @@unique([tipoCultivoId, nombre])
 }

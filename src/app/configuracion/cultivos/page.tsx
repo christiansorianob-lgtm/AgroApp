@@ -1,168 +1,174 @@
 'use client'
 
 import { useState, useEffect } from "react"
-import { getTiposCultivo, createTipoCultivo, deleteTipoCultivo, createVariedad, deleteVariedad } from "@/app/actions/cultivos"
+import { getTiposCultivo, createTipoCultivo, deleteTipoCultivo, createVariedad, deleteVariedad, createEspecie, deleteEspecie } from "@/app/actions/cultivos"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Trash2, Plus, Loader2, ArrowLeft } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { Trash2, Plus, Loader2, Sprout, Dna } from "lucide-react"
+
+interface Variedad { id: string; nombre: string; especieId: string | null; casaGenetica: string | null }
+interface Especie { id: string; nombre: string; nombreComun: string | null }
+interface Tipo { id: string; nombre: string; especies: Especie[]; variedades: Variedad[] }
+
+const selCls = "h-9 rounded-md border border-input bg-card px-2 text-sm shadow-sm"
 
 export default function CultivosConfigPage() {
-    const router = useRouter()
-    const [tipos, setTipos] = useState<any[]>([])
+    const [tipos, setTipos] = useState<Tipo[]>([])
     const [loading, setLoading] = useState(true)
     const [newTipo, setNewTipo] = useState("")
-    const [newVariedad, setNewVariedad] = useState<{ [key: string]: string }>({})
-    const [addingTipo, setAddingTipo] = useState(false)
-    const [addingVariedad, setAddingVariedad] = useState<{ [key: string]: boolean }>({})
+    const [ocupado, setOcupado] = useState<string | null>(null)
+    // Formularios por cultivo
+    const [nuevaEspecie, setNuevaEspecie] = useState<Record<string, { nombre: string; comun: string }>>({})
+    const [nuevaVariedad, setNuevaVariedad] = useState<Record<string, { nombre: string; especieId: string; casa: string }>>({})
 
-    useEffect(() => {
-        loadData()
-    }, [])
+    useEffect(() => { loadData() }, [])
 
     async function loadData() {
-        setLoading(true)
-        try {
-            const res = await getTiposCultivo()
-            if (res.data) setTipos(res.data)
-        } catch (e) {
-            console.error(e)
-            alert("Error: No se pudieron cargar los cultivos")
-        } finally {
-            setLoading(false)
-        }
+        const res = await getTiposCultivo()
+        if (res.data) setTipos(res.data as Tipo[])
+        setLoading(false)
     }
 
-    async function handleAddTipo() {
-        if (!newTipo.trim()) return
-        setAddingTipo(true)
-        const res = await createTipoCultivo(newTipo)
-        setAddingTipo(false)
-        if (res.success) {
-            setNewTipo("")
-            loadData()
-        } else {
-            alert(res.error || "Error al agregar cultivo")
-        }
+    async function correr(clave: string, fn: () => Promise<{ success?: boolean; error?: string }>, despues?: () => void) {
+        setOcupado(clave)
+        const res = await fn()
+        setOcupado(null)
+        if (res.success) { despues?.(); loadData() } else alert(res.error || "No se pudo completar la operación")
     }
 
-    async function handleDeleteTipo(id: string) {
-        if (!confirm("¿Seguro que desea eliminar este cultivo? Se eliminarán también sus variedades.")) return
-        const res = await deleteTipoCultivo(id)
-        if (res.success) {
-            loadData()
-        } else {
-            alert(res.error || "Error al eliminar cultivo")
-        }
-    }
-
-    async function handleAddVariedad(tipoId: string) {
-        const nombre = newVariedad[tipoId]
-        if (!nombre?.trim()) return
-
-        setAddingVariedad(prev => ({ ...prev, [tipoId]: true }))
-        const res = await createVariedad(tipoId, nombre)
-        setAddingVariedad(prev => ({ ...prev, [tipoId]: false }))
-
-        if (res.success) {
-            setNewVariedad(prev => ({ ...prev, [tipoId]: "" }))
-            loadData()
-        } else {
-            alert(res.error || "Error al agregar variedad")
-        }
-    }
-
-    async function handleDeleteVariedad(id: string) {
-        if (!confirm("¿Eliminar variedad?")) return
-        const res = await deleteVariedad(id)
-        if (res.success) {
-            loadData()
-        } else {
-            alert(res.error || "Error al eliminar variedad")
-        }
-    }
+    // Casas genéticas ya usadas, como sugerencias
+    const casas = Array.from(new Set(tipos.flatMap(t => t.variedades.map(v => v.casaGenetica).filter(Boolean)))) as string[]
 
     return (
-        <div className="p-6 max-w-6xl mx-auto space-y-6">
-            <div className="flex items-center gap-4 mb-6">
-                <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                    <ArrowLeft className="w-5 h-5" />
-                </Button>
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Configuración de Cultivos</h1>
-                    <p className="text-muted-foreground">Administre los tipos de cultivos y sus variedades</p>
-                </div>
-            </div>
+        <div className="mx-auto max-w-6xl space-y-6">
+            <PageHeader
+                title="Cultivos, especies y variedades"
+                description="Catálogo para clasificar los lotes: cultivo → especie → variedad o cruce → casa genética."
+                breadcrumbs={[{ label: "Configuración", href: "/configuracion" }, { label: "Cultivos" }]}
+            />
 
-            <Card className="mb-8 border-primary/20">
-                <CardHeader className="bg-muted/30">
-                    <CardTitle className="text-lg">Agregar Nuevo Tipo de Cultivo</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6">
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <Label htmlFor="newTipo" className="sr-only">Nombre del Cultivo</Label>
-                            <Input
-                                id="newTipo"
-                                placeholder="Ej: Maíz"
-                                value={newTipo}
-                                onChange={e => setNewTipo(e.target.value)}
-                            />
-                        </div>
-                        <Button onClick={handleAddTipo} disabled={addingTipo || !newTipo.trim()}>
-                            {addingTipo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-                            Agregar
-                        </Button>
-                    </div>
-                </CardContent>
+            <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+                <Input placeholder="Nuevo cultivo, ej: Cacao" value={newTipo} onChange={e => setNewTipo(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && newTipo.trim()) correr("tipo", () => createTipoCultivo(newTipo), () => setNewTipo("")) }} />
+                <Button onClick={() => correr("tipo", () => createTipoCultivo(newTipo), () => setNewTipo(""))} disabled={ocupado === "tipo" || !newTipo.trim()}>
+                    {ocupado === "tipo" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} Agregar cultivo
+                </Button>
             </Card>
 
+            <datalist id="casas-geneticas">{casas.map(c => <option key={c} value={c} />)}</datalist>
+
             {loading ? (
-                <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+                <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {tipos.map((tipo) => (
-                        <Card key={tipo.id} className="relative overflow-hidden">
-                            <CardHeader className="bg-slate-50 dark:bg-slate-900 border-b flex flex-row justify-between items-center py-3">
-                                <CardTitle className="text-base font-semibold">{tipo.nombre}</CardTitle>
-                                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-red-500" onClick={() => handleDeleteTipo(tipo.id)}>
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                            </CardHeader>
-                            <CardContent className="p-4 bg-card">
-                                <ul className="space-y-2 mb-4">
-                                    {tipo.variedades.length === 0 && <li className="text-xs text-muted-foreground italic">Sin variedades registradas</li>}
-                                    {tipo.variedades.map((v: any) => (
-                                        <li key={v.id} className="flex justify-between items-center text-sm p-2 rounded hover:bg-muted/50 group">
-                                            <span>{v.nombre}</span>
-                                            <button
-                                                className="text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={() => handleDeleteVariedad(v.id)}
-                                            >
-                                                <Trash2 className="w-3 h-3" />
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                                <div className="flex gap-2 mt-4 pt-4 border-t">
-                                    <Input
-                                        placeholder="Nueva variedad..."
-                                        className="h-8 text-xs"
-                                        value={newVariedad[tipo.id] || ""}
-                                        onChange={e => setNewVariedad({ ...newVariedad, [tipo.id]: e.target.value })}
-                                        onKeyDown={e => {
-                                            if (e.key === 'Enter') handleAddVariedad(tipo.id)
-                                        }}
-                                    />
-                                    <Button size="sm" variant="secondary" className="h-8" onClick={() => handleAddVariedad(tipo.id)} disabled={addingVariedad[tipo.id]}>
-                                        <Plus className="w-3 h-3" />
+                <div className="space-y-6">
+                    {tipos.map(tipo => {
+                        const ne = nuevaEspecie[tipo.id] ?? { nombre: "", comun: "" }
+                        const nv = nuevaVariedad[tipo.id] ?? { nombre: "", especieId: "", casa: "" }
+                        const grupos = [
+                            ...tipo.especies.map(e => ({ especie: e as Especie | null, variedades: tipo.variedades.filter(v => v.especieId === e.id) })),
+                            { especie: null, variedades: tipo.variedades.filter(v => !v.especieId) },
+                        ].filter(g => g.especie || g.variedades.length)
+
+                        return (
+                            <Card key={tipo.id} className="overflow-hidden">
+                                <div className="flex items-center justify-between border-b border-border bg-muted/40 px-5 py-3">
+                                    <h2 className="flex items-center gap-2 font-semibold"><Sprout className="h-4 w-4 text-primary" /> {tipo.nombre}</h2>
+                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                        title="Eliminar cultivo"
+                                        onClick={() => confirm(`¿Eliminar el cultivo ${tipo.nombre} con sus especies y variedades?`) && correr(tipo.id, () => deleteTipoCultivo(tipo.id))}>
+                                        <Trash2 className="h-4 w-4" />
                                     </Button>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="text-left text-xs text-muted-foreground">
+                                            <tr className="border-b border-border">
+                                                <th className="px-5 py-2 font-medium">Especie</th>
+                                                <th className="px-3 py-2 font-medium">Variedad / cruce</th>
+                                                <th className="px-3 py-2 font-medium">Casa genética</th>
+                                                <th className="w-10 px-3 py-2" />
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border">
+                                            {grupos.length === 0 && (
+                                                <tr><td colSpan={4} className="px-5 py-4 text-xs italic text-muted-foreground">Sin especies ni variedades registradas.</td></tr>
+                                            )}
+                                            {grupos.map(g => (g.variedades.length ? g.variedades : [null]).map((v, i) => (
+                                                <tr key={`${g.especie?.id ?? "sin"}-${v?.id ?? "vacia"}`} className="group hover:bg-muted/30">
+                                                    {i === 0 && (
+                                                        <td rowSpan={Math.max(g.variedades.length, 1)} className="border-r border-border px-5 py-2 align-top">
+                                                            {g.especie ? (
+                                                                <div className="flex items-start justify-between gap-2">
+                                                                    <div>
+                                                                        <div className="font-medium italic">{g.especie.nombre}</div>
+                                                                        {g.especie.nombreComun && <div className="text-xs text-muted-foreground">{g.especie.nombreComun}</div>}
+                                                                    </div>
+                                                                    <button className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                                                                        title="Eliminar especie (sus variedades quedan sin especie)"
+                                                                        onClick={() => confirm(`¿Eliminar la especie ${g.especie!.nombre}?`) && correr(g.especie!.id, () => deleteEspecie(g.especie!.id))}>
+                                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                                    </button>
+                                                                </div>
+                                                            ) : <span className="text-xs text-muted-foreground">Sin especie</span>}
+                                                        </td>
+                                                    )}
+                                                    <td className="px-3 py-2">{v ? v.nombre : <span className="text-xs italic text-muted-foreground">Sin variedades</span>}</td>
+                                                    <td className="px-3 py-2 text-muted-foreground">{v?.casaGenetica ?? (v ? "—" : "")}</td>
+                                                    <td className="px-3 py-2 text-right">
+                                                        {v && (
+                                                            <button className="text-muted-foreground hover:text-destructive" title="Eliminar variedad"
+                                                                onClick={() => confirm(`¿Eliminar la variedad ${v.nombre}?`) && correr(v.id, () => deleteVariedad(v.id))}>
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            )))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="grid gap-4 border-t border-border bg-muted/20 p-4 lg:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><Dna className="h-3.5 w-3.5" /> Agregar especie</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <Input className="h-9 min-w-[150px] flex-1" placeholder="Especie (nombre científico)" value={ne.nombre}
+                                                onChange={e => setNuevaEspecie({ ...nuevaEspecie, [tipo.id]: { ...ne, nombre: e.target.value } })} />
+                                            <Input className="h-9 min-w-[150px] flex-1" placeholder="Nombre común (opcional)" value={ne.comun}
+                                                onChange={e => setNuevaEspecie({ ...nuevaEspecie, [tipo.id]: { ...ne, comun: e.target.value } })} />
+                                            <Button size="sm" variant="secondary" disabled={!ne.nombre.trim() || ocupado === `e${tipo.id}`}
+                                                onClick={() => correr(`e${tipo.id}`, () => createEspecie(tipo.id, ne.nombre, ne.comun), () => setNuevaEspecie({ ...nuevaEspecie, [tipo.id]: { nombre: "", comun: "" } }))}>
+                                                <Plus className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><Sprout className="h-3.5 w-3.5" /> Agregar variedad o cruce</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <Input className="h-9 min-w-[130px] flex-1" placeholder="Variedad o cruce" value={nv.nombre}
+                                                onChange={e => setNuevaVariedad({ ...nuevaVariedad, [tipo.id]: { ...nv, nombre: e.target.value } })} />
+                                            {tipo.especies.length > 0 && (
+                                                <select className={selCls} value={nv.especieId}
+                                                    onChange={e => setNuevaVariedad({ ...nuevaVariedad, [tipo.id]: { ...nv, especieId: e.target.value } })}>
+                                                    <option value="">Especie…</option>
+                                                    {tipo.especies.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                                                </select>
+                                            )}
+                                            <Input className="h-9 min-w-[130px] flex-1" placeholder="Casa genética" list="casas-geneticas" value={nv.casa}
+                                                onChange={e => setNuevaVariedad({ ...nuevaVariedad, [tipo.id]: { ...nv, casa: e.target.value } })} />
+                                            <Button size="sm" variant="secondary" disabled={!nv.nombre.trim() || ocupado === `v${tipo.id}`}
+                                                onClick={() => correr(`v${tipo.id}`, () => createVariedad(tipo.id, nv.nombre, nv.especieId, nv.casa), () => setNuevaVariedad({ ...nuevaVariedad, [tipo.id]: { nombre: "", especieId: nv.especieId, casa: "" } }))}>
+                                                <Plus className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+                        )
+                    })}
                 </div>
             )}
         </div>

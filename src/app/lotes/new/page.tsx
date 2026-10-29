@@ -15,7 +15,7 @@ export default async function NewLotePage(props: { searchParams: Promise<{ finca
                 lotes: { select: { id: true, nombre: true, codigo: true, geometria: true } },
             },
         }),
-        db.tipoCultivo.findMany({ orderBy: { nombre: "asc" }, include: { variedades: { orderBy: { nombre: "asc" } } } }),
+        db.tipoCultivo.findMany({ orderBy: { nombre: "asc" }, include: { variedades: { orderBy: { nombre: "asc" } }, especies: { orderBy: { nombre: "asc" } } } }),
     ])
     const finca = fincas.find(f => f.id === fincaId)
 

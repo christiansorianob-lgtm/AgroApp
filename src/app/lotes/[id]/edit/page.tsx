@@ -18,7 +18,7 @@ export default async function EditLotePage(props: { params: Promise<{ id: string
                 lotes: { select: { id: true, nombre: true, codigo: true, geometria: true } },
             },
         }),
-        db.tipoCultivo.findMany({ orderBy: { nombre: "asc" }, include: { variedades: { orderBy: { nombre: "asc" } } } }),
+        db.tipoCultivo.findMany({ orderBy: { nombre: "asc" }, include: { variedades: { orderBy: { nombre: "asc" } }, especies: { orderBy: { nombre: "asc" } } } }),
     ])
 
     return (

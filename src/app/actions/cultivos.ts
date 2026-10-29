@@ -6,7 +6,7 @@ export async function getTiposCultivo() {
     try {
         const tipos = await db.tipoCultivo.findMany({
             orderBy: { nombre: 'asc' },
-            include: { variedades: true }
+            include: { variedades: { orderBy: { nombre: "asc" } }, especies: { orderBy: { nombre: "asc" } } }
         })
         return { data: tipos }
     } catch (error) {
@@ -37,10 +37,32 @@ export async function deleteTipoCultivo(id: string) {
     }
 }
 
-export async function createVariedad(tipoId: string, nombre: string) {
+export async function createEspecie(tipoId: string, nombre: string, nombreComun?: string) {
+    try {
+        const nueva = await db.especieCultivo.create({
+            data: { tipoCultivoId: tipoId, nombre: nombre.trim(), nombreComun: nombreComun?.trim() || null }
+        })
+        return { data: nueva, success: true }
+    } catch (e: any) {
+        if (e.code === 'P2002') return { error: "Ya existe esta especie para este cultivo" }
+        return { error: "Error al crear especie" }
+    }
+}
+
+export async function deleteEspecie(id: string) {
+    try {
+        // Las variedades de la especie quedan sin especie (no se borran)
+        await db.especieCultivo.delete({ where: { id } })
+        return { success: true }
+    } catch (e: any) {
+        return { error: "Error al eliminar especie" }
+    }
+}
+
+export async function createVariedad(tipoId: string, nombre: string, especieId?: string | null, casaGenetica?: string | null) {
     try {
         const nueva = await db.variedadCultivo.create({
-            data: { tipoCultivoId: tipoId, nombre }
+            data: { tipoCultivoId: tipoId, nombre: nombre.trim(), especieId: especieId || null, casaGenetica: casaGenetica?.trim() || null }
         })
         return { data: nueva, success: true }
     } catch (e: any) {

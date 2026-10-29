@@ -29,7 +29,12 @@ export interface FincaRef {
     longitud: number | null
     lotes: LoteRef[]
 }
-interface TipoCultivo { id: string; nombre: string; variedades: { id: string; nombre: string }[] }
+interface TipoCultivo {
+    id: string
+    nombre: string
+    especies?: { id: string; nombre: string; nombreComun: string | null }[]
+    variedades: { id: string; nombre: string; especieId?: string | null; casaGenetica?: string | null }[]
+}
 
 export interface LoteFormData {
     id: string
@@ -38,7 +43,9 @@ export interface LoteFormData {
     nombre: string
     areaHa: number
     tipoCultivo: string
+    especie?: string | null
     variedad: string | null
+    casaGenetica?: string | null
     fechaSiembra: Date | string | null
     estado: "ACTIVO" | "INACTIVO" | "EN_RENOVACION"
     observaciones: string | null
@@ -68,7 +75,9 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
         nombre: lote?.nombre ?? "",
         areaHa: lote ? String(lote.areaHa) : "",
         tipoCultivo: lote?.tipoCultivo ?? "",
+        especie: lote?.especie ?? "",
         variedad: lote?.variedad ?? "",
+        casaGenetica: lote?.casaGenetica ?? "",
         fechaSiembra: toISODate(lote?.fechaSiembra),
         estado: lote?.estado ?? "ACTIVO",
         observaciones: lote?.observaciones ?? "",
@@ -111,7 +120,16 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
         return `L-${String(max + 1).padStart(2, "0")}`
     }, [finca])
 
-    const variedades = tipos.find(t => t.nombre === form.tipoCultivo)?.variedades ?? []
+    // Clasificación: cultivo → especie → variedad/cruce → casa genética
+    const tipoSel = tipos.find(t => t.nombre === form.tipoCultivo)
+    const especies = tipoSel?.especies ?? []
+    const especieSel = especies.find(e => e.nombre === form.especie)
+    const variedades = (tipoSel?.variedades ?? []).filter(v => !especieSel || !v.especieId || v.especieId === especieSel.id)
+    const elegirVariedad = (nombre: string) => {
+        const v = tipoSel?.variedades.find(x => x.nombre === nombre)
+        const esp = v?.especieId ? especies.find(e => e.id === v.especieId)?.nombre : undefined
+        setForm(f => ({ ...f, variedad: nombre, casaGenetica: v?.casaGenetica ?? "", especie: esp ?? f.especie }))
+    }
     const areaMedida = useMemo(() => {
         const g = normalizeGeometry(lindero?.geometria)
         return g ? computeMetrics(g).areaHa : null
@@ -141,7 +159,9 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
             nombre: form.nombre,
             areaHa: areaTxt ? Number(areaTxt) : null,
             tipoCultivo: form.tipoCultivo,
+            especie: form.especie || null,
             variedad: form.variedad || null,
+            casaGenetica: form.casaGenetica || null,
             fechaSiembra: form.fechaSiembra || null,
             estado: form.estado as LoteInput["estado"],
             observaciones: form.observaciones,
@@ -196,7 +216,7 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
                     </p>
                 </FormSection>
 
-                <FormSection title="Cultivo" description="Especie, material genético y fecha de siembra.">
+                <FormSection title="Cultivo" description="Cultivo, especie, variedad o cruce, casa genética y fecha de siembra.">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
@@ -211,13 +231,30 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
                                 />
                             </div>
                             <Combobox options={tipos.map(t => ({ value: t.nombre, label: t.nombre }))} value={form.tipoCultivo}
-                                onSelect={v => setForm(f => ({ ...f, tipoCultivo: v, variedad: "" }))} placeholder="Seleccione…" />
+                                onSelect={v => setForm(f => ({ ...f, tipoCultivo: v, especie: "", variedad: "", casaGenetica: "" }))} placeholder="Seleccione…" />
                         </div>
+                        {especies.length > 0 && (
+                            <div className="space-y-2">
+                                <Label>Especie</Label>
+                                <Combobox options={especies.map(e => ({ value: e.nombre, label: e.nombre }))}
+                                    value={form.especie}
+                                    onSelect={v => setForm(f => ({ ...f, especie: v, variedad: "", casaGenetica: "" }))} placeholder="Seleccione…" />
+                                {especieSel?.nombreComun && <p className="text-xs text-muted-foreground">{especieSel.nombreComun}</p>}
+                            </div>
+                        )}
                         <div className="space-y-2">
-                            <Label>Variedad / material</Label>
-                            <Combobox options={variedades.map(v => ({ value: v.nombre, label: v.nombre }))} value={form.variedad}
-                                onSelect={set("variedad")} placeholder={variedades.length ? "Seleccione…" : "Sin variedades"} disabled={!variedades.length} />
+                            <Label>Variedad / cruce</Label>
+                            <Combobox options={variedades.map(v => ({ value: v.nombre, label: v.casaGenetica ? `${v.nombre} · ${v.casaGenetica}` : v.nombre }))}
+                                value={form.variedad} onSelect={elegirVariedad}
+                                placeholder={variedades.length ? "Seleccione…" : "Sin variedades en el catálogo"} disabled={!variedades.length} />
                         </div>
+                        {(especies.length > 0 || form.casaGenetica) && (
+                            <div className="space-y-2">
+                                <Label htmlFor="casa">Casa genética / proveedor</Label>
+                                <Input id="casa" value={form.casaGenetica} readOnly disabled className="bg-muted/60"
+                                    placeholder="Se completa al elegir la variedad" />
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <Label>Fecha de siembra</Label>
                             <DatePicker value={form.fechaSiembra} onChange={set("fechaSiembra")} />
