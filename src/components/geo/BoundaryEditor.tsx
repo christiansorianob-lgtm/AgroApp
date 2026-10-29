@@ -7,10 +7,11 @@ import "@geoman-io/leaflet-geoman-free"
 import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css"
 import {
     PenLine, Upload, Footprints, Undo2, Trash2, LocateFixed, Save, X, Pencil, Play, Pause, Flag, Crosshair,
-    AlertTriangle, CheckCircle2, Download, FileUp, Loader2, Satellite, Ruler, Spline, Navigation, Info,
+    AlertTriangle, CheckCircle2, Magnet, Download, FileUp, Loader2, Satellite, Ruler, Spline, Navigation, Info,
 } from "lucide-react"
 import MapBase, { FitBounds, type LatLngBoundsTuple } from "./MapBase"
 import { useGpsSurvey, leerGuardado, type ModoRecorrido } from "./useGpsSurvey"
+import { ajustarALinderos, type LinderoReferencia, type ResultadoAjuste } from "@/lib/linderosCompartidos"
 import {
     computeMetrics, validateBoundary, normalizeGeometry, polygonFromPoints, simplifyGeometry, geometryBounds,
     parseBoundaryFile, parseTextInput, toGeoJSONString, toKMLString, formatHa, formatMeters, METODO_LABELS,
@@ -127,12 +128,16 @@ function MapRef({ onMap }: { onMap: (m: L.Map) => void }) {
     return null
 }
 
-function GpsLayer({ puntos, actual, seguir, cerrado }: { puntos: GpsPoint[]; actual: GpsPoint | null; seguir: boolean; cerrado: boolean }) {
+function GpsLayer({ puntos, actual, seguir, cerrado, trazado }: {
+    puntos: GpsPoint[]; actual: GpsPoint | null; seguir: boolean; cerrado: boolean
+    /** Contorno ajustado a linderos existentes ([lat, lng]); si falta se usan los puntos tal cual */
+    trazado?: [number, number][] | null
+}) {
     const map = useMap()
     useEffect(() => {
         if (seguir && actual) map.panTo([actual.lat, actual.lng], { animate: true })
     }, [seguir, actual, map])
-    const line = puntos.map(p => [p.lat, p.lng] as [number, number])
+    const line = trazado && trazado.length > 1 ? trazado : puntos.map(p => [p.lat, p.lng] as [number, number])
     return (
         <>
             {/* Vista previa del polígono: el último punto se une con el primero */}
@@ -317,15 +322,38 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
         return () => clearInterval(t)
     }, [gps.estado])
 
-    const areaParcial = useMemo(() => {
+    // ── Linderos compartidos: el recorrido sigue los linderos vecinos y el límite de la finca ──
+    const [seguirLinderos, setSeguirLinderos] = useState(true)
+    const [toleranciaPegado, setToleranciaPegado] = useState(10)
+    const referencias = useMemo<LinderoReferencia[]>(() => [
+        ...(contexto?.padre?.geometria ? [{ nombre: contexto.padre.nombre.replace(/^la finca /, "Finca "), geometria: contexto.padre.geometria }] : []),
+        ...(contexto?.vecinos || []),
+    ], [contexto])
+    const ajusteGps = useMemo<ResultadoAjuste | null>(() =>
+        seguirLinderos && referencias.length && gps.puntos.length >= 2
+            ? ajustarALinderos(gps.puntos, referencias, toleranciaPegado) : null,
+        [seguirLinderos, referencias, gps.puntos, toleranciaPegado])
+    const poligonoRecorrido = useMemo(() => {
         if (gps.puntos.length < 3) return null
-        const g = polygonFromPoints(gps.puntos)
-        return g ? computeMetrics(g).areaHa : null
-    }, [gps.puntos])
+        return ajusteGps && ajusteGps.coords.length >= 3
+            ? normalizeGeometry({ type: "Polygon", coordinates: [[...ajusteGps.coords, ajusteGps.coords[0]]] })
+            : polygonFromPoints(gps.puntos)
+    }, [gps.puntos, ajusteGps])
+
+    /** Aplica el mismo ajuste a un polígono dibujado a mano (sus vértices ya vienen pegados por Geoman). */
+    const ajustarDibujo = (g: BoundaryGeometry): BoundaryGeometry => {
+        if (!seguirLinderos || !referencias.length || g.type !== "Polygon") return g
+        const ring = g.coordinates[0].slice(0, -1).map(c => ({ lng: c[0], lat: c[1] }))
+        const r = ajustarALinderos(ring, referencias, 3)
+        if (!r.tramos.length || r.coords.length < 3) return g
+        return normalizeGeometry({ type: "Polygon", coordinates: [[...r.coords, r.coords[0]]] }) || g
+    }
+
+    const areaParcial = useMemo(() => (poligonoRecorrido ? computeMetrics(poligonoRecorrido).areaHa : null), [poligonoRecorrido])
 
     /** Une el último punto con el primero y convierte el recorrido en el lindero. */
     const terminarRecorrido = (guardarDespues = false) => {
-        let g = polygonFromPoints(gps.puntos)
+        let g = poligonoRecorrido
         if (!g) return
         // En modo continuo se quitan vértices redundantes causados por el ruido del GPS
         if (gps.modo === "continuo") g = simplifyGeometry(g, Math.max(0.5, Math.min(2, (gps.precisionPromedio ?? 2) / 3)))
@@ -444,6 +472,11 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                                 seguir={seguir}
                                 setSeguir={setSeguir}
                                 onTerminar={() => terminarRecorrido(false)}
+                                linderos={referencias.length > 0 ? {
+                                    activo: seguirLinderos, setActivo: setSeguirLinderos,
+                                    tolerancia: toleranciaPegado, setTolerancia: setToleranciaPegado,
+                                    ajuste: ajusteGps,
+                                } : null}
                             />
                         )}
 
@@ -477,9 +510,10 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                             editing={editing && pestana === "dibujar"}
                             drawing={drawing && pestana === "dibujar"}
                             onChange={g => cambiarGeometria(g)}
-                            onDrawn={g => { cambiarGeometria(g, "DIBUJO_MAPA"); setPrecisionM(null); setPuntosCrudos(null); setArchivoOrigen(null); setDrawing(false); setEditing(true) }}
+                            onDrawn={g => { cambiarGeometria(ajustarDibujo(g), "DIBUJO_MAPA"); setPrecisionM(null); setPuntosCrudos(null); setArchivoOrigen(null); setDrawing(false); setEditing(true) }}
                         />
-                        {pestana === "gps" && <GpsLayer puntos={gps.puntos} actual={gps.actual} seguir={seguir} cerrado={gps.cerrado} />}
+                        {pestana === "gps" && <GpsLayer puntos={gps.puntos} actual={gps.actual} seguir={seguir} cerrado={gps.cerrado}
+                            trazado={ajusteGps?.tramos.length ? ajusteGps.coords.map(c => [c[1], c[0]] as [number, number]) : null} />}
                         {miUbicacion && pestana !== "gps" && (
                             <CircleMarker center={[miUbicacion.lat, miUbicacion.lng]} radius={7}
                                 pathOptions={{ color: "#fff", weight: 3, fillColor: "#2563eb", fillOpacity: 1 }}>
@@ -708,9 +742,14 @@ function formatDuracion(ms: number) {
     return h ? `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}` : `${m}:${String(r).padStart(2, "0")}`
 }
 
-function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar }: {
+function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar, linderos }: {
     gps: ReturnType<typeof useGpsSurvey>; ahora: number; areaParcial: number | null
     seguir: boolean; setSeguir: (v: boolean) => void; onTerminar: () => void
+    linderos: null | {
+        activo: boolean; setActivo: (v: boolean) => void
+        tolerancia: number; setTolerancia: (v: number) => void
+        ajuste: ResultadoAjuste | null
+    }
 }) {
     const senal = calidadSenal(gps.actual?.acc)
     const aceptable = gps.actual?.acc != null && gps.actual.acc <= gps.ajustes.precisionMaxM
@@ -860,6 +899,41 @@ function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar }: {
                     </div>
                 ))}
             </dl>
+
+            {linderos && (
+                <div className={cn("space-y-2 rounded-lg border p-3", linderos.activo ? "border-cyan-300 bg-cyan-50/60" : "border-border")}>
+                    <label className="flex items-start gap-2 text-sm">
+                        <input type="checkbox" checked={linderos.activo} onChange={e => linderos.setActivo(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]" />
+                        <span>
+                            <span className="flex items-center gap-1.5 font-medium"><Magnet className="h-4 w-4 text-cyan-700" /> Seguir linderos vecinos</span>
+                            <span className="block text-xs text-muted-foreground">
+                                Si marca dos puntos sobre el lindero de un lote vecino o el límite de la finca, la línea sigue ese lindero en vez de ir recta.
+                            </span>
+                        </span>
+                    </label>
+                    {linderos.activo && (
+                        <>
+                            <label className="flex items-center justify-between gap-2 text-xs">
+                                <span className="text-muted-foreground">Pegar puntos a menos de</span>
+                                <select className={sel} value={linderos.tolerancia} onChange={e => linderos.setTolerancia(+e.target.value)}>
+                                    {[5, 10, 15, 25].map(v => <option key={v} value={v}>{v} m</option>)}
+                                </select>
+                            </label>
+                            {linderos.ajuste && linderos.ajuste.tramos.length > 0 ? (
+                                <p className="text-xs text-cyan-900">
+                                    Siguiendo {linderos.ajuste.tramos.length} tramo(s) de lindero existente:{" "}
+                                    {Object.entries(linderos.ajuste.tramos.reduce<Record<string, number>>((acc, t) => ({ ...acc, [t.nombre]: (acc[t.nombre] || 0) + t.longitudM }), {}))
+                                        .map(([n, m]) => `${n} (${formatMeters(m)})`).join(", ")}.
+                                </p>
+                            ) : gps.puntos.length > 0 ? (
+                                <p className="text-xs text-muted-foreground">
+                                    {linderos.ajuste?.puntosPegados ? `${linderos.ajuste.puntosPegados} punto(s) pegados a un lindero.` : "Ningún punto cerca de un lindero existente todavía."}
+                                </p>
+                            ) : null}
+                        </>
+                    )}
+                </div>
+            )}
 
             <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={seguir} onChange={e => setSeguir(e.target.checked)} className="h-4 w-4 accent-[hsl(var(--primary))]" />
