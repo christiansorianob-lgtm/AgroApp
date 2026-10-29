@@ -1,0 +1,161 @@
+/* Informe de finca: diseñado para A4 vertical. En pantalla se ve como una hoja sobre fondo gris. */
+
+@page {
+  size: A4;
+  margin: 12mm 12mm 16mm;
+
+  @bottom-left {
+    content: "AgroApp · Informe de finca";
+    font: 8pt Inter, system-ui, sans-serif;
+    color: #6b7280;
+  }
+
+  @bottom-right {
+    content: "Página " counter(page) " de " counter(pages);
+    font: 8pt Inter, system-ui, sans-serif;
+    color: #6b7280;
+  }
+}
+
+.inf-root {
+  --verde: #0f5132;
+  --verde-2: #16794a;
+  --verde-claro: #e8f3ec;
+  --dorado: #c99a2e;
+  --tinta: #14211b;
+  --gris: #5b6660;
+  --linea: #dfe5e1;
+  background: #e9ecea;
+  min-height: 100vh;
+  color: var(--tinta);
+  font-size: 10pt;
+  line-height: 1.45;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.informe-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--linea);
+}
+
+.tb-hint { flex: 1; font-size: 12px; color: var(--gris); }
+.tb-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 36px; padding: 0 14px; border-radius: 8px;
+  font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none;
+}
+.tb-pri { background: var(--verde-2); color: #fff; border: 0; }
+.tb-pri:hover { background: var(--verde); }
+.tb-sec { background: #fff; color: var(--tinta); border: 1px solid var(--linea); }
+
+.inf-hoja {
+  width: 210mm;
+  margin: 18px auto 40px;
+  padding: 12mm 12mm 14mm;
+  background: #fff;
+  box-shadow: 0 2px 18px rgb(0 0 0 / 0.12);
+}
+
+@media (max-width: 820px) {
+  .inf-hoja { width: auto; margin: 0; padding: 16px; box-shadow: none; }
+  .tb-hint { display: none; }
+}
+
+@media print {
+  html, body, .inf-root { background: #fff !important; min-height: 0; }
+  .informe-toolbar { display: none; }
+  .inf-hoja { width: auto; margin: 0; padding: 0; box-shadow: none; }
+}
+
+/* ── Encabezado ── */
+.inf-banda {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-radius: 10px;
+  background: linear-gradient(120deg, var(--verde) 0%, var(--verde-2) 70%, #2f8f5b 100%);
+  color: #fff;
+}
+.inf-marca { display: flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: .02em; }
+.inf-marca small { display: block; font-weight: 400; font-size: 8pt; opacity: .8; letter-spacing: 0; }
+.inf-banda-der { text-align: right; font-size: 8.5pt; opacity: .95; }
+.inf-banda-der strong { display: block; font-size: 10pt; letter-spacing: .12em; }
+
+.inf-titulo { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 18px 0 14px; }
+.inf-titulo h1 { margin: 0; font-size: 24pt; line-height: 1.1; font-weight: 800; letter-spacing: -.01em; color: var(--verde); }
+.inf-sub { margin-top: 4px; color: var(--gris); font-size: 10pt; }
+.inf-chip { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 999px; background: var(--verde-claro); color: var(--verde); font-size: 8pt; font-weight: 700; }
+.inf-logo { width: 64px; height: 64px; object-fit: contain; border-radius: 12px; border: 1px solid var(--linea); padding: 4px; background: #fff; }
+
+/* ── Indicadores ── */
+.inf-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.inf-kpi { border: 1px solid var(--linea); border-radius: 10px; padding: 9px 11px; background: #fbfcfb; border-top: 3px solid var(--verde-2); }
+.inf-kpi.dorado { border-top-color: var(--dorado); }
+.inf-kpi-l { font-size: 7.5pt; text-transform: uppercase; letter-spacing: .06em; color: var(--gris); font-weight: 600; }
+.inf-kpi-v { font-size: 15pt; font-weight: 800; line-height: 1.2; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.inf-kpi-h { font-size: 7.5pt; color: var(--gris); }
+
+/* ── Secciones ── */
+.inf-sec { margin-top: 16px; break-inside: avoid-page; }
+.inf-sec.permitir-corte { break-inside: auto; }
+.inf-sec h2 {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 8px; padding-bottom: 5px;
+  font-size: 12pt; font-weight: 800; color: var(--verde);
+  border-bottom: 2px solid var(--verde-claro);
+}
+.inf-sec h2 .num { display: inline-flex; width: 20px; height: 20px; align-items: center; justify-content: center; border-radius: 6px; background: var(--verde-2); color: #fff; font-size: 9pt; }
+.inf-salto { break-before: page; }
+.inf-nota { font-size: 8pt; color: var(--gris); margin-top: 4px; }
+
+/* ── Mapa ── */
+.inf-mapa { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--linea); }
+.inf-mapa svg { display: block; width: 100%; height: auto; }
+.inf-leyenda { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; font-size: 8pt; color: var(--gris); }
+.inf-leyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -2px; border: 1px solid rgb(0 0 0 / .15); }
+
+/* ── Barras de composición ── */
+.inf-barra { display: flex; height: 22px; border-radius: 6px; overflow: hidden; border: 1px solid var(--linea); }
+.inf-barra span { display: block; height: 100%; }
+.inf-comp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 16px; margin-top: 8px; }
+.inf-comp div { display: flex; justify-content: space-between; gap: 8px; font-size: 8.5pt; border-bottom: 1px dotted var(--linea); padding: 2px 0; }
+.inf-comp b { font-variant-numeric: tabular-nums; }
+
+/* ── Tablas ── */
+.inf-tabla { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+.inf-tabla th { background: var(--verde); color: #fff; font-weight: 600; text-align: left; padding: 5px 6px; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .04em; }
+.inf-tabla th:first-child { border-top-left-radius: 6px; }
+.inf-tabla th:last-child { border-top-right-radius: 6px; }
+.inf-tabla td { padding: 5px 6px; border-bottom: 1px solid var(--linea); vertical-align: top; }
+.inf-tabla tbody tr:nth-child(even) td { background: #f7f9f8; }
+.inf-tabla tr { break-inside: avoid; }
+.inf-tabla .der { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.inf-tabla .sub { display: block; color: var(--gris); font-size: 7.5pt; }
+.inf-tabla tfoot td { font-weight: 700; background: var(--verde-claro) !important; border-bottom: 0; }
+.inf-tabla .grupo td { background: #eef5f0 !important; color: var(--verde); font-weight: 700; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .05em; }
+.inf-punto { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+
+.inf-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.inf-ficha { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+.inf-ficha td { padding: 4px 0; border-bottom: 1px dotted var(--linea); }
+.inf-ficha td:first-child { color: var(--gris); width: 45%; }
+
+/* ── Tareas ── */
+.inf-estados { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 8px; }
+.inf-estado { border-radius: 8px; padding: 6px 8px; text-align: center; background: #f4f6f5; }
+.inf-estado b { display: block; font-size: 13pt; font-variant-numeric: tabular-nums; }
+.inf-estado span { font-size: 7.5pt; color: var(--gris); }
+.inf-estado.alerta { background: #fdecec; color: #9b1c1c; }
+
+/* ── Puntos de atención ── */
+.inf-alertas { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+.inf-alertas li { display: flex; gap: 8px; align-items: flex-start; padding: 6px 9px; border-radius: 8px; font-size: 8.5pt; background: #fff8e6; border-left: 3px solid var(--dorado); }
+.inf-alertas li.ok { background: var(--verde-claro); border-left-color: var(--verde-2); }
+
+.inf-pie { margin-top: 18px; padding-top: 8px; border-top: 1px solid var(--linea); display: flex; justify-content: space-between; font-size: 7.5pt; color: var(--gris); }

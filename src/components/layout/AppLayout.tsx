@@ -1,12 +1,17 @@
 'use client'
 
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import clsx from 'clsx'
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const pathname = usePathname()
+
+    // Los informes imprimibles ocupan toda la pantalla, sin menú
+    if (pathname?.endsWith('/informe')) return <>{children}</>
 
     return (
         <div className="min-h-screen bg-background text-foreground">

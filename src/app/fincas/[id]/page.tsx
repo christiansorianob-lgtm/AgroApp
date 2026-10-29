@@ -13,7 +13,7 @@ import { TareasResumenTable, StatusPill } from "@/components/tareas/TareasResume
 import { formatHa, formatMeters, METODO_LABELS } from "@/lib/geo"
 import { formatDate } from "@/lib/utils"
 import { describirMaterial, describirUso, formatEntero, NOMBRE_FINALIDAD } from "@/lib/cultivos"
-import { MapPin, Ruler, User, Calendar, Plus, Leaf, Pencil, ClipboardList, ExternalLink, Spline, Layers, Hash } from "lucide-react"
+import { MapPin, Ruler, User, Calendar, Plus, Leaf, Pencil, ClipboardList, ExternalLink, Spline, Layers, Hash, FileText } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -61,6 +61,9 @@ export default async function FincaDetailPage(props: { params: Promise<{ id: str
                 badge={<StatusPill className={finca.estado === "ACTIVO" ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20" : "bg-slate-100 text-slate-600 ring-slate-500/20"}>{finca.estado === "ACTIVO" ? "Activa" : "Inactiva"}</StatusPill>}
                 description={<span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" />{finca.veredaSector} · {finca.municipio}, {finca.departamento}</span>}
                 actions={<>
+                    <Button variant="outline" asChild className="border-primary/40 text-primary hover:bg-primary/5">
+                        <a href={`/fincas/${id}/informe`} target="_blank" rel="noopener"><FileText className="mr-2 h-4 w-4" />Informe PDF</a>
+                    </Button>
                     <Button variant="outline" asChild><Link href={conRetorno(`/fincas/${id}/edit`, `/fincas/${id}`)}><Pencil className="mr-2 h-4 w-4" />Editar</Link></Button>
                     <Button variant="outline" asChild><Link href={conRetorno(`/tareas/new`, `/fincas/${id}`, { fincaId: id })}><ClipboardList className="mr-2 h-4 w-4" />Nueva tarea</Link></Button>
                     <Button asChild><Link href={conRetorno(`/lotes/new`, `/fincas/${id}`, { fincaId: id })}><Plus className="mr-2 h-4 w-4" />Nuevo lote</Link></Button>
