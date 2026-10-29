@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { StatusPill } from "@/components/tareas/TareasResumenTable"
 import { formatHa } from "@/lib/geo"
 import { formatDate } from "@/lib/utils"
-import { describirMaterial } from "@/lib/cultivos"
+import { describirUso, formatEntero } from "@/lib/cultivos"
 import { Plus, Leaf } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -44,7 +44,8 @@ export default async function LotesPage() {
                                 <tr>
                                     <th className="px-5 py-2.5">Lote</th>
                                     <th className="px-3 py-2.5">Finca</th>
-                                    <th className="px-3 py-2.5">Cultivo</th>
+                                    <th className="px-3 py-2.5">Uso / cultivo</th>
+                                    <th className="px-3 py-2.5 text-right">Plantas</th>
                                     <th className="px-3 py-2.5 text-right">Área</th>
                                     <th className="px-3 py-2.5">Siembra</th>
                                     <th className="px-3 py-2.5">Estado</th>
@@ -61,7 +62,8 @@ export default async function LotesPage() {
                                                 <div className="font-mono text-xs text-muted-foreground">{l.codigo}</div>
                                             </td>
                                             <td className="px-3 py-3"><Link href={`/fincas/${l.finca.id}`} className="hover:text-primary">{l.finca.nombre}</Link></td>
-                                            <td className="px-3 py-3">{l.tipoCultivo}<div className="text-xs text-muted-foreground">{[l.especie, describirMaterial(l, { conCasa: false })].filter(Boolean).join(" · ")}</div></td>
+                                            <td className="px-3 py-3">{describirUso(l).titulo}<div className="text-xs text-muted-foreground">{l.finalidad === "VIVERO" ? "Vivero" : describirUso(l).detalle}</div></td>
+                                            <td className="px-3 py-3 text-right tabular-nums">{formatEntero(l.finalidad === "VIVERO" ? l.materialesVivero.reduce((s, m) => s + m.cantidad, 0) : l.numeroPlantas)}</td>
                                             <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{formatHa(l.areaHa)}</td>
                                             <td className="px-3 py-3 tabular-nums whitespace-nowrap">{l.fechaSiembra ? formatDate(l.fechaSiembra) : "—"}</td>
                                             <td className="px-3 py-3"><StatusPill className={cls}>{label}</StatusPill></td>

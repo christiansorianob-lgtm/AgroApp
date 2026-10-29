@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 
 export default async function EditLotePage(props: { params: Promise<{ id: string }> }) {
     const { id } = await props.params
-    const lote = await db.lote.findUnique({ where: { id } })
+    const lote = await db.lote.findUnique({ where: { id }, include: { materialesVivero: { orderBy: { createdAt: "asc" } } } })
     if (!lote) notFound()
 
     const [finca, tiposCultivo, opciones] = await Promise.all([

@@ -60,12 +60,15 @@ model Lote {
   fincaId         String
   nombre          String
 
-  tipoCultivo     String
+  finalidad       FinalidadLote @default(SIEMBRA)
+  usoDetalle      String?  // Detalle del uso no productivo: "Casa de finca", "Bodega"…
+  tipoCultivo     String?  // Solo para finalidad SIEMBRA
   especie         String?  // Especie botánica (Elaeis guineensis, Híbrido OxG…)
   variedad        String?  // Variedad o cruce (Deli x La Mé…)
   casaGenetica    String?  // Casa genética / proveedor de la semilla
   opcionesGeneticas String[] @default([]) // Códigos de opciones del material: ["#S", "#PC"]
   nombreComercial String?  // Como lo vendieron o se conoce en la zona: "#S Alta Extracción"
+  numeroPlantas   Int?     // Plantas sembradas (finalidad SIEMBRA)
   fechaSiembra    DateTime?
   areaHa          Float // Redundant if calculated from polygon, but kept for cache/manual entry
   latitud         Float?
@@ -90,8 +93,45 @@ model Lote {
   usosMaquinaria  UsoMaquinaria[]
   movimientosInventario MovimientoInventario[]
   levantamientos  LevantamientoLindero[]
+  materialesVivero LoteViveroMaterial[]
 
   @@unique([fincaId, codigo]) // Codigo unico por finca
+}
+
+enum FinalidadLote {
+  SIEMBRA          // Cultivo establecido (palma, frutales, pastos…)
+  VIVERO           // Producción de plántulas
+  INFRAESTRUCTURA  // Casa de finca, bodega, campamento, vías…
+  CONSERVACION     // Bosque, reserva, ronda hídrica
+  OTRO
+}
+
+enum EtapaVivero {
+  PREVIVERO
+  VIVERO
+  LISTA_SIEMBRA
+}
+
+// Inventario de material vegetal en un lote de vivero: una fila por material y etapa
+model LoteViveroMaterial {
+  id                String   @id @default(uuid())
+  loteId            String
+  tipoCultivo       String
+  especie           String?
+  variedad          String?
+  casaGenetica      String?
+  opcionesGeneticas String[] @default([])
+  etapa             EtapaVivero @default(VIVERO)
+  ubicacion         String?  // Dónde está dentro del vivero/previvero: "Cama 3", "Era 2", "Bloque A"
+  cantidad          Int
+  fechaIngreso      DateTime?
+  observaciones     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  lote              Lote     @relation(fields: [loteId], references: [id], onDelete: Cascade)
+
+  @@index([loteId])
 }
 
 enum MetodoGeorreferenciacion {

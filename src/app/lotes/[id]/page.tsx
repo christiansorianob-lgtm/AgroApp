@@ -12,7 +12,7 @@ import { LevantamientosList } from "@/components/geo/LevantamientosList"
 import { TareasResumenTable, StatusPill } from "@/components/tareas/TareasResumenTable"
 import { formatHa, formatMeters, METODO_LABELS } from "@/lib/geo"
 import { formatDate, cn } from "@/lib/utils"
-import { describirMaterial } from "@/lib/cultivos"
+import { describirMaterial, describirUso, formatEntero, ETAPAS_VIVERO, NOMBRE_FINALIDAD } from "@/lib/cultivos"
 import { Calendar, Leaf, Pencil, Plus, Spline, Hash, Sprout, Ruler, Layers, ExternalLink } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -40,6 +40,30 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
     const finca = lote.finca
     const { data: tareas = [] } = await getTareas({ loteId: id, sort })
     const [estadoLabel, estadoCls] = ESTADO_LOTE[lote.estado] ?? ESTADO_LOTE.ACTIVO
+    const siembra = lote.finalidad === "SIEMBRA"
+    const uso = describirUso(lote)
+    const totalVivero = lote.materialesVivero.reduce((s, m) => s + m.cantidad, 0)
+    const porEtapa = ETAPAS_VIVERO
+        .map(e => ({ ...e, items: lote.materialesVivero.filter(m => m.etapa === e.valor) }))
+        .map(e => ({ ...e, total: e.items.reduce((s, m) => s + m.cantidad, 0) }))
+        .filter(e => e.items.length)
+    const area = lote.areaMedidaHa ?? lote.areaHa
+    const densidad = lote.numeroPlantas && area ? lote.numeroPlantas / area : null
+    // Las dos últimas tarjetas cambian según la finalidad del lote
+    const tarjetasUso: [string, string, string][] = siembra
+        ? [
+            ["Cultivo", lote.tipoCultivo || "—", [lote.especie, describirMaterial(lote, { conCasa: false })].filter(Boolean).join(" · ")],
+            ["Plantas", formatEntero(lote.numeroPlantas), [densidad ? `${Math.round(densidad).toLocaleString("es-CO")} pl/ha` : "", edad(lote.fechaSiembra) ? `Edad ${edad(lote.fechaSiembra)}` : ""].filter(Boolean).join(" · ")],
+        ]
+        : lote.finalidad === "VIVERO"
+            ? [
+                ["Finalidad", "Vivero", `${lote.materialesVivero.length} material(es)`],
+                ["Plantas en vivero", formatEntero(totalVivero), porEtapa.map(e => `${e.nombre}: ${formatEntero(e.total)}`).join(" · ")],
+            ]
+            : [
+                ["Finalidad", NOMBRE_FINALIDAD[lote.finalidad], ""],
+                ["Uso", uso.detalle || "—", ""],
+            ]
 
     const capas = [
         ...(finca.geometria ? [{ id: finca.id, nombre: finca.nombre, geometria: finca.geometria, estilo: "finca" as const }] : []),
@@ -68,8 +92,7 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                 {[
                     ["Área registrada", formatHa(lote.areaHa), ""],
                     ["Área medida", lote.areaMedidaHa != null ? formatHa(lote.areaMedidaHa) : "—", lote.perimetroM ? `Perímetro ${formatMeters(lote.perimetroM)}` : "Sin lindero"],
-                    ["Cultivo", lote.tipoCultivo || "—", [lote.especie, describirMaterial(lote, { conCasa: false })].filter(Boolean).join(" · ")],
-                    ["Edad del cultivo", edad(lote.fechaSiembra) ?? "—", lote.fechaSiembra ? `Sembrado ${formatDate(lote.fechaSiembra)}` : ""],
+                    ...tarjetasUso,
                 ].map(([k, v, h]) => (
                     <Card key={k} className="p-4">
                         <div className="text-xs font-medium text-muted-foreground">{k}</div>
@@ -95,7 +118,7 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                             <DescargarKMLButton archivo={`${finca.codigo}_${lote.codigo}_${lote.nombre}`} documento={`${finca.nombre} - ${lote.nombre}`}
                                 items={[{
                                     nombre: `${lote.codigo} ${lote.nombre}`, geometria: lote.geometria, tipo: "lote",
-                                    datos: { Código: lote.codigo, Finca: finca.nombre, Cultivo: lote.tipoCultivo, Especie: lote.especie, Variedad: lote.variedad, "Opciones genéticas": lote.opcionesGeneticas.join(" "), "Nombre comercial": lote.nombreComercial, "Casa genética": lote.casaGenetica, "Área registrada (ha)": lote.areaHa },
+                                    datos: { Código: lote.codigo, Finca: finca.nombre, Finalidad: NOMBRE_FINALIDAD[lote.finalidad], Uso: siembra ? null : uso.detalle, Cultivo: lote.tipoCultivo, Plantas: lote.numeroPlantas ?? (lote.finalidad === "VIVERO" ? totalVivero : null), Especie: lote.especie, Variedad: lote.variedad, "Opciones genéticas": lote.opcionesGeneticas.join(" "), "Nombre comercial": lote.nombreComercial, "Casa genética": lote.casaGenetica, "Área registrada (ha)": lote.areaHa },
                                 }]} />
                         </div>
                     </div>
@@ -109,9 +132,12 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                         <CardHeader className="pb-3"><CardTitle className="text-base">Ficha</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
                             <StatItem icon={Hash} label="Código" value={<span className="font-mono">{lote.codigo}</span>} />
-                            <StatItem icon={Sprout} label="Cultivo" value={lote.tipoCultivo || "—"} hint={lote.especie ? <i>{lote.especie}</i> : undefined} />
-                            <StatItem icon={Leaf} label="Variedad / cruce" value={lote.variedad ? describirMaterial(lote, { conCasa: false }) : "Por definir"} hint={lote.casaGenetica ? `Casa genética: ${lote.casaGenetica}` : undefined} />
-                            <StatItem icon={Calendar} label="Fecha de siembra" value={lote.fechaSiembra ? formatDate(lote.fechaSiembra) : "—"} />
+                            <StatItem icon={Layers} label="Finalidad" value={NOMBRE_FINALIDAD[lote.finalidad]} hint={!siembra && lote.usoDetalle ? lote.usoDetalle : undefined} />
+                            {siembra && <>
+                                <StatItem icon={Sprout} label="Cultivo" value={lote.tipoCultivo || "—"} hint={lote.especie ? <i>{lote.especie}</i> : undefined} />
+                                <StatItem icon={Leaf} label="Variedad / cruce" value={lote.variedad ? describirMaterial(lote, { conCasa: false }) : "Por definir"} hint={lote.casaGenetica ? `Casa genética: ${lote.casaGenetica}` : undefined} />
+                                <StatItem icon={Calendar} label="Fecha de siembra" value={lote.fechaSiembra ? formatDate(lote.fechaSiembra) : "—"} />
+                            </>}
                             <StatItem icon={Spline} label="Georreferenciación"
                                 value={lote.metodoGeorreferenciacion ? METODO_LABELS[lote.metodoGeorreferenciacion] : "Pendiente"}
                                 hint={lote.precisionM != null ? `Precisión ±${lote.precisionM.toFixed(1)} m` : lote.georreferenciadoEn ? formatDate(lote.georreferenciadoEn) : undefined} />
@@ -124,6 +150,57 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                     </Card>
                 </div>
             </div>
+
+            {lote.finalidad === "VIVERO" && (
+                <Card className="overflow-hidden">
+                    <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                        <h2 className="text-sm font-semibold">Inventario del vivero <span className="text-muted-foreground">({formatEntero(totalVivero)} plantas)</span></h2>
+                        <Button variant="ghost" size="sm" asChild><Link href={conRetorno(`/lotes/${id}/edit`, `/lotes/${id}`)}><Pencil className="mr-1.5 h-4 w-4" />Actualizar</Link></Button>
+                    </div>
+                    {lote.materialesVivero.length === 0 ? (
+                        <p className="px-5 py-8 text-center text-sm text-muted-foreground">Sin materiales registrados.</p>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/50 text-left text-xs font-medium text-muted-foreground">
+                                    <tr>
+                                        <th className="px-5 py-2.5">Cultivo / especie</th>
+                                        <th className="px-3 py-2.5">Variedad / cruce</th>
+                                        <th className="px-3 py-2.5">Casa genética</th>
+                                        <th className="px-3 py-2.5">Ubicación</th>
+                                        <th className="px-3 py-2.5">Ingreso</th>
+                                        <th className="px-5 py-2.5 text-right">Plantas</th>
+                                    </tr>
+                                </thead>
+                                {porEtapa.map(e => (
+                                    <tbody key={e.valor} className="divide-y divide-border border-t border-border">
+                                        <tr className="bg-primary/5">
+                                            <td colSpan={5} className="px-5 py-2 text-xs font-semibold uppercase tracking-wide text-primary">{e.nombre}</td>
+                                            <td className="px-5 py-2 text-right text-xs font-semibold tabular-nums text-primary">{formatEntero(e.total)}</td>
+                                        </tr>
+                                        {e.items.map(m => (
+                                            <tr key={m.id}>
+                                                <td className="px-5 py-2.5">{m.tipoCultivo}{m.especie && <div className="text-xs italic text-muted-foreground">{m.especie}</div>}</td>
+                                                <td className="px-3 py-2.5">{m.variedad || "—"}</td>
+                                                <td className="px-3 py-2.5 text-muted-foreground">{m.casaGenetica || "—"}</td>
+                                                <td className="px-3 py-2.5">{m.ubicacion || "—"}</td>
+                                                <td className="whitespace-nowrap px-3 py-2.5 tabular-nums">{m.fechaIngreso ? formatDate(m.fechaIngreso) : "—"}</td>
+                                                <td className="px-5 py-2.5 text-right font-medium tabular-nums">{formatEntero(m.cantidad)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                ))}
+                                <tfoot>
+                                    <tr className="border-t border-border bg-muted/30 font-semibold">
+                                        <td className="px-5 py-2.5" colSpan={5}>Total</td>
+                                        <td className="px-5 py-2.5 text-right tabular-nums">{formatEntero(totalVivero)}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    )}
+                </Card>
+            )}
 
             <Card className="overflow-hidden">
                 <div className="flex items-center justify-between border-b border-border px-5 py-3">

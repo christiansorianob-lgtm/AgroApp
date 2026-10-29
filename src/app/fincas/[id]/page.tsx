@@ -12,7 +12,7 @@ import { LevantamientosList } from "@/components/geo/LevantamientosList"
 import { TareasResumenTable, StatusPill } from "@/components/tareas/TareasResumenTable"
 import { formatHa, formatMeters, METODO_LABELS } from "@/lib/geo"
 import { formatDate } from "@/lib/utils"
-import { describirMaterial } from "@/lib/cultivos"
+import { describirMaterial, describirUso, formatEntero, NOMBRE_FINALIDAD } from "@/lib/cultivos"
 import { MapPin, Ruler, User, Calendar, Plus, Leaf, Pencil, ClipboardList, ExternalLink, Spline, Layers, Hash } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -33,12 +33,12 @@ export default async function FincaDetailPage(props: { params: Promise<{ id: str
         ...(finca.geometria ? [{ id: finca.id, nombre: finca.nombre, geometria: finca.geometria, estilo: "finca" as const }] : []),
         ...finca.lotes.filter(l => l.geometria).map(l => ({
             id: l.id, nombre: `${l.codigo} ${l.nombre}`, geometria: l.geometria, estilo: "lote" as const,
-            subtitulo: [l.tipoCultivo, l.variedad].filter(Boolean).join(" · "), areaHa: l.areaMedidaHa ?? l.areaHa, href: `/lotes/${l.id}`,
+            subtitulo: [describirUso(l).titulo, describirUso(l).detalle].filter(Boolean).join(" · "), areaHa: l.areaMedidaHa ?? l.areaHa, href: `/lotes/${l.id}`,
         })),
     ]
     const kmlLote = (l: (typeof finca.lotes)[number]) => ({
         nombre: `${l.codigo} ${l.nombre}`, geometria: l.geometria, tipo: "lote" as const,
-        datos: { Código: l.codigo, Finca: finca.nombre, Cultivo: l.tipoCultivo, Especie: l.especie, Variedad: l.variedad, "Opciones genéticas": l.opcionesGeneticas.join(" "), "Nombre comercial": l.nombreComercial, "Casa genética": l.casaGenetica, "Área registrada (ha)": l.areaHa },
+        datos: { Código: l.codigo, Finca: finca.nombre, Finalidad: NOMBRE_FINALIDAD[l.finalidad], Uso: l.usoDetalle, Plantas: l.numeroPlantas ?? (l.finalidad === "VIVERO" ? l.materialesVivero.reduce((s, m) => s + m.cantidad, 0) : null), Cultivo: l.tipoCultivo, Especie: l.especie, Variedad: l.variedad, "Opciones genéticas": l.opcionesGeneticas.join(" "), "Nombre comercial": l.nombreComercial, "Casa genética": l.casaGenetica, "Área registrada (ha)": l.areaHa },
     })
     const kmlFinca = [
         { nombre: finca.nombre, geometria: finca.geometria, tipo: "finca" as const,
@@ -143,7 +143,8 @@ export default async function FincaDetailPage(props: { params: Promise<{ id: str
                             <thead className="bg-muted/50 text-left text-xs font-medium text-muted-foreground">
                                 <tr>
                                     <th className="px-5 py-2.5">Lote</th>
-                                    <th className="px-3 py-2.5">Cultivo</th>
+                                    <th className="px-3 py-2.5">Uso / cultivo</th>
+                                    <th className="px-3 py-2.5 text-right">Plantas</th>
                                     <th className="px-3 py-2.5 text-right">Área registrada</th>
                                     <th className="px-3 py-2.5 text-right">Área medida</th>
                                     <th className="px-3 py-2.5">Siembra</th>
@@ -158,7 +159,8 @@ export default async function FincaDetailPage(props: { params: Promise<{ id: str
                                             <Link href={`/lotes/${l.id}`} className="font-medium hover:text-primary">{l.nombre}</Link>
                                             <div className="font-mono text-xs text-muted-foreground">{l.codigo}</div>
                                         </td>
-                                        <td className="px-3 py-3">{l.tipoCultivo}<div className="text-xs text-muted-foreground">{[l.especie, describirMaterial(l, { conCasa: false })].filter(Boolean).join(" · ")}</div></td>
+                                        <td className="px-3 py-3">{describirUso(l).titulo}<div className="text-xs text-muted-foreground">{l.finalidad === "VIVERO" ? "Vivero" : describirUso(l).detalle}</div></td>
+                                        <td className="px-3 py-3 text-right tabular-nums">{formatEntero(l.finalidad === "VIVERO" ? l.materialesVivero.reduce((s, m) => s + m.cantidad, 0) : l.numeroPlantas)}</td>
                                         <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{formatHa(l.areaHa)}</td>
                                         <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{l.areaMedidaHa != null ? formatHa(l.areaMedidaHa) : "—"}</td>
                                         <td className="px-3 py-3 tabular-nums whitespace-nowrap">{l.fechaSiembra ? formatDate(l.fechaSiembra) : "—"}</td>

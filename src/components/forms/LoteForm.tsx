@@ -5,7 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { rutaSegura } from "@/lib/navegacion"
 import { limpiarRecorrido } from "@/components/geo/useGpsSurvey"
 import { cn } from "@/lib/utils"
-import { Loader2, Save, AlertCircle, LocateFixed } from "lucide-react"
+import { Loader2, Save, AlertCircle, LocateFixed, Sprout, Warehouse, Home, Trees, Shapes } from "lucide-react"
+import { ViveroMaterialesEditor, filaVacia, type FilaVivero } from "@/components/forms/ViveroMaterialesEditor"
+import { FINALIDADES, USOS_INFRAESTRUCTURA, formatEntero, type Finalidad, type EtapaVivero } from "@/lib/cultivos"
 import { createLote, updateLote, type LoteInput } from "@/app/actions/lotes"
 import { getTiposCultivo, createTipoCultivo } from "@/app/actions/cultivos"
 import { Button } from "@/components/ui/button"
@@ -42,7 +44,11 @@ export interface LoteFormData {
     codigo: string
     nombre: string
     areaHa: number
-    tipoCultivo: string
+    finalidad?: Finalidad
+    usoDetalle?: string | null
+    numeroPlantas?: number | null
+    materialesVivero?: { tipoCultivo: string; especie: string | null; variedad: string | null; casaGenetica: string | null; etapa: EtapaVivero; ubicacion?: string | null; cantidad: number; fechaIngreso: Date | string | null }[]
+    tipoCultivo: string | null
     especie?: string | null
     variedad: string | null
     casaGenetica?: string | null
@@ -89,6 +95,18 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, opcionesGenetic
         observaciones: lote?.observaciones ?? "",
     })
     const set = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }))
+
+    // Finalidad: define qué datos pide el formulario
+    const [finalidad, setFinalidad] = useState<Finalidad>(lote?.finalidad ?? "SIEMBRA")
+    const [usoDetalle, setUsoDetalle] = useState(lote?.usoDetalle ?? "")
+    const [numeroPlantas, setNumeroPlantas] = useState(lote?.numeroPlantas != null ? String(lote.numeroPlantas) : "")
+    const [filasVivero, setFilasVivero] = useState<FilaVivero[]>(() =>
+        lote?.materialesVivero?.length
+            ? lote.materialesVivero.map(m => ({
+                ...filaVacia(m.etapa, m.tipoCultivo), especie: m.especie ?? "", variedad: m.variedad ?? "", casaGenetica: m.casaGenetica ?? "",
+                ubicacion: m.ubicacion ?? "", cantidad: String(m.cantidad), fechaIngreso: toISODate(m.fechaIngreso),
+            }))
+            : [filaVacia("PREVIVERO")])
 
     const geometriaInicial = normalizeGeometry(lote?.geometria)
     const [lindero, setLindero] = useState<BoundaryValue | null>(
@@ -145,6 +163,9 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, opcionesGenetic
         return g ? computeMetrics(g).areaHa : null
     }, [lindero])
 
+    const areaParaDensidad = Number(form.areaHa.replace(",", ".")) || areaMedida || 0
+    const densidad = areaParaDensidad > 0 && parseInt(numeroPlantas, 10) > 0 ? parseInt(numeroPlantas, 10) / areaParaDensidad : null
+
     const contexto = useMemo(() => ({
         padre: fincaGeom ? { nombre: `la finca ${finca!.nombre}`, geometria: fincaGeom } : null,
         vecinos,
@@ -168,6 +189,13 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, opcionesGenetic
             fincaId,
             nombre: form.nombre,
             areaHa: areaTxt ? Number(areaTxt) : null,
+            finalidad,
+            usoDetalle,
+            numeroPlantas: numeroPlantas ? parseInt(numeroPlantas, 10) : null,
+            materialesVivero: filasVivero.filter(f => f.tipoCultivo || f.cantidad).map(f => ({
+                tipoCultivo: f.tipoCultivo, especie: f.especie || null, variedad: f.variedad || null, casaGenetica: f.casaGenetica || null,
+                etapa: f.etapa, ubicacion: f.ubicacion || null, cantidad: parseInt(f.cantidad, 10) || 0, fechaIngreso: f.fechaIngreso || null,
+            })),
             tipoCultivo: form.tipoCultivo,
             especie: form.especie || null,
             variedad: form.variedad || null,
@@ -218,9 +246,17 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, opcionesGenetic
                             <Input id="codigo" value={editando ? lote!.codigo : fincaId ? siguienteCodigo : "—"} disabled readOnly
                                 className="bg-muted/60 font-mono" title="Se asigna automáticamente" />
                         </div>
-                        <div className="space-y-2 sm:col-span-2">
+                        <div className="space-y-2">
                             <Label htmlFor="nombre">Nombre del lote *</Label>
                             <Input id="nombre" value={form.nombre} onChange={e => set("nombre")(e.target.value)} placeholder="Ej: Lote El Palmar" required />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="estado">Estado</Label>
+                            <select id="estado" className={selectCls} value={form.estado} onChange={e => set("estado")(e.target.value)}>
+                                <option value="ACTIVO">Activo</option>
+                                <option value="EN_RENOVACION">En renovación</option>
+                                <option value="INACTIVO">Inactivo</option>
+                            </select>
                         </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -228,7 +264,33 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, opcionesGenetic
                     </p>
                 </FormSection>
 
-                <FormSection title="Cultivo" description="Cultivo, especie, variedad o cruce, casa genética y fecha de siembra.">
+                <FormSection title="Finalidad del lote" description="Para qué se usa esta área. Según la finalidad se piden distintos datos.">
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {FINALIDADES.map(f => {
+                            const Icon = { SIEMBRA: Sprout, VIVERO: Warehouse, INFRAESTRUCTURA: Home, CONSERVACION: Trees, OTRO: Shapes }[f.valor]
+                            const activa = finalidad === f.valor
+                            return (
+                                <button key={f.valor} type="button" onClick={() => setFinalidad(f.valor)} aria-pressed={activa}
+                                    className={cn("flex items-start gap-3 rounded-xl border p-3 text-left transition-colors",
+                                        activa ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:bg-muted/50")}>
+                                    <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", activa ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                                        <Icon className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-semibold">{f.nombre}</div>
+                                        <div className="text-xs text-muted-foreground">{f.descripcion}</div>
+                                    </div>
+                                </button>
+                            )
+                        })}
+                    </div>
+                    {editando && lote?.finalidad === "VIVERO" && finalidad !== "VIVERO" && (
+                        <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-900">Al guardar con otra finalidad se borrará el inventario del vivero de este lote.</p>
+                    )}
+                </FormSection>
+
+                {finalidad === "SIEMBRA" && (
+                <FormSection title="Cultivo" description="Cultivo, especie, variedad o cruce, casa genética, fecha de siembra y número de plantas.">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
@@ -299,15 +361,33 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, opcionesGenetic
                             <DatePicker value={form.fechaSiembra} onChange={set("fechaSiembra")} />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="estado">Estado</Label>
-                            <select id="estado" className={selectCls} value={form.estado} onChange={e => set("estado")(e.target.value)}>
-                                <option value="ACTIVO">Activo</option>
-                                <option value="EN_RENOVACION">En renovación</option>
-                                <option value="INACTIVO">Inactivo</option>
-                            </select>
+                            <Label htmlFor="plantas">Número de plantas *</Label>
+                            <Input id="plantas" inputMode="numeric" value={numeroPlantas} placeholder="Ej: 1.250"
+                                onChange={e => setNumeroPlantas(e.target.value.replace(/\D/g, ""))} />
+                            <p className="text-xs text-muted-foreground">
+                                {densidad != null ? `Densidad: ${densidad.toLocaleString("es-CO", { maximumFractionDigits: 0 })} plantas/ha` : "Plantas sembradas en el lote."}
+                            </p>
                         </div>
                     </div>
                 </FormSection>
+                )}
+
+                {finalidad === "VIVERO" && (
+                    <FormSection title="Inventario del vivero" description="Materiales que hay en el vivero, con su etapa y cantidad de plantas. Use el mismo catálogo de cultivos y variedades.">
+                        <ViveroMaterialesEditor filas={filasVivero} onChange={setFilasVivero} catalogo={tipos} />
+                    </FormSection>
+                )}
+
+                {finalidad !== "SIEMBRA" && finalidad !== "VIVERO" && (
+                    <FormSection title="Uso del área" description={finalidad === "INFRAESTRUCTURA" ? "Qué infraestructura hay en este lote." : "Describa brevemente el uso del área."}>
+                        <div className="space-y-2">
+                            <Label htmlFor="uso">{finalidad === "INFRAESTRUCTURA" ? "Infraestructura *" : "Descripción"}</Label>
+                            <Input id="uso" list="usos-infra" value={usoDetalle} onChange={e => setUsoDetalle(e.target.value)}
+                                placeholder={finalidad === "INFRAESTRUCTURA" ? "Ej: Casa de finca" : finalidad === "CONSERVACION" ? "Ej: Bosque de galería" : ""} />
+                            <datalist id="usos-infra">{USOS_INFRAESTRUCTURA.map(u => <option key={u} value={u} />)}</datalist>
+                        </div>
+                    </FormSection>
+                )}
 
                 <FormSection
                     title="Lindero y área"

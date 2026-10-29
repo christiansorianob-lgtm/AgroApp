@@ -11,7 +11,7 @@ export async function getFincaById(id: string) {
     return await db.finca.findUnique({
         where: { id },
         include: {
-            lotes: { orderBy: { codigo: 'asc' } },
+            lotes: { orderBy: { codigo: 'asc' }, include: { materialesVivero: { select: { cantidad: true } } } },
             levantamientos: { where: { loteId: null }, orderBy: { createdAt: 'desc' }, take: 10 },
         }
     })
