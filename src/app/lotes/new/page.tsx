@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic"
 
 export default async function NewLotePage(props: { searchParams: Promise<{ fincaId?: string }> }) {
     const { fincaId } = await props.searchParams
-    const [fincas, tiposCultivo] = await Promise.all([
+    const [fincas, tiposCultivo, opciones] = await Promise.all([
         db.finca.findMany({
             where: { estado: "ACTIVO" },
             orderBy: { nombre: "asc" },
@@ -16,6 +16,7 @@ export default async function NewLotePage(props: { searchParams: Promise<{ finca
             },
         }),
         db.tipoCultivo.findMany({ orderBy: { nombre: "asc" }, include: { variedades: { orderBy: { nombre: "asc" } }, especies: { orderBy: { nombre: "asc" } } } }),
+        db.opcionGenetica.findMany({ orderBy: [{ casaGenetica: "asc" }, { grupo: "asc" }, { codigo: "asc" }] }),
     ])
     const finca = fincas.find(f => f.id === fincaId)
 
@@ -28,7 +29,7 @@ export default async function NewLotePage(props: { searchParams: Promise<{ finca
                     ? [{ label: "Fincas", href: "/fincas" }, { label: finca.nombre, href: `/fincas/${finca.id}` }, { label: "Nuevo lote" }]
                     : [{ label: "Lotes", href: "/lotes" }, { label: "Nuevo" }]}
             />
-            <LoteForm fincas={fincas} tiposCultivo={tiposCultivo} fincaIdInicial={finca?.id} />
+            <LoteForm fincas={fincas} tiposCultivo={tiposCultivo} opcionesGeneticas={opciones} fincaIdInicial={finca?.id} />
         </div>
     )
 }

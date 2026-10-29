@@ -46,6 +46,8 @@ export interface LoteFormData {
     especie?: string | null
     variedad: string | null
     casaGenetica?: string | null
+    opcionesGeneticas?: string[]
+    nombreComercial?: string | null
     fechaSiembra: Date | string | null
     estado: "ACTIVO" | "INACTIVO" | "EN_RENOVACION"
     observaciones: string | null
@@ -59,9 +61,12 @@ export interface LoteFormData {
 const toISODate = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : "")
 const selectCls = "flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
 
-export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdInicial }: {
+interface OpcionGenetica { id: string; codigo: string; nombre: string; grupo: string; casaGenetica: string; descripcion: string | null }
+
+export function LoteForm({ fincas, tiposCultivo: tiposIniciales, opcionesGeneticas = [], lote, fincaIdInicial }: {
     fincas: FincaRef[]
     tiposCultivo: TipoCultivo[]
+    opcionesGeneticas?: OpcionGenetica[]
     lote?: LoteFormData
     fincaIdInicial?: string
 }) {
@@ -78,6 +83,7 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
         especie: lote?.especie ?? "",
         variedad: lote?.variedad ?? "",
         casaGenetica: lote?.casaGenetica ?? "",
+        nombreComercial: lote?.nombreComercial ?? "",
         fechaSiembra: toISODate(lote?.fechaSiembra),
         estado: lote?.estado ?? "ACTIVO",
         observaciones: lote?.observaciones ?? "",
@@ -125,6 +131,10 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
     const especies = tipoSel?.especies ?? []
     const especieSel = especies.find(e => e.nombre === form.especie)
     const variedades = (tipoSel?.variedades ?? []).filter(v => !especieSel || !v.especieId || v.especieId === especieSel.id)
+    const [opciones, setOpciones] = useState<string[]>(lote?.opcionesGeneticas ?? [])
+    // Opciones de la casa genética del material (o todas si aún no hay casa)
+    const opcionesDisponibles = opcionesGeneticas.filter(o => !form.casaGenetica || o.casaGenetica === form.casaGenetica)
+    const alternarOpcion = (codigo: string) => setOpciones(o => o.includes(codigo) ? o.filter(c => c !== codigo) : [...o, codigo])
     const elegirVariedad = (nombre: string) => {
         const v = tipoSel?.variedades.find(x => x.nombre === nombre)
         const esp = v?.especieId ? especies.find(e => e.id === v.especieId)?.nombre : undefined
@@ -162,6 +172,8 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
             especie: form.especie || null,
             variedad: form.variedad || null,
             casaGenetica: form.casaGenetica || null,
+            opcionesGeneticas: opciones,
+            nombreComercial: form.nombreComercial,
             fechaSiembra: form.fechaSiembra || null,
             estado: form.estado as LoteInput["estado"],
             observaciones: form.observaciones,
@@ -255,6 +267,33 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, lote, fincaIdIn
                                     placeholder="Se completa al elegir la variedad" />
                             </div>
                         )}
+                        {opcionesDisponibles.length > 0 && (
+                            <div className="space-y-2 sm:col-span-2">
+                                <Label>Opciones genéticas del material</Label>
+                                <div className="flex flex-wrap gap-2">
+                                    {opcionesDisponibles.map(o => {
+                                        const activa = opciones.includes(o.codigo)
+                                        return (
+                                            <button key={o.id} type="button" onClick={() => alternarOpcion(o.codigo)}
+                                                title={o.descripcion ?? undefined} aria-pressed={activa}
+                                                className={cn("rounded-lg border px-3 py-1.5 text-left text-xs transition-colors",
+                                                    activa ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/50")}>
+                                                <span className="font-mono font-semibold">{o.codigo}</span> {o.nombre}
+                                                {!form.casaGenetica && <span className={cn("ml-1", activa ? "opacity-80" : "text-muted-foreground")}>· {o.casaGenetica}</span>}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Características que la casa genética agrega sobre el cruce (p. ej. #S crecimiento lento). Puede marcar varias.
+                                </p>
+                            </div>
+                        )}
+                        <div className="space-y-2 sm:col-span-2">
+                            <Label htmlFor="comercial">Nombre comercial (opcional)</Label>
+                            <Input id="comercial" value={form.nombreComercial} onChange={e => set("nombreComercial")(e.target.value)}
+                                placeholder="Como lo vendieron o se conoce en la zona, ej: #S Alta Extracción" />
+                        </div>
                         <div className="space-y-2">
                             <Label>Fecha de siembra</Label>
                             <DatePicker value={form.fechaSiembra} onChange={set("fechaSiembra")} />

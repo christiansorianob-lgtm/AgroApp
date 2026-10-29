@@ -10,7 +10,7 @@ export default async function EditLotePage(props: { params: Promise<{ id: string
     const lote = await db.lote.findUnique({ where: { id } })
     if (!lote) notFound()
 
-    const [finca, tiposCultivo] = await Promise.all([
+    const [finca, tiposCultivo, opciones] = await Promise.all([
         db.finca.findUnique({
             where: { id: lote.fincaId },
             select: {
@@ -19,6 +19,7 @@ export default async function EditLotePage(props: { params: Promise<{ id: string
             },
         }),
         db.tipoCultivo.findMany({ orderBy: { nombre: "asc" }, include: { variedades: { orderBy: { nombre: "asc" } }, especies: { orderBy: { nombre: "asc" } } } }),
+        db.opcionGenetica.findMany({ orderBy: [{ casaGenetica: "asc" }, { grupo: "asc" }, { codigo: "asc" }] }),
     ])
 
     return (
@@ -33,7 +34,7 @@ export default async function EditLotePage(props: { params: Promise<{ id: string
                     { label: "Editar" },
                 ]}
             />
-            <LoteForm fincas={finca ? [finca] : []} tiposCultivo={tiposCultivo} lote={lote as any} />
+            <LoteForm fincas={finca ? [finca] : []} tiposCultivo={tiposCultivo} opcionesGeneticas={opciones} lote={lote as any} />
         </div>
     )
 }

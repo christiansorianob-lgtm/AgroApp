@@ -15,6 +15,8 @@ export interface LoteInput {
     especie?: string | null
     variedad?: string | null
     casaGenetica?: string | null
+    opcionesGeneticas?: string[]
+    nombreComercial?: string | null
     fechaSiembra?: string | null
     estado?: "ACTIVO" | "INACTIVO" | "EN_RENOVACION"
     observaciones?: string | null
@@ -101,6 +103,8 @@ export async function createLote(input: LoteInput): Promise<{ data?: { id: strin
                 especie: input.especie || null,
                 variedad: input.variedad || null,
                 casaGenetica: input.casaGenetica || null,
+                opcionesGeneticas: input.opcionesGeneticas ?? [],
+                nombreComercial: input.nombreComercial?.trim() || null,
                 fechaSiembra: parseFechaCalendario(input.fechaSiembra),
                 estado: input.estado || "ACTIVO",
                 observaciones: input.observaciones?.trim() || null,
@@ -139,6 +143,8 @@ export async function updateLote(id: string, input: LoteInput): Promise<{ succes
                 especie: input.especie || null,
                 variedad: input.variedad || null,
                 casaGenetica: input.casaGenetica || null,
+                opcionesGeneticas: input.opcionesGeneticas ?? [],
+                nombreComercial: input.nombreComercial?.trim() || null,
                 fechaSiembra: parseFechaCalendario(input.fechaSiembra),
                 estado: input.estado || undefined,
                 observaciones: input.observaciones?.trim() || null,

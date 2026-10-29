@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/layout/PageHeader"
+import { OpcionesGeneticasManager } from "@/components/common/OpcionesGeneticasManager"
 import { Trash2, Plus, Loader2, Sprout, Dna } from "lucide-react"
 
 interface Variedad { id: string; nombre: string; especieId: string | null; casaGenetica: string | null }
@@ -171,6 +172,8 @@ export default function CultivosConfigPage() {
                     })}
                 </div>
             )}
+
+            <OpcionesGeneticasManager casasSugeridas={casas} />
         </div>
     )
 }

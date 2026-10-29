@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/PageHeader"
 import { StatusPill } from "@/components/tareas/TareasResumenTable"
 import { formatHa } from "@/lib/geo"
 import { formatDate } from "@/lib/utils"
+import { describirMaterial } from "@/lib/cultivos"
 import { Plus, Leaf } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -60,7 +61,7 @@ export default async function LotesPage() {
                                                 <div className="font-mono text-xs text-muted-foreground">{l.codigo}</div>
                                             </td>
                                             <td className="px-3 py-3"><Link href={`/fincas/${l.finca.id}`} className="hover:text-primary">{l.finca.nombre}</Link></td>
-                                            <td className="px-3 py-3">{l.tipoCultivo}<div className="text-xs text-muted-foreground">{[l.especie, l.variedad].filter(Boolean).join(" · ")}</div></td>
+                                            <td className="px-3 py-3">{l.tipoCultivo}<div className="text-xs text-muted-foreground">{[l.especie, describirMaterial(l, { conCasa: false })].filter(Boolean).join(" · ")}</div></td>
                                             <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{formatHa(l.areaHa)}</td>
                                             <td className="px-3 py-3 tabular-nums whitespace-nowrap">{l.fechaSiembra ? formatDate(l.fechaSiembra) : "—"}</td>
                                             <td className="px-3 py-3"><StatusPill className={cls}>{label}</StatusPill></td>

@@ -81,3 +81,43 @@ export async function deleteVariedad(id: string) {
         return { error: "Error al eliminar variedad" }
     }
 }
+
+// ── Opciones genéticas (#S, #PC…) ──
+
+export async function getOpcionesGeneticas() {
+    try {
+        const data = await db.opcionGenetica.findMany({ orderBy: [{ casaGenetica: 'asc' }, { grupo: 'asc' }, { codigo: 'asc' }] })
+        return { data }
+    } catch (e) {
+        return { error: "Error al cargar las opciones genéticas" }
+    }
+}
+
+export async function createOpcionGenetica(input: { codigo: string; nombre: string; grupo: string; casaGenetica: string; descripcion?: string }) {
+    const codigo = input.codigo.trim()
+    if (!codigo || !input.nombre.trim() || !input.casaGenetica.trim()) return { error: "Código, nombre y casa genética son obligatorios" }
+    try {
+        await db.opcionGenetica.create({
+            data: {
+                codigo: codigo.startsWith('#') ? codigo : `#${codigo}`,
+                nombre: input.nombre.trim(),
+                grupo: input.grupo || 'Otro',
+                casaGenetica: input.casaGenetica.trim(),
+                descripcion: input.descripcion?.trim() || null,
+            },
+        })
+        return { success: true }
+    } catch (e: any) {
+        if (e.code === 'P2002') return { error: "Esa casa genética ya tiene una opción con ese código" }
+        return { error: "Error al crear la opción genética" }
+    }
+}
+
+export async function deleteOpcionGenetica(id: string) {
+    try {
+        await db.opcionGenetica.delete({ where: { id } })
+        return { success: true }
+    } catch (e) {
+        return { error: "Error al eliminar la opción genética" }
+    }
+}

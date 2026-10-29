@@ -12,6 +12,7 @@ import { LevantamientosList } from "@/components/geo/LevantamientosList"
 import { TareasResumenTable, StatusPill } from "@/components/tareas/TareasResumenTable"
 import { formatHa, formatMeters, METODO_LABELS } from "@/lib/geo"
 import { formatDate } from "@/lib/utils"
+import { describirMaterial } from "@/lib/cultivos"
 import { Calendar, Leaf, Pencil, Plus, Spline, Hash, Sprout, Ruler, Layers, ExternalLink } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -67,7 +68,7 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                 {[
                     ["Área registrada", formatHa(lote.areaHa), ""],
                     ["Área medida", lote.areaMedidaHa != null ? formatHa(lote.areaMedidaHa) : "—", lote.perimetroM ? `Perímetro ${formatMeters(lote.perimetroM)}` : "Sin lindero"],
-                    ["Cultivo", lote.tipoCultivo || "—", [lote.especie, lote.variedad].filter(Boolean).join(" · ")],
+                    ["Cultivo", lote.tipoCultivo || "—", [lote.especie, describirMaterial(lote, { conCasa: false })].filter(Boolean).join(" · ")],
                     ["Edad del cultivo", edad(lote.fechaSiembra) ?? "—", lote.fechaSiembra ? `Sembrado ${formatDate(lote.fechaSiembra)}` : ""],
                 ].map(([k, v, h]) => (
                     <Card key={k} className="p-4">
@@ -92,7 +93,7 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                             <DescargarKMLButton archivo={`${finca.codigo}_${lote.codigo}_${lote.nombre}`} documento={`${finca.nombre} - ${lote.nombre}`}
                                 items={[{
                                     nombre: `${lote.codigo} ${lote.nombre}`, geometria: lote.geometria, tipo: "lote",
-                                    datos: { Código: lote.codigo, Finca: finca.nombre, Cultivo: lote.tipoCultivo, Especie: lote.especie, Variedad: lote.variedad, "Casa genética": lote.casaGenetica, "Área registrada (ha)": lote.areaHa },
+                                    datos: { Código: lote.codigo, Finca: finca.nombre, Cultivo: lote.tipoCultivo, Especie: lote.especie, Variedad: lote.variedad, "Opciones genéticas": lote.opcionesGeneticas.join(" "), "Nombre comercial": lote.nombreComercial, "Casa genética": lote.casaGenetica, "Área registrada (ha)": lote.areaHa },
                                 }]} />
                         </div>
                     </div>
@@ -107,7 +108,7 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                         <CardContent className="space-y-4">
                             <StatItem icon={Hash} label="Código" value={<span className="font-mono">{lote.codigo}</span>} />
                             <StatItem icon={Sprout} label="Cultivo" value={lote.tipoCultivo || "—"} hint={lote.especie ? <i>{lote.especie}</i> : undefined} />
-                            <StatItem icon={Leaf} label="Variedad / cruce" value={lote.variedad || "Por definir"} hint={lote.casaGenetica ? `Casa genética: ${lote.casaGenetica}` : undefined} />
+                            <StatItem icon={Leaf} label="Variedad / cruce" value={lote.variedad ? describirMaterial(lote, { conCasa: false }) : "Por definir"} hint={lote.casaGenetica ? `Casa genética: ${lote.casaGenetica}` : undefined} />
                             <StatItem icon={Calendar} label="Fecha de siembra" value={lote.fechaSiembra ? formatDate(lote.fechaSiembra) : "—"} />
                             <StatItem icon={Spline} label="Georreferenciación"
                                 value={lote.metodoGeorreferenciacion ? METODO_LABELS[lote.metodoGeorreferenciacion] : "Pendiente"}

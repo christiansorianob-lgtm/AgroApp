@@ -64,6 +64,8 @@ model Lote {
   especie         String?  // Especie botánica (Elaeis guineensis, Híbrido OxG…)
   variedad        String?  // Variedad o cruce (Deli x La Mé…)
   casaGenetica    String?  // Casa genética / proveedor de la semilla
+  opcionesGeneticas String[] @default([]) // Códigos de opciones del material: ["#S", "#PC"]
+  nombreComercial String?  // Como lo vendieron o se conoce en la zona: "#S Alta Extracción"
   fechaSiembra    DateTime?
   areaHa          Float // Redundant if calculated from polygon, but kept for cache/manual entry
   latitud         Float?
@@ -418,6 +420,19 @@ model VariedadCultivo {
   especie       EspecieCultivo? @relation(fields: [especieId], references: [id], onDelete: SetNull)
 
   @@unique([tipoCultivoId, nombre])
+}
+
+// Opciones o características genéticas que la casa genética agrega sobre un cruce
+// (p. ej. PalmElit #S Short, #PC resistencia a Pudrición del Cogollo). Un lote puede tener varias.
+model OpcionGenetica {
+  id           String  @id @default(uuid())
+  codigo       String  // "#S"
+  nombre       String  // "Short – crecimiento lento en altura"
+  grupo        String  // "Sanidad" | "Calidad del aceite" | "Ciclo de vida" | otro
+  casaGenetica String  // "PalmElit"
+  descripcion  String? @db.Text
+
+  @@unique([casaGenetica, codigo])
 }
 
 // -----------------------------------------------------------------------------

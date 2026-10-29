@@ -12,6 +12,7 @@ import { LevantamientosList } from "@/components/geo/LevantamientosList"
 import { TareasResumenTable, StatusPill } from "@/components/tareas/TareasResumenTable"
 import { formatHa, formatMeters, METODO_LABELS } from "@/lib/geo"
 import { formatDate } from "@/lib/utils"
+import { describirMaterial } from "@/lib/cultivos"
 import { MapPin, Ruler, User, Calendar, Plus, Leaf, Pencil, ClipboardList, ExternalLink, Spline, Layers, Hash } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -37,7 +38,7 @@ export default async function FincaDetailPage(props: { params: Promise<{ id: str
     ]
     const kmlLote = (l: (typeof finca.lotes)[number]) => ({
         nombre: `${l.codigo} ${l.nombre}`, geometria: l.geometria, tipo: "lote" as const,
-        datos: { Código: l.codigo, Finca: finca.nombre, Cultivo: l.tipoCultivo, Especie: l.especie, Variedad: l.variedad, "Casa genética": l.casaGenetica, "Área registrada (ha)": l.areaHa },
+        datos: { Código: l.codigo, Finca: finca.nombre, Cultivo: l.tipoCultivo, Especie: l.especie, Variedad: l.variedad, "Opciones genéticas": l.opcionesGeneticas.join(" "), "Nombre comercial": l.nombreComercial, "Casa genética": l.casaGenetica, "Área registrada (ha)": l.areaHa },
     })
     const kmlFinca = [
         { nombre: finca.nombre, geometria: finca.geometria, tipo: "finca" as const,
@@ -157,7 +158,7 @@ export default async function FincaDetailPage(props: { params: Promise<{ id: str
                                             <Link href={`/lotes/${l.id}`} className="font-medium hover:text-primary">{l.nombre}</Link>
                                             <div className="font-mono text-xs text-muted-foreground">{l.codigo}</div>
                                         </td>
-                                        <td className="px-3 py-3">{l.tipoCultivo}<div className="text-xs text-muted-foreground">{[l.especie, l.variedad].filter(Boolean).join(" · ")}</div></td>
+                                        <td className="px-3 py-3">{l.tipoCultivo}<div className="text-xs text-muted-foreground">{[l.especie, describirMaterial(l, { conCasa: false })].filter(Boolean).join(" · ")}</div></td>
                                         <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{formatHa(l.areaHa)}</td>
                                         <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap">{l.areaMedidaHa != null ? formatHa(l.areaMedidaHa) : "—"}</td>
                                         <td className="px-3 py-3 tabular-nums whitespace-nowrap">{l.fechaSiembra ? formatDate(l.fechaSiembra) : "—"}</td>
