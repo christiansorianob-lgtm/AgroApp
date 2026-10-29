@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader, StatItem } from "@/components/layout/PageHeader"
 import { GeoViewer } from "@/components/geo/GeoViewer"
+import { DescargarKMLButton } from "@/components/geo/DescargarKMLButton"
 import { LevantamientosList } from "@/components/geo/LevantamientosList"
 import { TareasResumenTable, StatusPill } from "@/components/tareas/TareasResumenTable"
 import { formatHa, formatMeters, METODO_LABELS } from "@/lib/geo"
@@ -33,6 +34,15 @@ export default async function FincaDetailPage(props: { params: Promise<{ id: str
             id: l.id, nombre: `${l.codigo} ${l.nombre}`, geometria: l.geometria, estilo: "lote" as const,
             subtitulo: [l.tipoCultivo, l.variedad].filter(Boolean).join(" · "), areaHa: l.areaMedidaHa ?? l.areaHa, href: `/lotes/${l.id}`,
         })),
+    ]
+    const kmlLote = (l: (typeof finca.lotes)[number]) => ({
+        nombre: `${l.codigo} ${l.nombre}`, geometria: l.geometria, tipo: "lote" as const,
+        datos: { Código: l.codigo, Finca: finca.nombre, Cultivo: l.tipoCultivo, Variedad: l.variedad, "Área registrada (ha)": l.areaHa },
+    })
+    const kmlFinca = [
+        { nombre: finca.nombre, geometria: finca.geometria, tipo: "finca" as const,
+          datos: { Código: finca.codigo, Municipio: `${finca.municipio}, ${finca.departamento}`, Vereda: finca.veredaSector, "Área registrada (ha)": finca.areaTotalHa } },
+        ...finca.lotes.map(kmlLote),
     ]
     const puntos = !finca.geometria && finca.latitud != null && finca.longitud != null
         ? [{ id: finca.id, nombre: finca.nombre, lat: finca.latitud, lng: finca.longitud }] : []
@@ -76,12 +86,15 @@ export default async function FincaDetailPage(props: { params: Promise<{ id: str
                 <Card className="overflow-hidden lg:col-span-2">
                     <div className="flex items-center justify-between border-b border-border px-5 py-3">
                         <h2 className="flex items-center gap-2 text-sm font-semibold"><Layers className="h-4 w-4 text-primary" /> Mapa de la finca</h2>
-                        {finca.latitud != null && finca.longitud != null && (
-                            <a href={`https://www.google.com/maps?q=${finca.latitud},${finca.longitud}`} target="_blank" rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-primary">
-                                {finca.latitud.toFixed(5)}, {finca.longitud.toFixed(5)} <ExternalLink className="h-3 w-3" />
-                            </a>
-                        )}
+                        <div className="flex items-center gap-3">
+                            {finca.latitud != null && finca.longitud != null && (
+                                <a href={`https://www.google.com/maps?q=${finca.latitud},${finca.longitud}`} target="_blank" rel="noopener noreferrer"
+                                    className="hidden items-center gap-1 font-mono text-xs text-muted-foreground hover:text-primary sm:inline-flex">
+                                    {finca.latitud.toFixed(5)}, {finca.longitud.toFixed(5)} <ExternalLink className="h-3 w-3" />
+                                </a>
+                            )}
+                            <DescargarKMLButton archivo={`${finca.codigo}_${finca.nombre}`} documento={`Finca ${finca.nombre}`} items={kmlFinca} />
+                        </div>
                     </div>
                     <div className="h-[460px]">
                         <GeoViewer layers={capas} points={puntos} emptyText="Esta finca aún no tiene lindero ni ubicación. Edítela para georreferenciarla." />
@@ -153,7 +166,12 @@ export default async function FincaDetailPage(props: { params: Promise<{ id: str
                                                 ? <StatusPill className="bg-emerald-50 text-emerald-700 ring-emerald-600/20">{l.metodoGeorreferenciacion === "RECORRIDO_GPS" ? "GPS" : l.metodoGeorreferenciacion === "IMPORTACION_ARCHIVO" ? "Importado" : "Dibujado"}</StatusPill>
                                                 : <StatusPill className="bg-amber-50 text-amber-800 ring-amber-600/20">Pendiente</StatusPill>}
                                         </td>
-                                        <td className="px-5 py-3 text-right"><Button variant="ghost" size="sm" asChild><Link href={`/lotes/${l.id}`}>Ver</Link></Button></td>
+                                        <td className="px-5 py-3 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <DescargarKMLButton variante="icono" archivo={`${finca.codigo}_${l.codigo}_${l.nombre}`} documento={`${finca.nombre} - ${l.nombre}`} items={[kmlLote(l)]} />
+                                                <Button variant="ghost" size="sm" asChild><Link href={`/lotes/${l.id}`}>Ver</Link></Button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

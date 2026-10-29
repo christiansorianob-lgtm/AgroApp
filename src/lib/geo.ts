@@ -389,6 +389,40 @@ export function toKMLString(geom: BoundaryGeometry, nombre: string): string {
 <Placemark><name>${esc(nombre)}</name><styleUrl>#lindero</styleUrl>${body}</Placemark></Document></kml>`
 }
 
+export interface KMLItem {
+    nombre: string
+    geometria: BoundaryGeometry
+    /** "finca" se dibuja en amarillo y "lote" en verde */
+    tipo: "finca" | "lote"
+    /** Datos adicionales que Google Earth muestra al hacer clic */
+    datos?: Record<string, string | number | null | undefined>
+}
+
+/** Documento KML con varias placemarks (p. ej. la finca y todos sus lotes). */
+export function toKMLDocumento(nombreDocumento: string, items: KMLItem[]): string {
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    const ring = (r: Position[]) => r.map(p => `${p[0]},${p[1]},0`).join(" ")
+    const poly = (rings: Position[][]) => `<Polygon><outerBoundaryIs><LinearRing><coordinates>${ring(rings[0])}</coordinates></LinearRing></outerBoundaryIs>${rings.slice(1).map(r => `<innerBoundaryIs><LinearRing><coordinates>${ring(r)}</coordinates></LinearRing></innerBoundaryIs>`).join("")}</Polygon>`
+    const placemark = (it: KMLItem) => {
+        const g = it.geometria
+        const body = g.type === "Polygon" ? poly(g.coordinates) : `<MultiGeometry>${g.coordinates.map(poly).join("")}</MultiGeometry>`
+        const m = computeMetrics(g)
+        const datos = { "Área (ha)": m.areaHa.toFixed(4), "Perímetro (m)": m.perimetroM.toFixed(1), ...it.datos }
+        const ext = Object.entries(datos).filter(([, v]) => v != null && v !== "")
+            .map(([k, v]) => `<Data name="${esc(k)}"><value>${esc(String(v))}</value></Data>`).join("")
+        return `<Placemark><name>${esc(it.nombre)}</name><styleUrl>#${it.tipo}</styleUrl><ExtendedData>${ext}</ExtendedData>${body}</Placemark>`
+    }
+    const fincas = items.filter(i => i.tipo === "finca").map(placemark).join("\n")
+    const lotes = items.filter(i => i.tipo === "lote").map(placemark).join("\n")
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${esc(nombreDocumento)}</name>
+<Style id="finca"><LineStyle><color>ff15ccfa</color><width>3</width></LineStyle><PolyStyle><color>2015ccfa</color></PolyStyle></Style>
+<Style id="lote"><LineStyle><color>ffffffff</color><width>2</width></LineStyle><PolyStyle><color>5052c522</color></PolyStyle></Style>
+${fincas}
+${lotes ? `<Folder><name>Lotes</name>${lotes}</Folder>` : ""}
+</Document></kml>`
+}
+
 export function formatHa(ha: number | null | undefined, decimals = 2): string {
     if (ha == null || !Number.isFinite(ha)) return "—"
     return `${ha.toLocaleString("es-CO", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })} ha`

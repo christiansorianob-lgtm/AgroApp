@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader, StatItem } from "@/components/layout/PageHeader"
 import { GeoViewer } from "@/components/geo/GeoViewer"
+import { DescargarKMLButton } from "@/components/geo/DescargarKMLButton"
 import { LevantamientosList } from "@/components/geo/LevantamientosList"
 import { TareasResumenTable, StatusPill } from "@/components/tareas/TareasResumenTable"
 import { formatHa, formatMeters, METODO_LABELS } from "@/lib/geo"
@@ -81,12 +82,19 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                 <Card className="overflow-hidden lg:col-span-2">
                     <div className="flex items-center justify-between border-b border-border px-5 py-3">
                         <h2 className="flex items-center gap-2 text-sm font-semibold"><Layers className="h-4 w-4 text-primary" /> Ubicación del lote</h2>
-                        {lote.latitud != null && lote.longitud != null && (
-                            <a href={`https://www.google.com/maps?q=${lote.latitud},${lote.longitud}`} target="_blank" rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground hover:text-primary">
-                                {lote.latitud.toFixed(5)}, {lote.longitud.toFixed(5)} <ExternalLink className="h-3 w-3" />
-                            </a>
-                        )}
+                        <div className="flex items-center gap-3">
+                            {lote.latitud != null && lote.longitud != null && (
+                                <a href={`https://www.google.com/maps?q=${lote.latitud},${lote.longitud}`} target="_blank" rel="noopener noreferrer"
+                                    className="hidden items-center gap-1 font-mono text-xs text-muted-foreground hover:text-primary sm:inline-flex">
+                                    {lote.latitud.toFixed(5)}, {lote.longitud.toFixed(5)} <ExternalLink className="h-3 w-3" />
+                                </a>
+                            )}
+                            <DescargarKMLButton archivo={`${finca.codigo}_${lote.codigo}_${lote.nombre}`} documento={`${finca.nombre} - ${lote.nombre}`}
+                                items={[{
+                                    nombre: `${lote.codigo} ${lote.nombre}`, geometria: lote.geometria, tipo: "lote",
+                                    datos: { Código: lote.codigo, Finca: finca.nombre, Cultivo: lote.tipoCultivo, Variedad: lote.variedad, "Área registrada (ha)": lote.areaHa },
+                                }]} />
+                        </div>
                     </div>
                     <div className="h-[440px]">
                         <GeoViewer layers={capas} points={puntos} emptyText="Este lote aún no tiene lindero. Edítelo para georreferenciarlo." />
