@@ -169,6 +169,7 @@ export function LoteForm({ fincas, tiposCultivo: tiposIniciales, opcionesGenetic
     const contexto = useMemo(() => ({
         padre: fincaGeom ? { nombre: `la finca ${finca!.nombre}`, geometria: fincaGeom } : null,
         vecinos,
+        restarVecinos: true,
         areaDeclaradaHa: form.areaHa ? Number(form.areaHa.replace(",", ".")) : null,
         centro: ubicacion ?? (finca?.latitud != null && finca?.longitud != null ? { lat: finca.latitud, lng: finca.longitud } : null),
     }), [fincaGeom, finca, vecinos, form.areaHa, ubicacion])

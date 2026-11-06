@@ -259,6 +259,42 @@ export function validateBoundary(geom: BoundaryGeometry, ctx: ContextoValidacion
     return out
 }
 
+export interface Traslape {
+    nombre: string
+    geometria: BoundaryGeometry
+    /** Hectáreas del otro lote que caen dentro de este lindero */
+    ha: number
+    /** El otro lote queda completo (o casi) dentro de este lindero */
+    interno: boolean
+}
+
+/** Lotes vecinos que ocupan parte de este lindero, con el área que comparten. */
+export function traslapesConVecinos(geom: BoundaryGeometry, vecinos: { nombre: string; geometria: BoundaryGeometry }[]): Traslape[] {
+    const f = feature(geom)
+    const out: Traslape[] = []
+    for (const v of vecinos) {
+        try {
+            const inter = turfIntersect(featureCollection([f, feature(v.geometria)]) as any)
+            const ha = inter ? turfArea(inter) / 10000 : 0
+            if (ha <= 0.001) continue
+            const haVecino = turfArea(feature(v.geometria)) / 10000
+            out.push({ nombre: v.nombre, geometria: v.geometria, ha, interno: ha / Math.max(haVecino, 1e-9) > 0.98 })
+        } catch { /* geometría inválida */ }
+    }
+    return out
+}
+
+/** Quita del lindero el área que ocupan otros lotes: los internos quedan como huecos. */
+export function restarGeometrias(geom: BoundaryGeometry, otras: BoundaryGeometry[]): BoundaryGeometry | null {
+    if (otras.length === 0) return geom
+    try {
+        const resto = turfDifference(featureCollection([feature(geom), ...otras.map(g => feature(g))]) as any)
+        return resto ? normalizeGeometry(resto.geometry) : null
+    } catch {
+        return geom
+    }
+}
+
 /** Reduce el ruido de un recorrido GPS. toleranciaM es la desviación máxima permitida en metros. */
 export function simplifyGeometry(geom: BoundaryGeometry, toleranciaM: number): BoundaryGeometry {
     // simplify trabaja en grados: 1° de latitud ≈ 111 320 m

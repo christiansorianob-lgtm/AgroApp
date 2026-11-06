@@ -8,13 +8,14 @@ import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css"
 import {
     PenLine, Upload, Footprints, Undo2, Trash2, LocateFixed, Save, X, Pencil, Play, Pause, Flag, Crosshair,
     AlertTriangle, CheckCircle2, Magnet, Download, FileUp, Loader2, Satellite, Ruler, Spline, Navigation, Info,
+    Layers, Scissors,
 } from "lucide-react"
 import MapBase, { FitBounds, type LatLngBoundsTuple } from "./MapBase"
 import { useGpsSurvey, leerGuardado, type ModoRecorrido } from "./useGpsSurvey"
 import { ajustarALinderos, type LinderoReferencia, type ResultadoAjuste } from "@/lib/linderosCompartidos"
 import {
     computeMetrics, validateBoundary, normalizeGeometry, polygonFromPoints, simplifyGeometry, geometryBounds,
-    parseBoundaryFile, parseTextInput, toGeoJSONString, toKMLString, formatHa, formatMeters, METODO_LABELS,
+    traslapesConVecinos, restarGeometrias, parseBoundaryFile, parseTextInput, toGeoJSONString, toKMLString, formatHa, formatMeters, METODO_LABELS,
     type BoundaryGeometry, type BoundaryValue, type CandidatoImportado, type ContextoValidacion, type GpsPoint,
     type MetodoGeorreferenciacion,
 } from "@/lib/geo"
@@ -25,7 +26,11 @@ export interface BoundaryEditorProps {
     titulo: string
     subtitulo?: string
     valorInicial: BoundaryValue | null
-    contexto?: ContextoValidacion & { centro?: { lat: number; lng: number } | null }
+    contexto?: ContextoValidacion & {
+        centro?: { lat: number; lng: number } | null
+        /** Ofrece quitar del lindero el área de los lotes vecinos que quedan dentro (solo para lotes) */
+        restarVecinos?: boolean
+    }
     /** Clave para guardar en el navegador un recorrido GPS sin terminar */
     storageKey: string
     onCancel: () => void
@@ -221,6 +226,15 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
     const metricas = useMemo(() => (geometry ? computeMetrics(geometry) : null), [geometry])
     const advertencias = useMemo(() => (geometry ? validateBoundary(geometry, contexto) : []), [geometry, contexto])
     const hayErrores = advertencias.some(a => a.nivel === "error")
+    const traslapes = useMemo(() => (geometry && contexto?.restarVecinos ? traslapesConVecinos(geometry, contexto.vecinos || []) : []),
+        [geometry, contexto])
+
+    const restarTraslapes = () => {
+        if (!geometry) return
+        const resto = restarGeometrias(geometry, traslapes.map(t => t.geometria))
+        if (!resto) { alert("Al restar los lotes no queda área en este lindero."); return }
+        cambiarGeometria(resto)
+    }
 
     const irA = (lat: number, lng: number, zoom = 18) => map?.flyTo([lat, lng], zoom)
 
@@ -478,6 +492,10 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                                     ajuste: ajusteGps,
                                 } : null}
                             />
+                        )}
+
+                        {traslapes.length > 0 && pestana !== "importar" && (
+                            <PanelTraslapes traslapes={traslapes} areaHa={metricas?.areaHa ?? 0} onRestar={restarTraslapes} />
                         )}
 
                         <PanelMetricas
@@ -950,6 +968,35 @@ function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar, lind
                 </ul>
             </div>
         </>
+    )
+}
+
+function PanelTraslapes({ traslapes, areaHa, onRestar }: {
+    traslapes: ReturnType<typeof traslapesConVecinos>
+    areaHa: number
+    onRestar: () => void
+}) {
+    const totalHa = traslapes.reduce((s, t) => s + t.ha, 0)
+    return (
+        <Seccion titulo="Lotes dentro de este lindero" icon={Layers}>
+            <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                <ul className="space-y-1">
+                    {traslapes.map(t => (
+                        <li key={t.nombre} className="flex justify-between gap-2">
+                            <span className="font-medium">{t.nombre}</span>
+                            <span className="tabular-nums">{formatHa(t.ha)}{t.interno ? "" : " (en parte)"}</span>
+                        </li>
+                    ))}
+                </ul>
+                <p className="leading-relaxed">
+                    Esta área ya pertenece a otros lotes. Si la resta, los lotes internos quedan como huecos y el lote medirá {formatHa(Math.max(areaHa - totalHa, 0))}.
+                </p>
+                <Button type="button" size="sm" className="w-full bg-amber-600 text-white hover:bg-amber-700" onClick={onRestar}>
+                    <Scissors className="mr-1.5 h-4 w-4" /> Restar {formatHa(totalHa)} del lindero
+                </Button>
+                <p className="text-[11px] text-amber-800/80">Puede deshacerlo con «Deshacer» en la pestaña Dibujar.</p>
+            </div>
+        </Seccion>
     )
 }
 
