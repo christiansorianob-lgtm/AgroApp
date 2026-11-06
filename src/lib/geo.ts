@@ -261,6 +261,19 @@ export function validateBoundary(geom: BoundaryGeometry, ctx: ContextoValidacion
     return out
 }
 
+/**
+ * Colores bien distintos entre sí sobre la imagen satelital. Se evitan el amarillo (lindero de la finca),
+ * el cian (lindero en edición) y el rojo (cruces).
+ */
+export const COLORES_LOTE = ["#22c55e", "#f97316", "#a855f7", "#3b82f6", "#ec4899", "#84cc16", "#b45309", "#6366f1", "#f43f5e"]
+
+/** Color fijo de un lote según su número (L-01, L-02…); si el texto no trae código, uno estable a partir del nombre. */
+export function colorLote(texto: string): string {
+    const n = texto.match(/\bL-(\d+)/)?.[1]
+    const i = n ? parseInt(n, 10) - 1 : [...texto].reduce((s, c) => s + c.charCodeAt(0), 0)
+    return COLORES_LOTE[i % COLORES_LOTE.length]
+}
+
 export interface Traslape {
     nombre: string
     geometria: BoundaryGeometry

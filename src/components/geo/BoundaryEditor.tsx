@@ -15,7 +15,7 @@ import { useGpsSurvey, leerGuardado, type ModoRecorrido } from "./useGpsSurvey"
 import { ajustarALinderos, type LinderoReferencia, type ResultadoAjuste } from "@/lib/linderosCompartidos"
 import {
     computeMetrics, validateBoundary, normalizeGeometry, polygonFromPoints, simplifyGeometry, geometryBounds,
-    traslapesConVecinos, restarGeometrias, puntosDeCruce, corregirCruces, parseBoundaryFile, parseTextInput, toGeoJSONString, toKMLString, formatHa, formatMeters, METODO_LABELS,
+    traslapesConVecinos, restarGeometrias, puntosDeCruce, colorLote, corregirCruces, parseBoundaryFile, parseTextInput, toGeoJSONString, toKMLString, formatHa, formatMeters, METODO_LABELS,
     type BoundaryGeometry, type BoundaryValue, type CandidatoImportado, type ContextoValidacion, type GpsPoint,
     type MetodoGeorreferenciacion,
 } from "@/lib/geo"
@@ -41,7 +41,10 @@ type Pestana = "dibujar" | "importar" | "gps"
 
 const ESTILO_LINDERO = { color: "#22d3ee", weight: 3, fillColor: "#22d3ee", fillOpacity: 0.22 }
 const ESTILO_PADRE = { color: "#facc15", weight: 3, fill: false, dashArray: "8 6" }
-const ESTILO_VECINO = { color: "#ffffff", weight: 1.5, fillColor: "#ffffff", fillOpacity: 0.12, dashArray: "4 4" }
+const estiloVecino = (nombre: string) => {
+    const c = colorLote(nombre)
+    return { color: c, weight: 2, fillColor: c, fillOpacity: 0.2, dashArray: "4 4" }
+}
 const ESTILO_PREVIA = { color: "#f472b6", weight: 3, fillColor: "#f472b6", fillOpacity: 0.15, dashArray: "6 4" }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -206,6 +209,9 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
         contexto?.padre?.geometria,
         ...(contexto?.vecinos || []).map(v => v.geometria),
     ]), []) // eslint-disable-line react-hooks/exhaustive-deps
+    // Los lotes grandes se dibujan primero para que uno interno no quede tapado
+    const vecinosOrdenados = useMemo(() => [...(contexto?.vecinos || [])]
+        .sort((a, b) => computeMetrics(b.geometria).areaM2 - computeMetrics(a.geometria).areaM2), [contexto])
     const centro = contexto?.centro ? [contexto.centro.lat, contexto.centro.lng] as [number, number] : undefined
 
     const geometryRef = useRef(geometry)
@@ -535,8 +541,8 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                         {contexto?.padre?.geometria && (
                             <GeoJSON key={`padre-${contexto.padre.nombre}`} data={contexto.padre.geometria as any} style={() => ESTILO_PADRE} interactive={false} />
                         )}
-                        {(contexto?.vecinos || []).map((v, i) => (
-                            <GeoJSON key={`vecino-${i}-${v.nombre}`} data={v.geometria as any} style={() => ESTILO_VECINO}
+                        {vecinosOrdenados.map((v, i) => (
+                            <GeoJSON key={`vecino-${i}-${v.nombre}`} data={v.geometria as any} style={() => estiloVecino(v.nombre)}
                                 onEachFeature={(_, layer) => layer.bindTooltip(v.nombre, { permanent: true, direction: "center", className: "map-label" })} />
                         ))}
                         {previa && <GeoJSON key={`previa-${previa.id}-${previa.nombre}`} data={previa.geometria as any} style={() => ESTILO_PREVIA} />}

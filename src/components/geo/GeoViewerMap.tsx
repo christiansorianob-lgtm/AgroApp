@@ -2,7 +2,7 @@
 
 import { GeoJSON, CircleMarker, Tooltip } from "react-leaflet"
 import MapBase from "./MapBase"
-import { geometryBounds, normalizeGeometry, formatHa, type BoundaryGeometry } from "@/lib/geo"
+import { geometryBounds, normalizeGeometry, formatHa, colorLote, computeMetrics, type BoundaryGeometry } from "@/lib/geo"
 import type { GeoViewerLayer } from "./GeoViewer"
 
 const STYLES = {
@@ -11,6 +11,20 @@ const STYLES = {
     destacado: { color: "#22d3ee", weight: 3, fillColor: "#22d3ee", fillOpacity: 0.28 },
     tenue: { color: "#ffffff", weight: 1, fillColor: "#ffffff", fillOpacity: 0.08, dashArray: "4 4" },
 } as const
+
+/** Los lotes (normales o tenues) llevan cada uno su color para distinguirlos entre sí. */
+function estiloCapa(l: GeoViewerLayer) {
+    const estilo = l.estilo || "lote"
+    if (estilo === "lote") {
+        const c = colorLote(l.nombre)
+        return { color: c, weight: 2.5, fillColor: c, fillOpacity: 0.3 }
+    }
+    if (estilo === "tenue") {
+        const c = colorLote(l.nombre)
+        return { color: c, weight: 1.5, fillColor: c, fillOpacity: 0.15, dashArray: "4 4" }
+    }
+    return STYLES[estilo]
+}
 
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!))
 
@@ -22,6 +36,9 @@ export default function GeoViewerMap({ layers, points = [], height }: {
     const parsed = layers
         .map(l => ({ ...l, geom: normalizeGeometry(l.geometria) as BoundaryGeometry | null }))
         .filter(l => l.geom)
+        // La finca abajo, luego los lotes de mayor a menor (un lote interno no queda tapado) y el destacado encima
+        .map(l => ({ ...l, orden: l.estilo === "finca" ? 0 : l.estilo === "destacado" ? 2 : 1, m2: computeMetrics(l.geom!).areaM2 }))
+        .sort((a, b) => a.orden - b.orden || b.m2 - a.m2)
     const bounds = geometryBounds(parsed.map(l => l.geom))
         ?? (points.length ? pointBounds(points) : null)
 
@@ -32,7 +49,7 @@ export default function GeoViewerMap({ layers, points = [], height }: {
                     <GeoJSON
                         key={`${l.id}-${JSON.stringify(l.geom).length}`}
                         data={l.geom as any}
-                        style={() => STYLES[l.estilo || "lote"]}
+                        style={() => estiloCapa(l)}
                         interactive={l.estilo !== "finca"}
                         onEachFeature={(_, layer) => {
                             if (l.estilo !== "finca") {
