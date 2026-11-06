@@ -15,7 +15,7 @@ import { useGpsSurvey, leerGuardado, type ModoRecorrido } from "./useGpsSurvey"
 import { ajustarALinderos, type LinderoReferencia, type ResultadoAjuste } from "@/lib/linderosCompartidos"
 import {
     computeMetrics, validateBoundary, normalizeGeometry, polygonFromPoints, simplifyGeometry, geometryBounds,
-    traslapesConVecinos, restarGeometrias, parseBoundaryFile, parseTextInput, toGeoJSONString, toKMLString, formatHa, formatMeters, METODO_LABELS,
+    traslapesConVecinos, restarGeometrias, puntosDeCruce, corregirCruces, parseBoundaryFile, parseTextInput, toGeoJSONString, toKMLString, formatHa, formatMeters, METODO_LABELS,
     type BoundaryGeometry, type BoundaryValue, type CandidatoImportado, type ContextoValidacion, type GpsPoint,
     type MetodoGeorreferenciacion,
 } from "@/lib/geo"
@@ -226,6 +226,22 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
     const metricas = useMemo(() => (geometry ? computeMetrics(geometry) : null), [geometry])
     const advertencias = useMemo(() => (geometry ? validateBoundary(geometry, contexto) : []), [geometry, contexto])
     const hayErrores = advertencias.some(a => a.nivel === "error")
+    const cruces = useMemo(() => (geometry && metricas?.autointersecciones ? puntosDeCruce(geometry) : []), [geometry, metricas])
+
+    const repararCruces = () => {
+        if (!geometry) return
+        const r = corregirCruces(geometry)
+        if (!r) {
+            alert("No se pudo corregir automáticamente. Use «Editar vértices» en la pestaña Dibujar y mueva los puntos marcados en rojo.")
+            return
+        }
+        const totalHa = computeMetrics(r.geometria).areaHa + r.descartadoHa
+        if (r.descartadoHa > totalHa * 0.05 && !confirm(
+            `Al corregir se descartan ${formatHa(r.descartadoHa)} que quedan separadas del lindero principal. ¿Continuar? Puede deshacerlo después.`,
+        )) return
+        cambiarGeometria(r.geometria)
+        setFit(geometryBounds([r.geometria]))
+    }
     const traslapes = useMemo(() => (geometry && contexto?.restarVecinos ? traslapesConVecinos(geometry, contexto.vecinos || []) : []),
         [geometry, contexto])
 
@@ -379,7 +395,8 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
         // El respaldo del recorrido se conserva en el teléfono hasta que la finca/lote se guarde
         gps.marcarCerrado()
         setFit(geometryBounds([g]))
-        if (guardarDespues) aplicar(g, "RECORRIDO_GPS", precision, gps.puntos)
+        // Con cruces no se guarda: queda en el editor con los cruces marcados para corregirlos
+        if (guardarDespues && computeMetrics(g).autointersecciones === 0) aplicar(g, "RECORRIDO_GPS", precision, gps.puntos)
     }
 
     const cerrar = () => {
@@ -532,6 +549,12 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                         />
                         {pestana === "gps" && <GpsLayer puntos={gps.puntos} actual={gps.actual} seguir={seguir} cerrado={gps.cerrado}
                             trazado={ajusteGps?.tramos.length ? ajusteGps.coords.map(c => [c[1], c[0]] as [number, number]) : null} />}
+                        {cruces.map((c, i) => (
+                            <CircleMarker key={`cruce-${i}`} center={[c[1], c[0]]} radius={9}
+                                pathOptions={{ color: "#fff", weight: 2, fillColor: "#dc2626", fillOpacity: 1 }}>
+                                <Tooltip>El lindero se cruza aquí</Tooltip>
+                            </CircleMarker>
+                        ))}
                         {miUbicacion && pestana !== "gps" && (
                             <CircleMarker center={[miUbicacion.lat, miUbicacion.lng]} radius={7}
                                 pathOptions={{ color: "#fff", weight: 3, fillColor: "#2563eb", fillOpacity: 1 }}>
@@ -551,6 +574,17 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                     {pestana === "gps" && recorridoAbierto && gps.puntos.length >= 3 && (
                         <div className="pointer-events-none absolute left-1/2 top-3 z-[500] w-[min(92%,520px)] -translate-x-1/2 rounded-lg bg-orange-600/90 px-3 py-2 text-center text-xs font-medium text-white shadow-lg backdrop-blur">
                             La línea punteada une el último punto con el inicio. Al terminar pulse «Cerrar polígono».
+                        </div>
+                    )}
+                    {cruces.length > 0 && (
+                        <div className="absolute bottom-6 left-3 z-[500] w-[min(60%,340px)] rounded-lg bg-red-700/95 p-3 text-xs text-white shadow-lg backdrop-blur">
+                            <p className="flex gap-1.5 font-semibold"><AlertTriangle className="h-4 w-4 shrink-0" /> No se puede guardar: el lindero se cruza consigo mismo</p>
+                            <p className="mt-1 text-white/85">
+                                {cruces.length === 1 ? "Hay 1 cruce marcado" : `Hay ${cruces.length} cruces marcados`} en rojo. Suele pasar cuando el GPS salta o se pasa dos veces por el mismo sitio.
+                            </p>
+                            <Button type="button" size="sm" onClick={repararCruces} className="mt-2 w-full bg-white text-red-700 hover:bg-red-50">
+                                <Scissors className="mr-1.5 h-4 w-4" /> Corregir cruces
+                            </Button>
                         </div>
                     )}
                     {metricas && (

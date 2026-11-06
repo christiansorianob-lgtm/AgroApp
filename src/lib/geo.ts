@@ -6,6 +6,8 @@ import {
     length as turfLength,
     centroid as turfCentroid,
     kinks as turfKinks,
+    unkinkPolygon as turfUnkink,
+    union as turfUnion,
     intersect as turfIntersect,
     difference as turfDifference,
     simplify as turfSimplify,
@@ -292,6 +294,40 @@ export function restarGeometrias(geom: BoundaryGeometry, otras: BoundaryGeometry
         return resto ? normalizeGeometry(resto.geometry) : null
     } catch {
         return geom
+    }
+}
+
+/** Puntos donde el lindero se cruza consigo mismo, como [lng, lat]. */
+export function puntosDeCruce(geom: BoundaryGeometry): Position[] {
+    try {
+        return turfKinks(feature(geom) as Feature<Polygon>).features.map(p => p.geometry.coordinates)
+    } catch {
+        return []
+    }
+}
+
+/**
+ * Deshace los cruces de un lindero: separa los rizos que forma el recorrido al pasar dos veces
+ * por el mismo sitio, los une y conserva la pieza principal. Los rizos que solo tocan la pieza
+ * principal en un punto se descartan y su área se informa en `descartadoHa`.
+ */
+export function corregirCruces(geom: BoundaryGeometry): { geometria: BoundaryGeometry; descartadoHa: number } | null {
+    try {
+        const partes = turfUnkink(feature(geom) as any).features
+        if (partes.length === 0) return null
+        const unidas = partes.length === 1 ? partes[0] : turfUnion(featureCollection(partes) as any)
+        const g = unidas ? normalizeGeometry(unidas.geometry) : null
+        if (!g) return null
+        const total = turfArea(feature(g))
+        let principal: BoundaryGeometry = g
+        if (g.type === "MultiPolygon") {
+            const mayor = g.coordinates.reduce((a, b) => turfArea(feature({ type: "Polygon", coordinates: b } as Polygon)) > turfArea(feature({ type: "Polygon", coordinates: a } as Polygon)) ? b : a)
+            principal = { type: "Polygon", coordinates: mayor }
+        }
+        if (computeMetrics(principal).autointersecciones > 0) return null
+        return { geometria: principal, descartadoHa: (total - turfArea(feature(principal))) / 10000 }
+    } catch {
+        return null
     }
 }
 
