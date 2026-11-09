@@ -77,6 +77,13 @@ export async function getTareaById(id: string) {
     }
 }
 
+/** Código que tomará la próxima tarea (TAR-###). */
+export async function siguienteCodigoTarea(): Promise<string> {
+    const ultima = await db.tarea.findFirst({ orderBy: { codigo: 'desc' } })
+    const seq = ultima ? parseInt(ultima.codigo.split('-')[1] ?? '', 10) : 0
+    return `TAR-${((Number.isFinite(seq) ? seq : 0) + 1).toString().padStart(3, '0')}`
+}
+
 export async function createTarea(formData: FormData) {
     // const codigo = formData.get("codigo") as string // Removed manual code
     const fincaId = formData.get("fincaId") as string
@@ -110,24 +117,21 @@ export async function createTarea(formData: FormData) {
         return { error: "Una tarea de nivel Finca no puede tener lote." }
     }
 
+    let codigo: string
     try {
-        // Auto-generate Code safely
-        const lastTarea = await db.tarea.findFirst({
-            orderBy: { codigo: 'desc' }
+        // Un doble clic o un reintento envía la misma tarea dos veces: si llega una idéntica
+        // en el último minuto, no se crea otra.
+        const repetida = await db.tarea.findFirst({
+            where: {
+                fincaId, loteId: nivel === 'LOTE' ? loteId : null, nivel, tipo, responsable,
+                fechaProgramada: parseFechaCalendario(fechaProgramada) ?? undefined,
+                observaciones: observaciones ?? null,
+                createdAt: { gte: new Date(Date.now() - 60_000) },
+            },
         })
+        if (repetida) return { success: true, codigo: repetida.codigo, repetida: true }
 
-        let nextId = 1
-        if (lastTarea && lastTarea.codigo) {
-            const parts = lastTarea.codigo.split('-')
-            if (parts.length === 2) {
-                const lastSeq = parseInt(parts[1])
-                if (!isNaN(lastSeq)) {
-                    nextId = lastSeq + 1
-                }
-            }
-        }
-
-        const codigo = `TAR-${nextId.toString().padStart(3, '0')}`
+        codigo = await siguienteCodigoTarea()
 
         await db.tarea.create({
             data: {
@@ -154,7 +158,7 @@ export async function createTarea(formData: FormData) {
     revalidatePath('/tareas')
     revalidatePath(`/fincas/${fincaId}`)
     if (loteId) revalidatePath(`/lotes/${loteId}`)
-    return { success: true }
+    return { success: true, codigo }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

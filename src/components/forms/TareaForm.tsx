@@ -1,10 +1,10 @@
 'use client'
-import { formatDate } from "@/lib/utils"
+import { formatDate, parseFechaCalendario } from "@/lib/utils"
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createTarea } from '@/app/actions/tareas'
+import { createTarea, siguienteCodigoTarea } from '@/app/actions/tareas'
 import { createTipoActividad, getTiposActividad, createResponsable, getResponsables, updateResponsable, deleteResponsable, getCargos, createCargo, deleteCargo, getNombresProducto, createNombreProducto, getCategoriasProducto, createCategoriaProducto } from "@/app/actions/configuracion"
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -138,7 +138,11 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     }
 
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [createdTask, setCreatedTask] = useState<{ id: string, responsableId: string, tipo: string, fincaNombre: string } | null>(null)
+    const [createdTask, setCreatedTask] = useState<{ id: string, codigo?: string, responsableId: string, tipo: string, fincaNombre: string } | null>(null)
+    // Confirmación antes de crear: muestra el código que tomará la tarea
+    const [confirmacion, setConfirmacion] = useState<{ formData: FormData, codigo: string } | null>(null)
+    // Bloqueo inmediato: el estado de React tarda un render y un doble clic alcanzaba a enviar dos veces
+    const enviandoRef = useRef(false)
 
     // Data Refresh Handlers
     const refreshTipos = async () => {
@@ -224,7 +228,9 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
         { value: "CANCELADA", label: "Cancelada" }
     ]
 
+    /** Valida, arma los datos y pide confirmación; la tarea se crea al responder «Sí». */
     async function handleSubmit(formData: FormData) {
+        if (enviandoRef.current || confirmacion) return
         setErrorForm(null)
         const faltante = !nivel ? "Indique si la tarea es para toda la finca o para un lote."
             : !selectedFinca ? "Seleccione la finca."
@@ -238,7 +244,6 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
         }
         formData.set('nivel', nivel)
         formData.set('loteId', nivel === "LOTE" ? selectedLote : "")
-        setIsSubmitting(true)
 
         // Construir las observaciones (con detalle técnico si aplica)
         let obsBase = (formData.get('observaciones') as string) || ''
@@ -247,6 +252,27 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
         if (dosis) parts.push(`[DOSIS: ${dosis}]`)
         if (metodo) parts.push(`[MÉTODO: ${metodo}]`)
         if (parts.length > 0) obsBase = parts.join(' | ') + (obsBase ? ' | ' + obsBase : '')
+        formData.set('observaciones', obsBase)
+
+        enviandoRef.current = true
+        setIsSubmitting(true)
+        try {
+            setConfirmacion({ formData, codigo: await siguienteCodigoTarea() })
+        } catch {
+            setConfirmacion({ formData, codigo: "" })
+        } finally {
+            enviandoRef.current = false
+            setIsSubmitting(false)
+        }
+    }
+
+    async function crearConfirmada() {
+        if (!confirmacion || enviandoRef.current) return
+        enviandoRef.current = true
+        setIsSubmitting(true)
+        const { formData } = confirmacion
+        setConfirmacion(null)
+        const obsBase = (formData.get('observaciones') as string) || ''
 
         if (modoMasivo) {
             // --- MODO MASIVO ---
@@ -265,10 +291,12 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                 observacionesBase: obsBase,
                 requiereTrazabilidad: formData.get('requiereTrazabilidad') === 'on'
             })
-            setIsSubmitting(false)
             if (result?.error) {
                 alert(result.error)
+                enviandoRef.current = false
+                setIsSubmitting(false)
             } else {
+                // Creada: el botón queda bloqueado para no repetirla
                 const finca = fincas.find(f => f.id === selectedFinca)
                 setCreatedTask({
                     id: 'plan',
@@ -279,20 +307,21 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
             }
         } else {
             // --- MODO SIMPLE ---
-            formData.set('observaciones', obsBase)
             const result = await createTarea(formData)
             if (result?.error) {
                 alert(result.error)
+                enviandoRef.current = false
                 setIsSubmitting(false)
             } else {
+                // Creada: el botón queda bloqueado para no repetirla
                 const finca = fincas.find(f => f.id === selectedFinca)
                 setCreatedTask({
                     id: "new",
+                    codigo: result.codigo,
                     responsableId: selectedResponsable,
                     tipo: tiposActividad.find(t => t.id === selectedTipo)?.nombre || "Tarea",
                     fincaNombre: finca?.nombre || "Finca"
                 })
-                setIsSubmitting(false)
             }
         }
     }
@@ -699,10 +728,44 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                 </CardContent>
             </Card>
 
+            <Dialog open={!!confirmacion} onOpenChange={(open) => !open && setConfirmacion(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {modoMasivo ? "¿Generar el plan de tareas?"
+                                : confirmacion?.codigo ? `¿Procedemos con la tarea ${confirmacion.codigo}?` : "¿Procedemos con la tarea?"}
+                        </DialogTitle>
+                        <DialogDescription>Revise los datos antes de crearla.</DialogDescription>
+                    </DialogHeader>
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 py-2 text-sm">
+                        <dt className="text-muted-foreground">Actividad</dt>
+                        <dd className="font-medium">{tipoNombreSeleccionado || "—"}</dd>
+                        <dt className="text-muted-foreground">Lugar</dt>
+                        <dd className="font-medium">
+                            {fincaSeleccionada?.nombre}{nivel === "LOTE" && loteSeleccionado ? ` · ${loteSeleccionado.nombre}` : " · Toda la finca"}
+                        </dd>
+                        <dt className="text-muted-foreground">{modoMasivo ? "Desde" : "Fecha"}</dt>
+                        <dd className="font-medium">{formatDate(parseFechaCalendario(fechaProgramada) ?? fechaProgramada)}</dd>
+                        <dt className="text-muted-foreground">Responsable</dt>
+                        <dd className="font-medium">{responsables.find(r => r.id === selectedResponsable)?.nombre ?? "—"}</dd>
+                        {modoMasivo && (<>
+                            <dt className="text-muted-foreground">Tareas</dt>
+                            <dd className="font-medium">{modoFin === "repeticiones" ? `${repeticiones}, cada ${periodicidadDias} días` : `Cada ${periodicidadDias} días hasta ${fechaFin}`}</dd>
+                        </>)}
+                    </dl>
+                    <DialogFooter className="flex gap-2 sm:justify-end">
+                        <Button variant="secondary" onClick={() => setConfirmacion(null)}>No, revisar</Button>
+                        <Button onClick={crearConfirmada} disabled={isSubmitting}>
+                            <Save className="mr-2 h-4 w-4" /> Sí, crear
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={!!createdTask} onOpenChange={(open) => !open && handleClose()}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>¡Tarea Creada!</DialogTitle>
+                        <DialogTitle>{createdTask?.codigo ? `¡Tarea ${createdTask.codigo} creada!` : "¡Tarea Creada!"}</DialogTitle>
                         <DialogDescription>
                             La actividad se ha programado correctamente.
                         </DialogDescription>
