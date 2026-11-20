@@ -6,6 +6,7 @@ import {
     getCargos, createCargo, deleteCargo
 } from "@/app/actions/configuracion"
 import { ResponsablesManager } from "@/components/forms/ResponsablesManager"
+import { cambiarAcceso, darAcceso, restablecerPassword } from "@/app/actions/usuarios"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -61,6 +62,7 @@ export default function ResponsablesPage() {
                     deleteCargoAction={deleteCargo}
                     onRefreshCargos={refreshCargos}
                     onSuccess={loadData}
+                    acceso={{ darAcceso, restablecer: restablecerPassword, cambiar: cambiarAcceso }}
                 />
             </div>
         </div>

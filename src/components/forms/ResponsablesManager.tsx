@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, Trash2, Edit2, Save, X } from "lucide-react"
+import { Plus, Trash2, Edit2, Save, X, KeyRound, Power, UserCheck, Info } from "lucide-react"
 import { Combobox } from "@/components/ui/combobox"
 import { CatalogManager } from "@/components/common/CatalogManager"
 
@@ -16,18 +16,29 @@ interface Responsable {
     cargo?: string | null
     cargoId?: string | null
     cargoRef?: { id: string, nombre: string } | null
+    usuario?: { activo: boolean, debeCambiarPassword: boolean, ultimoIngreso: Date | string | null } | null
+}
+
+type Resultado = { success?: boolean; error?: string; mensaje?: string }
+
+/** Acciones de acceso a la plataforma: solo se pasan en Configuración (desarrollador). */
+export interface AccionesAcceso {
+    darAcceso: (responsableId: string) => Promise<Resultado>
+    restablecer: (responsableId: string) => Promise<Resultado>
+    cambiar: (responsableId: string, activo: boolean) => Promise<Resultado>
 }
 
 interface ResponsablesManagerProps {
     responsables: Responsable[]
     cargos: { id: string, nombre: string }[]
-    createAction: (nombre: string, email?: string, cargoId?: string, celular?: string) => Promise<{ success?: boolean; error?: string }>
-    updateAction: (id: string, nombre: string, email?: string, cargoId?: string, celular?: string) => Promise<{ success?: boolean; error?: string }>
+    createAction: (nombre: string, email?: string, cargoId?: string, celular?: string) => Promise<Resultado>
+    updateAction: (id: string, nombre: string, email?: string, cargoId?: string, celular?: string) => Promise<Resultado>
     deleteAction: (id: string) => Promise<{ success?: boolean; error?: string }>
     createCargoAction: (nombre: string) => Promise<{ success?: boolean; error?: string }>
     deleteCargoAction: (id: string) => Promise<{ success?: boolean; error?: string }>
     onRefreshCargos: () => void
     onSuccess: () => void
+    acceso?: AccionesAcceso
 }
 
 export function ResponsablesManager({
@@ -39,10 +50,21 @@ export function ResponsablesManager({
     createCargoAction,
     deleteCargoAction,
     onRefreshCargos,
-    onSuccess
+    onSuccess,
+    acceso
 }: ResponsablesManagerProps) {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [info, setInfo] = useState<string | null>(null)
+
+    const ejecutarAcceso = async (accion: () => Promise<Resultado>, confirmar?: string) => {
+        if (confirmar && !confirm(confirmar)) return
+        setIsLoading(true); setError(null); setInfo(null)
+        const res = await accion()
+        setIsLoading(false)
+        if (res.error) setError(res.error)
+        else { if (res.mensaje) setInfo(res.mensaje); onSuccess() }
+    }
 
     // Create State
     const [newName, setNewName] = useState("")
@@ -63,9 +85,11 @@ export function ResponsablesManager({
         if (!newName.trim()) return
         setIsLoading(true)
         setError(null)
+        setInfo(null)
         const res = await createAction(newName, newEmail, newCargoId, newCelular)
         setIsLoading(false)
         if (res.success) {
+            if (res.mensaje) setInfo(`${newName.trim()}: ${res.mensaje}`)
             setNewName("")
             setNewEmail("")
             setNewCelular("")
@@ -98,9 +122,11 @@ export function ResponsablesManager({
         if (!editingId || !editName.trim()) return
         setIsLoading(true)
         setError(null)
+        setInfo(null)
         const res = await updateAction(editingId, editName, editEmail, editCargoId, editCelular)
         setIsLoading(false)
         if (res.success) {
+            if (res.mensaje) setInfo(`${editName.trim()}: ${res.mensaje}`)
             cancelEdit()
             onSuccess()
         } else {
@@ -127,6 +153,15 @@ export function ResponsablesManager({
                 <div className="bg-destructive/15 text-destructive p-3 rounded-lg flex items-center justify-between border border-destructive/20">
                     <p className="text-sm font-medium">{error}</p>
                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/20" onClick={() => setError(null)}>
+                        <X className="w-4 h-4" />
+                    </Button>
+                </div>
+            )}
+
+            {info && (
+                <div className="flex items-start justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">
+                    <p className="flex gap-2 text-sm"><Info className="mt-0.5 h-4 w-4 shrink-0" /> {info}</p>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 hover:bg-emerald-100" onClick={() => setInfo(null)}>
                         <X className="w-4 h-4" />
                     </Button>
                 </div>
@@ -259,9 +294,32 @@ export function ResponsablesManager({
                                                 {r.celular && (r.email) && <span>•</span>}
                                                 {r.celular && <span className="text-green-600 font-medium">Cel: {r.celular}</span>}
                                             </div>
+                                            {acceso && <EstadoAcceso r={r} />}
                                         </div>
                                     </div>
                                     <div className="flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {acceso && !r.usuario && r.celular && (
+                                            <Button size="sm" variant="outline" className="h-8" disabled={isLoading}
+                                                onClick={() => ejecutarAcceso(() => acceso.darAcceso(r.id))}>
+                                                <UserCheck className="mr-1.5 h-4 w-4" /> Dar acceso
+                                            </Button>
+                                        )}
+                                        {acceso && r.usuario && (
+                                            <>
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary" disabled={isLoading}
+                                                    title="Restablecer contraseña"
+                                                    onClick={() => ejecutarAcceso(() => acceso.restablecer(r.id), `¿Restablecer la contraseña de ${r.nombre}? Quedará en la contraseña inicial y deberá cambiarla al ingresar.`)}>
+                                                    <KeyRound className="w-4 h-4" />
+                                                </Button>
+                                                <Button size="icon" variant="ghost" disabled={isLoading}
+                                                    className={r.usuario.activo ? "h-8 w-8 text-muted-foreground hover:text-destructive" : "h-8 w-8 text-emerald-600 hover:text-emerald-700"}
+                                                    title={r.usuario.activo ? "Desactivar acceso" : "Activar acceso"}
+                                                    onClick={() => ejecutarAcceso(() => acceso.cambiar(r.id, !r.usuario!.activo),
+                                                        r.usuario!.activo ? `¿Desactivar el acceso de ${r.nombre}? No podrá ingresar hasta que lo active de nuevo.` : undefined)}>
+                                                    <Power className="w-4 h-4" />
+                                                </Button>
+                                            </>
+                                        )}
                                         <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => startEdit(r)}>
                                             <Edit2 className="w-4 h-4" />
                                         </Button>
@@ -275,6 +333,21 @@ export function ResponsablesManager({
                     ))
                 )}
             </div>
+        </div>
+    )
+}
+
+function EstadoAcceso({ r }: { r: Responsable }) {
+    const u = r.usuario
+    const [texto, cls] = !r.celular ? ["Sin acceso: falta el celular", "bg-muted text-muted-foreground"]
+        : !u ? ["Sin acceso", "bg-muted text-muted-foreground"]
+            : !u.activo ? ["Acceso desactivado", "bg-red-50 text-red-700"]
+                : u.debeCambiarPassword ? ["Puede ingresar · contraseña inicial", "bg-amber-50 text-amber-800"]
+                    : ["Puede ingresar", "bg-emerald-50 text-emerald-700"]
+    return (
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+            <span className={`rounded px-1.5 py-0.5 font-medium ${cls}`}>{texto}</span>
+            {u?.ultimoIngreso && <span className="text-muted-foreground">Último ingreso: {new Date(u.ultimoIngreso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })}</span>}
         </div>
     )
 }

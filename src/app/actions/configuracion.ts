@@ -1,6 +1,7 @@
 'use server'
 
 import { exigirDesarrollador, exigirGestor } from "@/lib/auth"
+import { mensajeAcceso, sincronizarUsuarioDeResponsable } from "@/lib/usuarios"
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 
@@ -77,7 +78,10 @@ export async function getResponsables() {
         const data = await db.responsable.findMany({
             where: { activo: true },
             orderBy: { nombre: 'asc' },
-            include: { cargoRef: true }
+            include: {
+                cargoRef: true,
+                usuario: { select: { activo: true, debeCambiarPassword: true, ultimoIngreso: true } },
+            }
         })
         return { data }
     } catch (error) {
@@ -91,7 +95,7 @@ export async function createResponsable(nombre: string, email?: string, cargoId?
     if (!nombre || !nombre.trim()) return { error: "Nombre requerido" }
 
     try {
-        await db.responsable.create({
+        const r = await db.responsable.create({
             data: {
                 nombre: nombre.trim(),
                 email: email?.trim(),
@@ -99,9 +103,11 @@ export async function createResponsable(nombre: string, email?: string, cargoId?
                 celular: celular?.trim()
             }
         })
+        // Con celular, el responsable queda con su usuario para ingresar
+        const acceso = await sincronizarUsuarioDeResponsable(r.id)
         revalidatePath('/configuracion/responsables')
         revalidatePath('/tareas/new')
-        return { success: true }
+        return { success: true, mensaje: mensajeAcceso(acceso) }
     } catch (error) {
         return { error: "Error al crear responsable (posible duplicado)" }
     }
@@ -121,9 +127,11 @@ export async function updateResponsable(id: string, nombre: string, email?: stri
                 celular: celular?.trim()
             }
         })
+        // Si cambió el nombre o el celular, el usuario de ingreso se actualiza (o se crea si ahora tiene celular)
+        const acceso = await sincronizarUsuarioDeResponsable(id)
         revalidatePath('/configuracion/responsables')
         revalidatePath('/tareas/new')
-        return { success: true }
+        return { success: true, mensaje: mensajeAcceso(acceso) }
     } catch (error: any) {
         console.error("Error updating responsable:", error)
         return { error: `Error al actualizar: ${error.message}` }
@@ -133,7 +141,11 @@ export async function updateResponsable(id: string, nombre: string, email?: stri
 export async function deleteResponsable(id: string) {
     await exigirGestor()
     try {
-        await db.responsable.delete({ where: { id } })
+        // Sin responsable no hay a quién mostrarle tareas: se borra también su usuario de ingreso
+        await db.$transaction([
+            db.usuario.deleteMany({ where: { responsableId: id, rol: 'RESPONSABLE' } }),
+            db.responsable.delete({ where: { id } }),
+        ])
         revalidatePath('/configuracion/responsables')
         revalidatePath('/tareas/new')
         return { success: true }
