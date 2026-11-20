@@ -143,6 +143,7 @@ export async function createTarea(formData: FormData) {
     }
 
     let codigo: string
+    let id: string
     try {
         // Un doble clic o un reintento envía la misma tarea dos veces: si llega una idéntica
         // en el último minuto, no se crea otra.
@@ -154,11 +155,11 @@ export async function createTarea(formData: FormData) {
                 createdAt: { gte: new Date(Date.now() - 60_000) },
             },
         })
-        if (repetida) return { success: true, codigo: repetida.codigo, repetida: true }
+        if (repetida) return { success: true, codigo: repetida.codigo, id: repetida.id, repetida: true }
 
         codigo = await siguienteCodigoTarea()
 
-        await db.tarea.create({
+        const creada = await db.tarea.create({
             data: {
                 codigo,
                 fincaId,
@@ -176,6 +177,7 @@ export async function createTarea(formData: FormData) {
                 movimientoViveroTipo,
             }
         })
+        id = creada.id
     } catch (error: any) {
         console.error("Failed to create tarea:", error)
         return { error: `Error al crear la tarea: ${error.message}` }
@@ -185,7 +187,7 @@ export async function createTarea(formData: FormData) {
     revalidatePath('/tareas')
     revalidatePath(`/fincas/${fincaId}`)
     if (loteId) revalidatePath(`/lotes/${loteId}`)
-    return { success: true, codigo }
+    return { success: true, codigo, id }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -292,7 +294,7 @@ export async function createTareasMasivas(payload: {
         revalidatePath('/tareas')
         revalidatePath(`/fincas/${fincaId}`)
         if (loteId) revalidatePath(`/lotes/${loteId}`)
-        return { success: true, count: fechas.length, planId }
+        return { success: true, count: fechas.length, planId, desde: fechas[0].toISOString(), hasta: fechas[fechas.length - 1].toISOString() }
     } catch (error: any) {
         console.error('Failed to create massive tareas:', error)
         return { error: `Error al crear el plan: ${error.message}` }

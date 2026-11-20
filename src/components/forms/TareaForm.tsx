@@ -29,6 +29,7 @@ import { ExternalLink, MapPin, Grid3x3, Map as MapIcon, Sprout } from "lucide-re
 import { PageHeader, type Breadcrumb } from "@/components/layout/PageHeader"
 import { rutaSegura } from "@/lib/navegacion"
 import { TIPOS_MOVIMIENTO, actividadDeMovimiento, infoMovimiento, type TipoMovimientoVivero } from "@/lib/vivero"
+import { enlaceWhatsApp, mensajePlanAsignado, mensajeTareaAsignada } from "@/lib/whatsapp"
 import { cn } from "@/lib/utils"
 
 // ... imports
@@ -146,7 +147,8 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     }
 
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [createdTask, setCreatedTask] = useState<{ id: string, codigo?: string, responsableId: string, tipo: string, fincaNombre: string } | null>(null)
+    // Tarea creada: código y mensaje de WhatsApp ya armado para el responsable
+    const [createdTask, setCreatedTask] = useState<{ codigo?: string, mensaje: string, enlace: string | null, responsable: string } | null>(null)
     // Confirmación antes de crear: muestra el código que tomará la tarea
     const [confirmacion, setConfirmacion] = useState<{ formData: FormData, codigo: string } | null>(null)
     // Bloqueo inmediato: el estado de React tarda un render y un doble clic alcanzaba a enviar dos veces
@@ -286,6 +288,16 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
         const { formData } = confirmacion
         setConfirmacion(null)
         const obsBase = (formData.get('observaciones') as string) || ''
+        const resp = responsables.find(r => r.id === selectedResponsable)
+        const datosMensaje = {
+            responsable: resp?.nombre ?? "",
+            actividad: tipoNombreSeleccionado || "Tarea",
+            finca: `Finca ${fincaSeleccionada?.nombre ?? ""}`,
+            lote: nivel === "LOTE" && loteSeleccionado ? `${loteSeleccionado.codigo} ${loteSeleccionado.nombre}` : null,
+            prioridad: selectedPrioridad,
+            indicaciones: obsBase,
+        }
+        const fechaTexto = (iso: string) => formatDate(parseFechaCalendario(iso) ?? iso)
 
         if (modoMasivo) {
             // --- MODO MASIVO ---
@@ -311,13 +323,15 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                 setIsSubmitting(false)
             } else {
                 // Creada: el botón queda bloqueado para no repetirla
-                const finca = fincas.find(f => f.id === selectedFinca)
-                setCreatedTask({
-                    id: 'plan',
-                    responsableId: selectedResponsable,
-                    tipo: `Plan Masivo (${result.count} tareas)`,
-                    fincaNombre: finca?.nombre || 'Finca'
+                const mensaje = mensajePlanAsignado({
+                    ...datosMensaje,
+                    cantidad: result.count ?? 0,
+                    cadaDias: parseInt(periodicidadDias) || 20,
+                    desde: fechaTexto(result.desde ?? fechaProgramada),
+                    hasta: fechaTexto(result.hasta ?? fechaProgramada),
+                    enlace: `${window.location.origin}/mis-tareas`,
                 })
+                setCreatedTask({ mensaje, enlace: enlaceWhatsApp(resp?.celular, mensaje), responsable: datosMensaje.responsable })
             }
         } else {
             // --- MODO SIMPLE ---
@@ -328,14 +342,15 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                 setIsSubmitting(false)
             } else {
                 // Creada: el botón queda bloqueado para no repetirla
-                const finca = fincas.find(f => f.id === selectedFinca)
-                setCreatedTask({
-                    id: "new",
+                const info = movimientoActivo ? infoMovimiento(movimientoActivo) : null
+                const mensaje = mensajeTareaAsignada({
+                    ...datosMensaje,
                     codigo: result.codigo,
-                    responsableId: selectedResponsable,
-                    tipo: tiposActividad.find(t => t.id === selectedTipo)?.nombre || "Tarea",
-                    fincaNombre: finca?.nombre || "Finca"
+                    fecha: fechaTexto(fechaProgramada),
+                    nota: info ? `Es un movimiento de plantas del vivero (${info.nombre.toLowerCase()}). Al ejecutarla registra cuántas plantas ${info.sentido === "entrada" ? "entran" : "salen"} de cada material${movimientoActivo === "VENTA" ? ", el precio por variedad y los datos del cliente" : ""}.` : null,
+                    enlace: result.id ? `${window.location.origin}/tareas/${result.id}/execute` : null,
                 })
+                setCreatedTask({ codigo: result.codigo, mensaje, enlace: enlaceWhatsApp(resp?.celular, mensaje), responsable: datosMensaje.responsable })
             }
         }
     }
@@ -346,16 +361,7 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     }
 
     const handleNotify = () => {
-        if (!createdTask) return
-
-        const resp = responsables.find(r => r.id === createdTask.responsableId)
-        if (resp && resp.celular) {
-            const message = `Hola ${resp.nombre}, se te ha asignado una nueva tarea: *${createdTask.tipo}* en *${createdTask.fincaNombre}*`
-            // const deepLink = `agroapp://tasks` // Future integration
-            const whatsappUrl = `https://wa.me/57${resp.celular}?text=${encodeURIComponent(message)}`
-            window.open(whatsappUrl, '_blank')
-        }
-
+        if (createdTask?.enlace) window.open(createdTask.enlace, '_blank')
         handleClose()
     }
 
@@ -829,17 +835,22 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="py-4">
-                        <p className="text-sm text-muted-foreground mb-2">
-                            ¿Deseas notificar al responsable vía WhatsApp ahora mismo?
+                    <div className="space-y-2 py-2">
+                        <p className="text-sm text-muted-foreground">
+                            {createdTask?.enlace
+                                ? `¿Deseas notificar a ${createdTask.responsable} por WhatsApp? Este es el mensaje que se enviará:`
+                                : `${createdTask?.responsable || "El responsable"} no tiene un celular registrado, así que no se puede avisar por WhatsApp.`}
                         </p>
+                        {createdTask?.enlace && (
+                            <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 font-sans text-xs leading-relaxed text-foreground">{createdTask.mensaje}</pre>
+                        )}
                     </div>
 
                     <DialogFooter className="flex gap-2 sm:justify-end">
                         <Button variant="secondary" onClick={handleClose}>
                             No, salir
                         </Button>
-                        <Button onClick={handleNotify} className="bg-green-600 hover:bg-green-700">
+                        <Button onClick={handleNotify} disabled={!createdTask?.enlace} className="bg-green-600 hover:bg-green-700">
                             <ExternalLink className="w-4 h-4 mr-2" />
                             Notificar
                         </Button>
