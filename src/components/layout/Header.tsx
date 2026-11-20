@@ -1,6 +1,6 @@
 'use client'
 
-import { Menu, Sprout } from 'lucide-react'
+import { Menu } from 'lucide-react'
 
 interface HeaderProps {
     onMenuClick: () => void
@@ -16,7 +16,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <button onClick={onMenuClick} className="-ml-2 rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Abrir menú">
                     <Menu className="h-5 w-5" />
                 </button>
-                <Sprout className="h-5 w-5 text-primary" />
+                <img src="/marca/palma.png" alt="" width={24} height={24} className="h-6 w-6 rounded-md" />
                 <span className="font-semibold">AgroApp</span>
             </div>
             <p className="hidden text-sm text-muted-foreground first-letter:uppercase md:block" suppressHydrationWarning>{hoy}</p>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState } from "react"
-import { Loader2, LogIn, Sprout } from "lucide-react"
+import { Loader2, LogIn } from "lucide-react"
 import { ingresar } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,11 +14,9 @@ export function LoginForm({ next }: { next: string }) {
         <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
             <div className="w-full max-w-sm">
                 <div className="mb-6 flex flex-col items-center text-center">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                        <Sprout className="h-6 w-6" />
-                    </div>
-                    <h1 className="mt-3 text-xl font-semibold tracking-tight">AgroApp</h1>
-                    <p className="text-sm text-muted-foreground">Gestión de palmicultura</p>
+                    <h1 className="sr-only">AgroApp</h1>
+                    <img src="/marca/logo-agroapp.png" alt="AgroApp" width={160} height={165} className="h-auto w-40 drop-shadow-md" />
+                    <p className="mt-3 text-sm text-muted-foreground">Gestión de palmicultura</p>
                 </div>
 
                 <form action={accion} className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm">

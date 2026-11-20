@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Tractor, Map, Grid3x3, ClipboardList, Package, Settings, BarChart3, Sprout, X, LogOut, KeyRound, ListChecks } from 'lucide-react'
+import { LayoutDashboard, Tractor, Map, Grid3x3, ClipboardList, Package, Settings, BarChart3, X, LogOut, KeyRound, ListChecks } from 'lucide-react'
 import clsx from 'clsx'
 import { salir } from '@/app/actions/auth'
 import { ROL_LABELS, puedeConfigurar, type Rol } from '@/lib/sesion'
@@ -53,9 +53,7 @@ export function Sidebar({ usuario, className, onClose }: { usuario: UsuarioActua
     return (
         <aside className={clsx("fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform duration-300 md:translate-x-0", className)}>
             <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-                    <Sprout className="h-5 w-5" />
-                </div>
+                <img src="/marca/palma.png" alt="" width={36} height={36} className="h-9 w-9 rounded-lg shadow-sm ring-1 ring-white/10" />
                 <div className="flex-1 leading-tight">
                     <div className="text-[15px] font-semibold tracking-tight">AgroApp</div>
                     <div className="text-[11px] text-sidebar-muted">Gestión de palmicultura</div>
