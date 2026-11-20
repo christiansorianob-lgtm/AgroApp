@@ -38,7 +38,7 @@ export default function ResponsablesPage() {
     }, [])
 
     return (
-        <div className="p-6 max-w-4xl mx-auto space-y-6">
+        <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" asChild>
                     <Link href="/configuracion">
@@ -51,7 +51,7 @@ export default function ResponsablesPage() {
                 </div>
             </div>
 
-            <div className="bg-card rounded-xl border shadow-sm p-2">
+            <div className="bg-card rounded-xl border shadow-sm p-2 sm:p-4">
                 <ResponsablesManager
                     responsables={responsables}
                     cargos={cargos}

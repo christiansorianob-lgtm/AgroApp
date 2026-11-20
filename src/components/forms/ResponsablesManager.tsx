@@ -168,7 +168,7 @@ export function ResponsablesManager({
             )}
 
             {/* Create Section */}
-            <div className="bg-muted/10 border rounded-xl p-6 space-y-4">
+            <div className="bg-muted/10 border rounded-xl p-4 sm:p-6 space-y-4">
                 <h4 className="font-semibold text-base">Agregar Nuevo Responsable</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-2">
@@ -237,7 +237,7 @@ export function ResponsablesManager({
                     </div>
                 ) : (
                     responsables.map((r) => (
-                        <div key={r.id} className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-accent/50 transition-colors group">
+                        <div key={r.id} className="flex flex-col gap-3 p-4 rounded-xl border bg-card hover:bg-accent/50 transition-colors group sm:flex-row sm:items-center sm:justify-between">
                             {editingId === r.id ? (
                                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 items-center">
                                     <Input
@@ -276,12 +276,12 @@ export function ResponsablesManager({
                                 </div>
                             ) : (
                                 <>
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
+                                    <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                                        <div className="h-10 w-10 shrink-0 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
                                             {r.nombre.substring(0, 2).toUpperCase()}
                                         </div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                                 <p className="font-medium text-sm text-foreground">{r.nombre}</p>
                                                 {(r.cargoRef?.nombre || r.cargo) && (
                                                     <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
@@ -297,7 +297,7 @@ export function ResponsablesManager({
                                             {acceso && <EstadoAcceso r={r} />}
                                         </div>
                                     </div>
-                                    <div className="flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 border-t pt-2 opacity-100 transition-opacity sm:border-t-0 sm:pt-0 md:opacity-0 md:group-hover:opacity-100">
                                         {acceso && !r.usuario && r.celular && (
                                             <Button size="sm" variant="outline" className="h-8" disabled={isLoading}
                                                 onClick={() => ejecutarAcceso(() => acceso.darAcceso(r.id))}>
