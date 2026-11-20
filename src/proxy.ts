@@ -4,8 +4,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { COOKIE_SESION, inicioDe, leerSesion, puedeConfigurar, type Rol } from "@/lib/sesion"
 
-/** Rutas que no piden sesión. La API móvil (/api/v1) se protege con su propio token en la fase 2. */
-const PUBLICAS = [/^\/login$/, /^\/api\/ping$/, /^\/api\/v1\//]
+/** Rutas que no piden sesión. */
+const PUBLICAS = [/^\/login$/, /^\/api\/ping$/]
 
 /** Lo único que ve un responsable: sus tareas, la pantalla para ejecutarlas y su cuenta. */
 const DEL_RESPONSABLE = [/^\/mis-tareas(\/|$)/, /^\/tareas\/[^/]+\/execute$/, /^\/cuenta(\/|$)/]
