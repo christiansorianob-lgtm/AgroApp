@@ -17,6 +17,8 @@ export interface OpcionGeneticaRef { id: string; codigo: string; nombre: string;
 
 export interface FilaVivero {
     clave: string
+    /** Renglón ya guardado; sin id es nuevo */
+    id?: string
     opciones: string[]
     tipoCultivo: string
     especie: string

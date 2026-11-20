@@ -25,9 +25,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { ExternalLink, MapPin, Grid3x3, Map as MapIcon } from "lucide-react"
+import { ExternalLink, MapPin, Grid3x3, Map as MapIcon, Sprout } from "lucide-react"
 import { PageHeader, type Breadcrumb } from "@/components/layout/PageHeader"
 import { rutaSegura } from "@/lib/navegacion"
+import { TIPOS_MOVIMIENTO, actividadDeMovimiento, infoMovimiento, type TipoMovimientoVivero } from "@/lib/vivero"
 import { cn } from "@/lib/utils"
 
 // ... imports
@@ -44,6 +45,7 @@ interface Lote {
     nombre: string
     codigo: string
     fincaId: string
+    finalidad?: string | null
 }
 
 interface TareaFormProps {
@@ -87,6 +89,10 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     const [nivel, setNivel] = useState<"" | "FINCA" | "LOTE">(
         origen === "lote" ? "LOTE" : origen === "finca" && !fincaTieneLotes ? "FINCA" : "")
     const [errorForm, setErrorForm] = useState<string | null>(null)
+    // En un lote vivero la tarea puede ser un movimiento de plantas (venta, siembra, traslado…)
+    const movimientoInicial = searchParams?.get('movimiento') as TipoMovimientoVivero | null
+    const [movimiento, setMovimiento] = useState<TipoMovimientoVivero | "">(
+        movimientoInicial && TIPOS_MOVIMIENTO.some(t => t.valor === movimientoInicial) ? movimientoInicial : "")
 
     // Controlled states for other Comboboxes
     const [selectedTipo, setSelectedTipo] = useState("")
@@ -180,6 +186,8 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
 
     const fincaSeleccionada = fincas.find(f => f.id === selectedFinca)
     const loteSeleccionado = lotes.find(l => l.id === selectedLote)
+    const esVivero = nivel === "LOTE" && loteSeleccionado?.finalidad === "VIVERO"
+    const movimientoActivo = esVivero && movimiento ? movimiento : ""
     const migas: Breadcrumb[] = origen === "lote"
         ? [{ label: "Fincas", href: "/fincas" }, { label: fincaSeleccionada?.nombre ?? "Finca", href: `/fincas/${initialFincaId}` }, { label: loteSeleccionado?.nombre ?? "Lote", href: `/lotes/${initialLoteId}` }, { label: "Nueva tarea" }]
         : origen === "finca"
@@ -201,9 +209,9 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     const nombreOptions = nombres.map(n => ({ value: n.nombre, label: n.nombre }))
 
     // Detectar si el tipo seleccionado admite plan masivo
-    const tipoNombreSeleccionado = useMemo(() => 
-        tiposActividad.find(t => t.id === selectedTipo)?.nombre || ''
-    , [selectedTipo, tiposActividad])
+    const tipoNombreSeleccionado = useMemo(() =>
+        movimientoActivo ? actividadDeMovimiento(movimientoActivo) : tiposActividad.find(t => t.id === selectedTipo)?.nombre || ''
+    , [selectedTipo, tiposActividad, movimientoActivo])
 
     const esFertilizacion = tipoNombreSeleccionado.toLowerCase().includes('fertiliz')
 
@@ -235,7 +243,8 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
         const faltante = !nivel ? "Indique si la tarea es para toda la finca o para un lote."
             : !selectedFinca ? "Seleccione la finca."
                 : nivel === "LOTE" && !selectedLote ? "Seleccione el lote."
-                    : !selectedTipo ? "Seleccione el tipo de actividad."
+                    : esVivero && movimiento === "" && !selectedTipo ? "Indique si es un movimiento de plantas o elija el tipo de actividad."
+                    : !movimientoActivo && !selectedTipo ? "Seleccione el tipo de actividad."
                         : !selectedResponsable ? "Seleccione el responsable." : null
         if (faltante) {
             setErrorForm(faltante)
@@ -244,6 +253,8 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
         }
         formData.set('nivel', nivel)
         formData.set('loteId', nivel === "LOTE" ? selectedLote : "")
+        formData.set('tipo', tipoNombreSeleccionado)
+        formData.set('movimientoViveroTipo', movimientoActivo)
 
         // Construir las observaciones (con detalle técnico si aplica)
         let obsBase = (formData.get('observaciones') as string) || ''
@@ -442,7 +453,42 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                             </div>
                         )}
 
+                        {/* ── Lote vivero: ¿la tarea mueve plantas? ── */}
+                        {esVivero && (
+                            <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+                                <Label className="flex items-center gap-1.5"><Sprout className="h-4 w-4 text-emerald-700" /> Este lote es un vivero. ¿La tarea mueve plantas del inventario?</Label>
+                                <div className="flex flex-wrap gap-2">
+                                    {TIPOS_MOVIMIENTO.map(t => (
+                                        <button key={t.valor} type="button" onClick={() => { setMovimiento(t.valor); setModoMasivo(false); setErrorForm(null) }}
+                                            className={cn("rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                                                movimiento === t.valor ? "border-emerald-600 bg-emerald-600 text-white" : "border-emerald-200 bg-card hover:bg-emerald-50")}>
+                                            <span className="font-semibold">{t.nombre}</span>
+                                            <span className={cn("block text-xs", movimiento === t.valor ? "text-white/80" : "text-muted-foreground")}>{t.descripcion}</span>
+                                        </button>
+                                    ))}
+                                    <button type="button" onClick={() => { setMovimiento(""); setErrorForm(null) }}
+                                        className={cn("rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                                            movimiento === "" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-card hover:bg-muted/50")}>
+                                        <span className="font-semibold">Otra labor</span>
+                                        <span className="block text-xs text-muted-foreground">Riego, fertilización, sanidad…</span>
+                                    </button>
+                                </div>
+                                {movimientoActivo && (
+                                    <p className="text-xs text-emerald-900">
+                                        Al ejecutar la tarea se indica cuántas plantas {infoMovimiento(movimientoActivo).sentido === "entrada" ? "entran" : "salen"} de cada material
+                                        {movimientoActivo === "VENTA" ? ", el precio por variedad y los datos del cliente" : ""}. El inventario se actualiza en ese momento.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {movimientoActivo ? (
+                                <div className="space-y-2">
+                                    <Label>Tipo de Actividad</Label>
+                                    <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm font-medium">{tipoNombreSeleccionado}</div>
+                                </div>
+                            ) : (
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
                                     <Label htmlFor="tipo">Tipo de Actividad</Label>
@@ -482,6 +528,7 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                                     </button>
                                 )}
                             </div>
+                            )}
                         <div className="space-y-2">
                                 <Label htmlFor="fechaProgramada">{modoMasivo ? 'Fecha de Inicio del Plan' : 'Fecha Programada'}</Label>
                                 <DatePicker

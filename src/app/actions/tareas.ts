@@ -2,6 +2,7 @@
 
 import { exigirAccesoATarea, exigirGestor } from "@/lib/auth"
 import { esGestor } from "@/lib/sesion"
+import { TIPOS_MOVIMIENTO, type TipoMovimientoVivero } from "@/lib/vivero"
 import { put } from "@vercel/blob"
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
@@ -133,6 +134,14 @@ export async function createTarea(formData: FormData) {
         return { error: "Una tarea de nivel Finca no puede tener lote." }
     }
 
+    // Movimiento de plantas: solo en un lote vivero
+    const movimientoRaw = (formData.get("movimientoViveroTipo") as string) || ""
+    const movimientoViveroTipo = TIPOS_MOVIMIENTO.some(t => t.valor === movimientoRaw) ? movimientoRaw as TipoMovimientoVivero : null
+    if (movimientoViveroTipo) {
+        const lote = loteId ? await db.lote.findUnique({ where: { id: loteId }, select: { finalidad: true } }) : null
+        if (lote?.finalidad !== "VIVERO") return { error: "Los movimientos de plantas solo se registran en un lote vivero." }
+    }
+
     let codigo: string
     try {
         // Un doble clic o un reintento envía la misma tarea dos veces: si llega una idéntica
@@ -163,7 +172,8 @@ export async function createTarea(formData: FormData) {
                 estado: estado || 'PROGRAMADA',
                 descripcion,
                 observaciones,
-                requiereTrazabilidad
+                requiereTrazabilidad,
+                movimientoViveroTipo,
             }
         })
     } catch (error: any) {

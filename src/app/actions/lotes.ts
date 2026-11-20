@@ -5,6 +5,9 @@ import { db } from "@/lib/db"
 import { parseFechaCalendario } from "@/lib/utils"
 import { buildLinderoData, sameGeometry } from "@/services/linderos"
 import type { BoundaryValue } from "@/lib/geo"
+import type { Sesion } from "@/lib/sesion"
+import { aplicarMovimiento, type LineaMovimiento } from "@/lib/inventarioVivero"
+import type { Prisma } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 
 export interface LoteInput {
@@ -36,6 +39,8 @@ export interface LoteInput {
 export type FinalidadLote = "SIEMBRA" | "VIVERO" | "INFRAESTRUCTURA" | "CONSERVACION" | "OTRO"
 
 export interface MaterialViveroInput {
+    /** Renglón existente; sin id es un renglón nuevo */
+    id?: string | null
     tipoCultivo: string
     especie?: string | null
     variedad?: string | null
@@ -93,8 +98,9 @@ function validate(input: LoteInput): string | null {
         case "VIVERO": {
             const mats = input.materialesVivero ?? []
             if (mats.length === 0) return "Agregue al menos un material al inventario del vivero."
-            const malo = mats.findIndex(m => !m.tipoCultivo || !Number.isInteger(m.cantidad) || m.cantidad <= 0)
-            if (malo >= 0) return `Revise la fila ${malo + 1} del vivero: cultivo y cantidad (entero mayor que cero) son obligatorios.`
+            // Un renglón puede quedar en 0 después de ventas o siembras; uno nuevo debe traer plantas
+            const malo = mats.findIndex(m => !m.tipoCultivo || !Number.isInteger(m.cantidad) || m.cantidad < 0 || (!m.id && m.cantidad === 0))
+            if (malo >= 0) return `Revise la fila ${malo + 1} del vivero: cultivo y cantidad (número entero) son obligatorios.`
             break
         }
         case "INFRAESTRUCTURA":
@@ -124,9 +130,9 @@ function finalidadData(input: LoteInput) {
     }
 }
 
-function materialesData(input: LoteInput) {
-    if (input.finalidad !== "VIVERO") return []
-    return (input.materialesVivero ?? []).map(m => ({
+/** Datos descriptivos de un renglón del vivero (sin la cantidad, que se mueve con movimientos). */
+function descripcionMaterial(m: MaterialViveroInput) {
+    return {
         tipoCultivo: m.tipoCultivo,
         especie: m.especie || null,
         variedad: m.variedad || null,
@@ -134,10 +140,49 @@ function materialesData(input: LoteInput) {
         opcionesGeneticas: m.opcionesGeneticas ?? [],
         etapa: m.etapa,
         ubicacion: m.ubicacion?.trim() || null,
-        cantidad: m.cantidad,
         fechaIngreso: parseFechaCalendario(m.fechaIngreso),
         observaciones: m.observaciones?.trim() || null,
-    }))
+    }
+}
+
+/**
+ * Lleva el inventario del vivero a lo que muestra el formulario sin perder la historia: cada renglón
+ * conserva su id, y las diferencias de cantidad quedan como movimientos (INGRESO para renglones
+ * nuevos, AJUSTE para cambios o renglones quitados). Si el lote deja de ser vivero, se vacía.
+ */
+async function sincronizarInventario(tx: Prisma.TransactionClient, loteId: string, input: LoteInput, sesion: Sesion) {
+    const actuales = await tx.loteViveroMaterial.findMany({ where: { loteId } })
+    const deseados = input.finalidad === "VIVERO" ? input.materialesVivero ?? [] : []
+    const quien = { registradoPorId: sesion.uid, registradoPor: sesion.nombre }
+    const ahora = new Date()
+
+    const ingresos: LineaMovimiento[] = []
+    const ajustes: LineaMovimiento[] = []
+    const quitar: string[] = []
+
+    for (const m of actuales) {
+        const d = deseados.find(x => x.id === m.id)
+        if (!d) {
+            if (m.cantidad > 0) ajustes.push({ materialId: m.id, cantidad: 0, delta: -m.cantidad })
+            quitar.push(m.id)
+            continue
+        }
+        await tx.loteViveroMaterial.update({ where: { id: m.id }, data: descripcionMaterial(d) })
+        if (d.cantidad !== m.cantidad) ajustes.push({ materialId: m.id, cantidad: 0, delta: d.cantidad - m.cantidad })
+    }
+    for (const d of deseados.filter(x => !x.id || !actuales.some(m => m.id === x.id))) {
+        const nuevo = await tx.loteViveroMaterial.create({ data: { loteId, ...descripcionMaterial(d), cantidad: 0 } })
+        ingresos.push({ materialId: nuevo.id, cantidad: d.cantidad })
+    }
+
+    if (ingresos.length) {
+        await aplicarMovimiento(tx, { loteId, tipo: "INGRESO", fecha: ahora, observaciones: "Registrado desde la ficha del lote", ...quien }, ingresos)
+    }
+    if (ajustes.length) {
+        const motivo = input.finalidad === "VIVERO" ? "Corrección desde la ficha del lote" : "El lote dejó de ser vivero"
+        await aplicarMovimiento(tx, { loteId, tipo: "AJUSTE", fecha: ahora, observaciones: motivo, ...quien }, ajustes)
+    }
+    if (quitar.length) await tx.loteViveroMaterial.deleteMany({ where: { id: { in: quitar } } })
 }
 
 function ubicacionData(input: LoteInput) {
@@ -165,26 +210,31 @@ export async function createLote(input: LoteInput): Promise<{ data?: { id: strin
     if (invalid) return { error: invalid }
 
     try {
-    await exigirGestor()
+        const sesion = await exigirGestor()
         const { data: geo, levantamiento } = buildLinderoData(input.lindero ?? undefined)
         const areaHa = input.areaHa ?? (geo as any).areaMedidaHa
         if (!areaHa) return { error: "Indique el área del lote o defina su lindero en el mapa." }
 
-        const lote = await db.lote.create({
-            data: {
-                fincaId: input.fincaId,
-                codigo: await nextLoteCode(input.fincaId), // siempre automático, no editable
-                nombre: input.nombre.trim(),
-                areaHa,
-                ...finalidadData(input),
-                materialesVivero: { create: materialesData(input) },
-                estado: input.estado || "ACTIVO",
-                observaciones: input.observaciones?.trim() || null,
-                ...ubicacionData(input),
-                ...geo,
-                levantamientos: levantamiento ? { create: { ...levantamiento, fincaId: input.fincaId } } : undefined,
-            },
-        })
+        const codigo = await nextLoteCode(input.fincaId) // siempre automático, no editable
+        const lote = await db.$transaction(async tx => {
+            const l = await tx.lote.create({
+                data: {
+                    fincaId: input.fincaId,
+                    codigo,
+                    nombre: input.nombre.trim(),
+                    areaHa,
+                    ...finalidadData(input),
+                    estado: input.estado || "ACTIVO",
+                    observaciones: input.observaciones?.trim() || null,
+                    ...ubicacionData(input),
+                    ...geo,
+                    levantamientos: levantamiento ? { create: { ...levantamiento, fincaId: input.fincaId } } : undefined,
+                },
+            })
+            // El inventario inicial del vivero queda como un ingreso
+            await sincronizarInventario(tx, l.id, input, sesion)
+            return l
+        }, { timeout: 30_000 })
         revalidatePath("/lotes")
         revalidatePath(`/fincas/${input.fincaId}`)
         return { data: { id: lote.id } }
@@ -199,7 +249,7 @@ export async function updateLote(id: string, input: LoteInput): Promise<{ succes
     if (invalid) return { error: invalid }
 
     try {
-    await exigirGestor()
+        const sesion = await exigirGestor()
         const current = await db.lote.findUnique({ where: { id }, select: { geometria: true, areaHa: true, fincaId: true } })
         if (!current) return { error: "El lote no existe." }
 
@@ -207,21 +257,23 @@ export async function updateLote(id: string, input: LoteInput): Promise<{ succes
             !(input.lindero && sameGeometry(current.geometria, input.lindero.geometria as any))
         const { data: geo, levantamiento } = buildLinderoData(changed ? input.lindero : undefined)
 
-        await db.lote.update({
-            where: { id },
-            data: {
-                nombre: input.nombre.trim(),
-                areaHa: input.areaHa ?? (geo as any).areaMedidaHa ?? current.areaHa,
-                ...finalidadData(input),
-                // El inventario del vivero se reemplaza completo con lo que envía el formulario
-                materialesVivero: { deleteMany: {}, create: materialesData(input) },
-                estado: input.estado || undefined,
-                observaciones: input.observaciones?.trim() || null,
-                ...ubicacionData(input),
-                ...geo,
-                levantamientos: levantamiento ? { create: { ...levantamiento, fincaId: current.fincaId } } : undefined,
-            },
-        })
+        await db.$transaction(async tx => {
+            await tx.lote.update({
+                where: { id },
+                data: {
+                    nombre: input.nombre.trim(),
+                    areaHa: input.areaHa ?? (geo as any).areaMedidaHa ?? current.areaHa,
+                    ...finalidadData(input),
+                    estado: input.estado || undefined,
+                    observaciones: input.observaciones?.trim() || null,
+                    ...ubicacionData(input),
+                    ...geo,
+                    levantamientos: levantamiento ? { create: { ...levantamiento, fincaId: current.fincaId } } : undefined,
+                },
+            })
+            // Las diferencias del inventario del vivero quedan como movimientos
+            await sincronizarInventario(tx, id, input, sesion)
+        }, { timeout: 30_000 })
         revalidatePath("/lotes")
         revalidatePath(`/lotes/${id}`)
         revalidatePath(`/fincas/${current.fincaId}`)

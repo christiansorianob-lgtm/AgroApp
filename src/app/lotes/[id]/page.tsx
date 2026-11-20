@@ -10,6 +10,8 @@ import { GeoViewer } from "@/components/geo/GeoViewer"
 import { DescargarKMLButton } from "@/components/geo/DescargarKMLButton"
 import { LevantamientosList } from "@/components/geo/LevantamientosList"
 import { TareasResumenTable, StatusPill } from "@/components/tareas/TareasResumenTable"
+import { KardexVivero } from "@/components/vivero/KardexVivero"
+import { db } from "@/lib/db"
 import { formatHa, formatMeters, METODO_LABELS } from "@/lib/geo"
 import { formatDate, cn } from "@/lib/utils"
 import { describirMaterial, describirUso, formatEntero, ETAPAS_VIVERO, NOMBRE_FINALIDAD } from "@/lib/cultivos"
@@ -39,6 +41,13 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
     const lote = res.data
     const finca = lote.finca
     const { data: tareas = [] } = await getTareas({ loteId: id, sort })
+    const movimientosVivero = lote.finalidad === "VIVERO" || (await db.movimientoVivero.count({ where: { loteId: id } })) > 0
+        ? await db.movimientoVivero.findMany({
+            where: { loteId: id },
+            include: { lineas: true, tarea: { select: { id: true, codigo: true } } },
+            orderBy: [{ fecha: "desc" }, { createdAt: "desc" }],
+        })
+        : []
     const [estadoLabel, estadoCls] = ESTADO_LOTE[lote.estado] ?? ESTADO_LOTE.ACTIVO
     const siembra = lote.finalidad === "SIEMBRA"
     const uso = describirUso(lote)
@@ -155,7 +164,7 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                 <Card className="overflow-hidden">
                     <div className="flex items-center justify-between border-b border-border px-5 py-3">
                         <h2 className="text-sm font-semibold">Inventario del vivero <span className="text-muted-foreground">({formatEntero(totalVivero)} plantas)</span></h2>
-                        <Button variant="ghost" size="sm" asChild><Link href={conRetorno(`/lotes/${id}/edit`, `/lotes/${id}`)}><Pencil className="mr-1.5 h-4 w-4" />Actualizar</Link></Button>
+                        <Button variant="ghost" size="sm" asChild><Link href={conRetorno(`/lotes/${id}/edit`, `/lotes/${id}`)}><Pencil className="mr-1.5 h-4 w-4" />Corregir</Link></Button>
                     </div>
                     {lote.materialesVivero.length === 0 ? (
                         <p className="px-5 py-8 text-center text-sm text-muted-foreground">Sin materiales registrados.</p>
@@ -200,6 +209,10 @@ export default async function LoteDetailPage(props: { params: Promise<{ id: stri
                         </div>
                     )}
                 </Card>
+            )}
+
+            {(lote.finalidad === "VIVERO" || movimientosVivero.length > 0) && (
+                <KardexVivero loteId={id} fincaId={finca.id} inventarioActual={totalVivero} movimientos={movimientosVivero as any} />
             )}
 
             <Card className="overflow-hidden">

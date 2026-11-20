@@ -94,6 +94,7 @@ model Lote {
   movimientosInventario MovimientoInventario[]
   levantamientos  LevantamientoLindero[]
   materialesVivero LoteViveroMaterial[]
+  movimientosVivero MovimientoVivero[]
 
   @@unique([fincaId, codigo]) // Codigo unico por finca
 }
@@ -130,8 +131,93 @@ model LoteViveroMaterial {
   updatedAt         DateTime @updatedAt
 
   lote              Lote     @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  movimientos       MovimientoViveroLinea[]
 
   @@index([loteId])
+}
+
+// -----------------------------------------------------------------------------
+// MOVIMIENTOS DEL VIVERO (entradas y salidas de plantas)
+// -----------------------------------------------------------------------------
+enum TipoMovimientoVivero {
+  INGRESO    // Entran plantas al vivero
+  VENTA      // Salen vendidas (con precio por variedad)
+  SIEMBRA    // Salen a campo
+  TRASLADO   // Salen a otro lugar
+  MORTALIDAD // Plantas muertas o descartadas
+  AJUSTE     // Corrección del inventario (desde la ficha del lote)
+}
+
+/// Documento de una entrada o salida de plantas de un lote vivero.
+model MovimientoVivero {
+  id                    String   @id @default(uuid())
+  codigo                String   @unique // MV-001
+  loteId                String
+  tipo                  TipoMovimientoVivero
+  fecha                 DateTime
+  tareaId               String?  @unique // La tarea que lo originó (una por tarea)
+  destino               String?  // A dónde salieron (siembra, traslado, venta)
+  clienteNombre         String?
+  clienteCedula         String?
+  clienteCelular        String?
+  placas                String?
+  representante         String?  // Quien entregó por parte de la finca
+  firmaClienteUrl       String?
+  firmaRepresentanteUrl String?
+  pdfUrl                String?  // Constancia de entrega
+  observaciones         String?  @db.Text
+  registradoPorId       String?
+  registradoPor         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  lote                  Lote     @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  tarea                 Tarea?   @relation(fields: [tareaId], references: [id])
+  lineas                MovimientoViveroLinea[]
+  conteos               ConteoVivero[]
+
+  @@index([loteId, fecha])
+}
+
+/// Una línea por material (renglón del inventario) afectado.
+model MovimientoViveroLinea {
+  id                String   @id @default(uuid())
+  movimientoId      String
+  materialId        String?  // Renglón del inventario; queda null si el renglón se borra
+  // Copia del material al momento del movimiento, para que el historial no cambie
+  tipoCultivo       String
+  especie           String?
+  variedad          String?
+  casaGenetica      String?
+  opcionesGeneticas String[] @default([])
+  etapa             EtapaVivero
+  ubicacion         String?
+  cantidad          Int      // Siempre positiva
+  delta             Int      // + entra al vivero, − sale
+  precioUnitario    Float?   // Solo ventas
+  valor             Float?
+
+  movimiento        MovimientoVivero    @relation(fields: [movimientoId], references: [id], onDelete: Cascade)
+  material          LoteViveroMaterial? @relation(fields: [materialId], references: [id], onDelete: SetNull)
+
+  @@index([movimientoId])
+  @@index([materialId])
+}
+
+/// Conteos hechos con el contador de plantas (uno por "Conteo #n").
+model ConteoVivero {
+  id           String   @id @default(uuid())
+  movimientoId String
+  numero       Int
+  materialId   String?
+  descripcion  String   // Material contado, como se mostró en el contador
+  cantidad     Int
+  cerradoEn    DateTime // Hora en que se terminó el conteo (ingreso a la estación de carga)
+  nota         String?
+
+  movimiento   MovimientoVivero @relation(fields: [movimientoId], references: [id], onDelete: Cascade)
+
+  @@index([movimientoId])
 }
 
 enum MetodoGeorreferenciacion {
@@ -186,6 +272,8 @@ model Tarea {
   responsable         String   // Nombre, se conserva por historia
   responsableId       String?  // Responsable asignado: con esto ve la tarea en "Mis tareas"
   responsableRef      Responsable? @relation(fields: [responsableId], references: [id])
+  movimientoViveroTipo TipoMovimientoVivero? // Si la tarea es un movimiento de plantas del vivero
+  movimientoVivero    MovimientoVivero?
   duracionEstimadaHoras Float?
   duracionRealHoras   Float?
   estado              EstadoTarea @default(PROGRAMADA)

@@ -15,6 +15,9 @@ import { formatDate } from "@/lib/utils"
 import { redirect } from "next/navigation"
 import { NoAutorizado, sesionDePagina } from "@/lib/auth"
 import { esGestor } from "@/lib/sesion"
+import { db } from "@/lib/db"
+import { MovimientoViveroForm } from "@/components/vivero/MovimientoViveroForm"
+import { MovimientoViveroDetalle } from "@/components/vivero/MovimientoViveroDetalle"
 
 export default async function ExecuteTaskPage(props: { 
     params: Promise<{ id: string }>,
@@ -39,6 +42,17 @@ export default async function ExecuteTaskPage(props: {
 
     const tarea = tareaRes.data as any
     const fincaId = tarea.fincaId
+
+    // Tarea de movimiento de plantas del vivero: formulario propio en lugar del de ejecución general
+    const vivero = tarea.movimientoViveroTipo && tarea.loteId ? await db.lote.findUnique({
+        where: { id: tarea.loteId },
+        select: {
+            materialesVivero: { orderBy: [{ etapa: "asc" }, { ubicacion: "asc" }, { variedad: "asc" }] },
+            movimientosVivero: { where: { tareaId: tarea.id }, include: { lineas: true } },
+            finca: { select: { lotes: { select: { codigo: true, nombre: true }, orderBy: { codigo: "asc" } } } },
+        },
+    }) : null
+    const movimiento = vivero?.movimientosVivero[0] ?? null
 
     // Fetch resources filtered by fincaId
     const [productosRes, maquinariaRes] = await Promise.all([
@@ -106,7 +120,14 @@ export default async function ExecuteTaskPage(props: {
 
 
 
-            {(tarea.estado === 'EJECUTADA' || tarea.estado === 'CANCELADA') ? (
+            {vivero ? (
+                movimiento ? <MovimientoViveroDetalle mov={movimiento as any} />
+                    : tarea.estado === 'CANCELADA' ? <TaskExecutionDetails tarea={tarea} />
+                        : <MovimientoViveroForm tareaId={tarea.id} tipo={tarea.movimientoViveroTipo}
+                            materiales={vivero.materialesVivero}
+                            destinos={vivero.finca.lotes.map(l => `${l.codigo} ${l.nombre}`)}
+                            representante={sesion.nombre} volverA={volverA} />
+            ) : (tarea.estado === 'EJECUTADA' || tarea.estado === 'CANCELADA') ? (
                 <TaskExecutionDetails tarea={tarea} />
             ) : (
                 <ExecutionForm tarea={tarea} productos={productos} maquinaria={maquinaria} returnTo={returnTo} puedeCrearCatalogos={esGestor(sesion.rol)} />
