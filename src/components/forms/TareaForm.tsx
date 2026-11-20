@@ -91,8 +91,10 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     const [errorForm, setErrorForm] = useState<string | null>(null)
     // En un lote vivero la tarea puede ser un movimiento de plantas (venta, siembra, traslado…)
     const movimientoInicial = searchParams?.get('movimiento') as TipoMovimientoVivero | null
-    const [movimiento, setMovimiento] = useState<TipoMovimientoVivero | "">(
-        movimientoInicial && TIPOS_MOVIMIENTO.some(t => t.valor === movimientoInicial) ? movimientoInicial : "")
+    const movimientoValido = movimientoInicial && TIPOS_MOVIMIENTO.some(t => t.valor === movimientoInicial) ? movimientoInicial : ""
+    // Casilla "¿es un movimiento de inventario?": desmarcada, la tarea es una labor normal del vivero
+    const [esMovimiento, setEsMovimiento] = useState(!!movimientoValido)
+    const [movimiento, setMovimiento] = useState<TipoMovimientoVivero | "">(movimientoValido)
 
     // Controlled states for other Comboboxes
     const [selectedTipo, setSelectedTipo] = useState("")
@@ -187,7 +189,7 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
     const fincaSeleccionada = fincas.find(f => f.id === selectedFinca)
     const loteSeleccionado = lotes.find(l => l.id === selectedLote)
     const esVivero = nivel === "LOTE" && loteSeleccionado?.finalidad === "VIVERO"
-    const movimientoActivo = esVivero && movimiento ? movimiento : ""
+    const movimientoActivo = esVivero && esMovimiento && movimiento ? movimiento : ""
     const migas: Breadcrumb[] = origen === "lote"
         ? [{ label: "Fincas", href: "/fincas" }, { label: fincaSeleccionada?.nombre ?? "Finca", href: `/fincas/${initialFincaId}` }, { label: loteSeleccionado?.nombre ?? "Lote", href: `/lotes/${initialLoteId}` }, { label: "Nueva tarea" }]
         : origen === "finca"
@@ -243,7 +245,7 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
         const faltante = !nivel ? "Indique si la tarea es para toda la finca o para un lote."
             : !selectedFinca ? "Seleccione la finca."
                 : nivel === "LOTE" && !selectedLote ? "Seleccione el lote."
-                    : esVivero && movimiento === "" && !selectedTipo ? "Indique si es un movimiento de plantas o elija el tipo de actividad."
+                    : esVivero && esMovimiento && !movimiento ? "Elija el tipo de movimiento: venta, siembra, traslado, mortalidad o ingreso."
                     : !movimientoActivo && !selectedTipo ? "Seleccione el tipo de actividad."
                         : !selectedResponsable ? "Seleccione el responsable." : null
         if (faltante) {
@@ -453,31 +455,38 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                             </div>
                         )}
 
-                        {/* ── Lote vivero: ¿la tarea mueve plantas? ── */}
+                        {/* ── Lote vivero: casilla que despliega los tipos de movimiento de plántulas ── */}
                         {esVivero && (
-                            <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
-                                <Label className="flex items-center gap-1.5"><Sprout className="h-4 w-4 text-emerald-700" /> Este lote es un vivero. ¿La tarea mueve plantas del inventario?</Label>
-                                <div className="flex flex-wrap gap-2">
-                                    {TIPOS_MOVIMIENTO.map(t => (
-                                        <button key={t.valor} type="button" onClick={() => { setMovimiento(t.valor); setModoMasivo(false); setErrorForm(null) }}
-                                            className={cn("rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                                                movimiento === t.valor ? "border-emerald-600 bg-emerald-600 text-white" : "border-emerald-200 bg-card hover:bg-emerald-50")}>
-                                            <span className="font-semibold">{t.nombre}</span>
-                                            <span className={cn("block text-xs", movimiento === t.valor ? "text-white/80" : "text-muted-foreground")}>{t.descripcion}</span>
-                                        </button>
-                                    ))}
-                                    <button type="button" onClick={() => { setMovimiento(""); setErrorForm(null) }}
-                                        className={cn("rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                                            movimiento === "" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-card hover:bg-muted/50")}>
-                                        <span className="font-semibold">Otra labor</span>
-                                        <span className="block text-xs text-muted-foreground">Riego, fertilización, sanidad…</span>
-                                    </button>
-                                </div>
-                                {movimientoActivo && (
-                                    <p className="text-xs text-emerald-900">
-                                        Al ejecutar la tarea se indica cuántas plantas {infoMovimiento(movimientoActivo).sentido === "entrada" ? "entran" : "salen"} de cada material
-                                        {movimientoActivo === "VENTA" ? ", el precio por variedad y los datos del cliente" : ""}. El inventario se actualiza en ese momento.
-                                    </p>
+                            <div className={cn("rounded-xl border transition-colors", esMovimiento ? "border-emerald-300 bg-emerald-50/60" : "border-border")}>
+                                <label className="flex cursor-pointer items-start gap-3 p-4">
+                                    <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-emerald-600" checked={esMovimiento}
+                                        onChange={e => { setEsMovimiento(e.target.checked); if (e.target.checked) setModoMasivo(false); setErrorForm(null) }} />
+                                    <span>
+                                        <span className="flex items-center gap-1.5 text-sm font-semibold"><Sprout className="h-4 w-4 text-emerald-700" /> ¿Esta tarea es un movimiento de inventario de plántulas?</span>
+                                        <span className="block text-xs text-muted-foreground">Márquela para una venta, siembra, traslado, mortalidad o ingreso de plantas. Déjela sin marcar para labores como riego o fertilización.</span>
+                                    </span>
+                                </label>
+                                {esMovimiento && (
+                                    <div className="space-y-3 border-t border-emerald-200 px-4 pb-4 pt-3">
+                                        <div className="flex flex-wrap gap-2">
+                                            {TIPOS_MOVIMIENTO.map(t => (
+                                                <button key={t.valor} type="button" onClick={() => { setMovimiento(t.valor); setErrorForm(null) }}
+                                                    className={cn("rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                                                        movimiento === t.valor ? "border-emerald-600 bg-emerald-600 text-white" : "border-emerald-200 bg-card hover:bg-emerald-50")}>
+                                                    <span className="font-semibold">{t.nombre}</span>
+                                                    <span className={cn("block text-xs", movimiento === t.valor ? "text-white/80" : "text-muted-foreground")}>{t.descripcion}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {movimientoActivo ? (
+                                            <p className="text-xs text-emerald-900">
+                                                Al ejecutar la tarea se indica cuántas plantas {infoMovimiento(movimientoActivo).sentido === "entrada" ? "entran" : "salen"} de cada material
+                                                {movimientoActivo === "VENTA" ? ", el precio por variedad y los datos del cliente" : ""}. El inventario se actualiza en ese momento.
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs text-emerald-900">Elija el tipo de movimiento.</p>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )}
