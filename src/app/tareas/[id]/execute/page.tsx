@@ -16,6 +16,7 @@ import { redirect } from "next/navigation"
 import { NoAutorizado, sesionDePagina } from "@/lib/auth"
 import { esGestor } from "@/lib/sesion"
 import { db } from "@/lib/db"
+import { conRetorno } from "@/lib/navegacion"
 import { MovimientoViveroForm } from "@/components/vivero/MovimientoViveroForm"
 import { MovimientoViveroDetalle } from "@/components/vivero/MovimientoViveroDetalle"
 
@@ -48,7 +49,7 @@ export default async function ExecuteTaskPage(props: {
         where: { id: tarea.loteId },
         select: {
             materialesVivero: { orderBy: [{ etapa: "asc" }, { ubicacion: "asc" }, { variedad: "asc" }] },
-            movimientosVivero: { where: { tareaId: tarea.id }, include: { lineas: true } },
+            movimientosVivero: { where: { tareaId: tarea.id }, include: { lineas: true, conteos: { orderBy: { numero: "asc" } } } },
             finca: { select: { lotes: { select: { codigo: true, nombre: true }, orderBy: { codigo: "asc" } } } },
         },
     }) : null
@@ -126,7 +127,8 @@ export default async function ExecuteTaskPage(props: {
                         : <MovimientoViveroForm tareaId={tarea.id} tipo={tarea.movimientoViveroTipo}
                             materiales={vivero.materialesVivero}
                             destinos={vivero.finca.lotes.map(l => `${l.codigo} ${l.nombre}`)}
-                            representante={sesion.nombre} volverA={volverA} />
+                            representante={sesion.nombre} volverA={volverA}
+                            urlContador={conRetorno(`/tareas/${tarea.id}/contador`, returnTo)} />
             ) : (tarea.estado === 'EJECUTADA' || tarea.estado === 'CANCELADA') ? (
                 <TaskExecutionDetails tarea={tarea} />
             ) : (

@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowDownToLine, ArrowUpFromLine, Loader2, Save } from "lucide-react"
+import { ArrowDownToLine, ArrowUpFromLine, ChevronRight, Loader2, Save } from "lucide-react"
 import { registrarMovimientoDeTarea } from "@/app/actions/vivero"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,7 +28,7 @@ const soloEntero = (v: string) => v.replace(/\D/g, "")
 const aNumero = (v: string) => (v.trim() === "" ? null : Number(v.replace(/\./g, "").replace(",", ".")))
 
 /** Registro de un movimiento de plantas al ejecutar la tarea: cantidades por renglón y, en ventas, precio por variedad. */
-export function MovimientoViveroForm({ tareaId, tipo, materiales, destinos, representante, volverA }: {
+export function MovimientoViveroForm({ tareaId, tipo, materiales, destinos, representante, volverA, urlContador }: {
     tareaId: string
     tipo: TipoMovimientoVivero
     materiales: MaterialDisponible[]
@@ -36,6 +36,8 @@ export function MovimientoViveroForm({ tareaId, tipo, materiales, destinos, repr
     destinos: string[]
     representante: string
     volverA: string
+    /** Pantalla del contador de plantas para esta tarea */
+    urlContador?: string
 }) {
     const router = useRouter()
     const info = infoMovimiento(tipo)
@@ -111,6 +113,20 @@ export function MovimientoViveroForm({ tareaId, tipo, materiales, destinos, repr
     return (
         <div className="space-y-6">
             {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+
+            {urlContador && materiales.length > 0 && (
+                <a href={urlContador} className="flex items-center gap-4 rounded-xl border border-emerald-300 bg-emerald-50 p-4 transition-colors hover:bg-emerald-100">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-2xl text-white">👆</span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block font-semibold text-emerald-900">Contar con el contador de plantas</span>
+                        <span className="block text-sm text-emerald-800">
+                            Botón grande con voz para contar en el celular{tipo === "VENTA" ? ", firmas del cliente y constancia de entrega en PDF" : ""}. Al terminar se descuentan las plantas.
+                        </span>
+                    </span>
+                    <ChevronRight className="h-5 w-5 shrink-0 text-emerald-700" />
+                </a>
+            )}
+            {urlContador && materiales.length > 0 && <p className="text-center text-xs text-muted-foreground">o escriba las cantidades a mano:</p>}
 
             <Card>
                 <CardHeader>

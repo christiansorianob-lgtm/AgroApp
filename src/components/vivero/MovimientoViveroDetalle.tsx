@@ -17,6 +17,9 @@ export interface MovimientoConLineas {
     observaciones: string | null
     registradoPor: string | null
     pdfUrl: string | null
+    firmaClienteUrl?: string | null
+    firmaRepresentanteUrl?: string | null
+    conteos?: { id: string; numero: number; descripcion: string; cantidad: number; cerradoEn: Date; nota: string | null }[]
     lineas: (RenglonVivero & { id: string; cantidad: number; delta: number; precioUnitario: number | null; valor: number | null })[]
 }
 
@@ -94,6 +97,30 @@ export function MovimientoViveroDetalle({ mov }: { mov: MovimientoConLineas }) {
                     </table>
                 </div>
 
+                {mov.conteos && mov.conteos.length > 0 && (
+                    <div>
+                        <h4 className="mb-1.5 text-sm font-semibold">Conteos con el contador ({mov.conteos.length})</h4>
+                        <ul className="divide-y divide-border rounded-lg border border-border text-sm">
+                            {mov.conteos.map(c => (
+                                <li key={c.id} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                                    <span><span className="font-mono text-xs text-muted-foreground">#{c.numero}</span> {c.descripcion}{c.nota ? ` · ${c.nota}` : ""}
+                                        <span className="block text-xs text-muted-foreground">{new Date(c.cerradoEn).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}</span></span>
+                                    <b className="tabular-nums">{formatEntero(c.cantidad)}</b>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                {(mov.firmaRepresentanteUrl || mov.firmaClienteUrl) && (
+                    <div className="grid grid-cols-2 gap-4">
+                        {([["Entregó", mov.firmaRepresentanteUrl, mov.representante], ["Recibió", mov.firmaClienteUrl, mov.clienteNombre]] as const).map(([rol, url, nombre]) => url && (
+                            <figure key={rol} className="rounded-lg border border-border p-2 text-center">
+                                <img src={url} alt={`Firma de ${nombre ?? rol}`} className="mx-auto h-16 object-contain" />
+                                <figcaption className="mt-1 text-xs text-muted-foreground">{rol}: {nombre}</figcaption>
+                            </figure>
+                        ))}
+                    </div>
+                )}
                 {mov.observaciones && <p className="rounded-md bg-muted/50 p-3 text-sm">{mov.observaciones}</p>}
                 {mov.pdfUrl && (
                     <a href={mov.pdfUrl} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">

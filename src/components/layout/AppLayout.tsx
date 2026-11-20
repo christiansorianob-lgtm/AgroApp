@@ -16,8 +16,8 @@ export function AppLayout({ children, sesion }: { children: React.ReactNode; ses
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const pathname = usePathname()
 
-    // Los informes imprimibles ocupan toda la pantalla, sin menú; sin sesión solo se ve el ingreso
-    if (pathname?.endsWith('/informe') || !sesion || pathname === '/login') return <>{children}</>
+    // Los informes imprimibles y el contador de plantas ocupan toda la pantalla, sin menú; sin sesión solo se ve el ingreso
+    if (pathname?.endsWith('/informe') || pathname?.endsWith('/contador') || !sesion || pathname === '/login') return <>{children}</>
 
     return (
         <div className="min-h-screen bg-background text-foreground">

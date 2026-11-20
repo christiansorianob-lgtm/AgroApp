@@ -8,7 +8,7 @@ import { COOKIE_SESION, inicioDe, leerSesion, puedeConfigurar, type Rol } from "
 const PUBLICAS = [/^\/login$/, /^\/api\/ping$/]
 
 /** Lo único que ve un responsable: sus tareas, la pantalla para ejecutarlas y su cuenta. */
-const DEL_RESPONSABLE = [/^\/mis-tareas(\/|$)/, /^\/tareas\/[^/]+\/execute$/, /^\/cuenta(\/|$)/]
+const DEL_RESPONSABLE = [/^\/mis-tareas(\/|$)/, /^\/tareas\/[^/]+\/(execute|contador)$/, /^\/cuenta(\/|$)/]
 
 function permitida(rol: Rol, ruta: string): boolean {
     if (ruta.startsWith("/configuracion")) return puedeConfigurar(rol)
@@ -42,5 +42,5 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
     // Todo menos los archivos internos de Next y los estáticos
-    matcher: ["/((?!_next/static|_next/image|favicon.ico|uploads/|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)"],
+    matcher: ["/((?!_next/static|_next/image|favicon.ico|uploads/|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|mp3)$).*)"],
 }

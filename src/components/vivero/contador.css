@@ -1,0 +1,77 @@
+/* Contador de plantas: pantalla completa, modo oscuro y alto contraste para usar al sol.
+   Estilos tomados del prototipo; todo queda bajo .contador para no afectar el resto de la app. */
+
+.contador, .contador * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+.contador { position: fixed; inset: 0; z-index: 50; background: #14231a; color: #f2f7f0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; touch-action: manipulation; user-select: none; -webkit-user-select: none; overflow: hidden; }
+.contador .app { display: flex; flex-direction: column; height: 100dvh; max-width: 600px; margin: 0 auto; padding: 8px 10px 10px; }
+.contador .bar { display: flex; gap: 8px; align-items: center; }
+.contador .sum { flex: 1; display: flex; justify-content: space-between; align-items: center; background: #b8f27c; color: #14321c; border-radius: 14px; padding: 6px 14px; font-weight: 700; font-size: 12px; line-height: 1.2; }
+.contador .sum b { font-size: 26px; font-variant-numeric: tabular-nums; display: block; text-align: right; }
+.contador .sum small { display: block; font-weight: 600; opacity: .75; font-size: 12px; }
+.contador .btn { border: 0; border-radius: 14px; padding: 12px 8px; font-size: 16px; font-weight: 600; background: #243b2c; color: #f2f7f0; cursor: pointer; }
+.contador .btn:active { opacity: .7; }
+.contador .btn:disabled { opacity: .45; }
+.contador .btn.save { background: #b8f27c; color: #14321c; }
+.contador .btn.danger { background: #4a2626; color: #ffb4b4; }
+.contador .btn.ok { background: #2f6b3d; color: #fff; }
+.contador .btn.wa { background: #25d366; color: #06361a; text-align: center; text-decoration: none; display: block; }
+.contador .icono { flex: 0 0 auto; padding: 12px 14px; align-self: stretch; }
+.contador .detail { display: none; margin-top: 8px; max-height: 52dvh; overflow: auto; background: #182a1f; border-radius: 14px; padding: 10px; user-select: text; -webkit-user-select: text; }
+.contador .detail.open { display: block; }
+.contador input, .contador textarea { width: 100%; background: #1f3326; border: 1px solid #2f4a39; color: #f2f7f0; border-radius: 12px; padding: 11px; font-size: 16px; margin-bottom: 8px; font-family: inherit; user-select: text; -webkit-user-select: text; }
+.contador input::placeholder, .contador textarea::placeholder { color: #8fa896; }
+.contador h3 { font-size: 13px; color: #8fa896; margin: 6px 4px; font-weight: 600; }
+.contador .tools { display: flex; gap: 8px; margin-bottom: 6px; }
+.contador .tools .btn { flex: 1; font-size: 14px; padding: 10px 6px; }
+.contador .item { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: #1f3326; border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; font-size: 15px; }
+.contador .item small { color: #8fa896; display: block; font-size: 11px; }
+.contador .item b { color: #b8f27c; font-size: 18px; font-variant-numeric: tabular-nums; }
+.contador .item button { background: none; border: 0; color: #8fa896; font-size: 18px; padding: 4px 8px; cursor: pointer; }
+.contador .total { display: flex; justify-content: space-between; padding: 6px 12px 2px; font-weight: 700; color: #b8f27c; font-size: 17px; }
+.contador .empty { color: #8fa896; font-size: 14px; padding: 6px 4px; }
+.contador .tapwrap { flex: 1; min-height: 0; margin: 8px 0; position: relative; display: flex; }
+.contador .snd { position: absolute; top: 10px; right: 10px; z-index: 2; width: 52px; height: 52px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); background: rgba(10,30,15,.55); color: #fff; font-size: 24px; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.contador .tap { flex: 1; width: 100%; min-height: 0; margin: 0; border: 0; border-radius: 28px; background: linear-gradient(160deg, #3f9d4f, #2a7a3a); color: #fff; box-shadow: 0 8px 0 #1c5428; transition: transform .05s, box-shadow .05s; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 10px; cursor: pointer; }
+.contador .tap.on { transform: translateY(6px); box-shadow: 0 2px 0 #1c5428; }
+.contador .tap .n { font-size: min(36vw, 190px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: #eaffd0; }
+.contador .tap .h { font-size: 16px; font-weight: 600; opacity: .85; margin-top: 8px; }
+.contador .row { display: flex; gap: 10px; margin-top: 6px; }
+.contador .row .btn { flex: 1; }
+.contador .row .btn.save { flex: 2; }
+.contador .caja { background: #1b2e22; border-radius: 12px; padding: 10px; margin: 8px 0; }
+.contador .caja h3 { margin: 0 0 8px 2px; }
+.contador .msg { font-size: 13px; margin-top: 6px; min-height: 16px; }
+.contador .msg.err { color: #ffb4b4; }
+.contador .msg.bien { color: #b8f27c; }
+.contador .vchip { width: 100%; margin-top: 8px; background: #243b2c; color: #f2f7f0; border: 1px solid #3d5e48; border-radius: 14px; padding: 10px 12px; font-size: 16px; font-weight: 700; text-align: left; cursor: pointer; }
+.contador .vchip small { display: block; font-size: 11px; color: #8fa896; font-weight: 600; }
+.contador .vchip .alerta { color: #ffb4b4; }
+.contador .vlink { color: #ffd86b; text-decoration: underline; font-weight: 600; }
+.contador .vsum { background: #1b2e22; border-radius: 12px; padding: 8px 12px; margin: 6px 0; font-size: 14px; }
+.contador .vsum div { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+.contador .vsum b { color: #b8f27c; }
+.contador .vopt { display: flex; gap: 6px; margin-bottom: 8px; }
+.contador .vopt .btn { flex: 1; text-align: left; font-size: 15px; padding: 12px; }
+.contador .vopt .btn small { display: block; font-size: 12px; color: #8fa896; font-weight: 500; }
+.contador .vopt .btn.sel { background: #b8f27c; color: #14321c; }
+.contador .vopt .btn.sel small { color: #2f5a2a; }
+.contador .precio { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 14px; }
+.contador .precio span { flex: 1; }
+.contador .precio input { width: 130px; margin: 0; text-align: right; }
+.contador .sigbtns { display: flex; gap: 8px; margin-bottom: 8px; }
+.contador .sigbtns .btn { flex: 1; font-size: 14px; padding: 10px 6px; }
+.contador .confirm { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 9; }
+.contador .box { background: #1f3326; border-radius: 18px; padding: 20px; width: 100%; max-width: 360px; max-height: 88dvh; overflow: auto; }
+.contador .box p { margin: 0 0 16px; font-size: 17px; }
+.contador .box input { background: #14231a; }
+.contador .box .row { margin-top: 0; }
+.contador .resultado { position: fixed; inset: 0; z-index: 12; background: #14231a; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.contador .resultado .box { max-width: 420px; text-align: center; }
+.contador .resultado .grande { font-size: 44px; font-weight: 800; color: #b8f27c; font-variant-numeric: tabular-nums; }
+.contador .resultado .btn { width: 100%; margin-top: 8px; }
+.contador #sigov { position: fixed; left: 0; top: 0; background: #fff; z-index: 20; display: flex; flex-direction: column; transform-origin: 0 0; overflow: hidden; }
+.contador .sighead { background: #14391f; color: #fff; padding: 8px 14px; font-size: 15px; font-weight: 700; }
+.contador .sighead small { font-weight: 500; opacity: .85; font-size: 12px; display: block; }
+.contador #sigc { flex: 1; min-height: 0; width: 100%; background: #fff; touch-action: none; display: block; cursor: crosshair; }
+.contador .sigfoot { display: flex; gap: 8px; padding: 8px 10px; background: #eef3ec; }
+.contador .sigfoot .btn { flex: 1; font-size: 15px; padding: 12px 6px; }

@@ -60,6 +60,14 @@ export function mensajeTareaAsignada(t: DatosTareaMensaje): string {
     ].filter(l => l !== null).join("\n")
 }
 
+/** Mensaje al cliente con la constancia de entrega (el PDF se adjunta a mano en el chat). */
+export function mensajeConstanciaEntrega(c: { cliente: string; total: number; codigo?: string | null; enlacePdf?: string | null }): string {
+    return [
+        `Buen día, ${c.cliente}. Le compartimos la constancia de entrega de *${c.total.toLocaleString("es-CO")} plántulas de palma de aceite* del Vivero Villa Lida${c.codigo ? ` (ref. ${c.codigo})` : ""}.`,
+        c.enlacePdf ? `\nPuede descargarla aquí:\n${c.enlacePdf}` : "\nAdjuntamos el PDF.",
+    ].join("\n")
+}
+
 export interface DatosPlanMensaje extends Omit<DatosTareaMensaje, "codigo" | "fecha"> {
     cantidad: number
     cadaDias: number
