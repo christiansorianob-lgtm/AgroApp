@@ -1,5 +1,6 @@
 'use server'
 
+import { exigirDesarrollador, exigirGestor } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 
@@ -8,6 +9,7 @@ import { revalidatePath } from "next/cache"
 // -----------------------------------------------------------------------------
 
 export async function getTiposActividad() {
+    await exigirGestor()
     try {
         const data = await db.tipoActividad.findMany({
             orderBy: { nombre: 'asc' }
@@ -20,6 +22,7 @@ export async function getTiposActividad() {
 }
 
 export async function createTipoActividad(nombre: string) {
+    await exigirGestor()
     if (!nombre || !nombre.trim()) return { error: "Nombre requerido" }
 
     try {
@@ -35,6 +38,7 @@ export async function createTipoActividad(nombre: string) {
 }
 
 export async function deleteTipoActividad(id: string) {
+    await exigirGestor()
     try {
         await db.tipoActividad.delete({ where: { id } })
         revalidatePath('/configuracion/actividades')
@@ -46,6 +50,7 @@ export async function deleteTipoActividad(id: string) {
 }
 
 export async function seedTiposActividad() {
+    await exigirDesarrollador()
     const defaults = [
         "Fertilización", "Poda", "Riego", "Control de Plagas",
         "Control de Malezas", "Cosecha", "Siembra", "Mantenimiento General"
@@ -67,6 +72,7 @@ export async function seedTiposActividad() {
 // -----------------------------------------------------------------------------
 
 export async function getResponsables() {
+    await exigirGestor()
     try {
         const data = await db.responsable.findMany({
             where: { activo: true },
@@ -81,6 +87,7 @@ export async function getResponsables() {
 }
 
 export async function createResponsable(nombre: string, email?: string, cargoId?: string, celular?: string) {
+    await exigirGestor()
     if (!nombre || !nombre.trim()) return { error: "Nombre requerido" }
 
     try {
@@ -101,6 +108,7 @@ export async function createResponsable(nombre: string, email?: string, cargoId?
 }
 
 export async function updateResponsable(id: string, nombre: string, email?: string, cargoId?: string, celular?: string) {
+    await exigirGestor()
     if (!nombre || !nombre.trim()) return { error: "Nombre requerido" }
 
     try {
@@ -123,6 +131,7 @@ export async function updateResponsable(id: string, nombre: string, email?: stri
 }
 
 export async function deleteResponsable(id: string) {
+    await exigirGestor()
     try {
         await db.responsable.delete({ where: { id } })
         revalidatePath('/configuracion/responsables')
@@ -138,6 +147,7 @@ export async function deleteResponsable(id: string) {
 // -----------------------------------------------------------------------------
 
 export async function getCargos() {
+    await exigirGestor()
     try {
         const data = await db.cargo.findMany({ orderBy: { nombre: 'asc' } })
         return { data }
@@ -147,6 +157,7 @@ export async function getCargos() {
 }
 
 export async function createCargo(nombre: string) {
+    await exigirGestor()
     if (!nombre || !nombre.trim()) return { error: "Nombre requerido" }
     try {
         await db.cargo.create({ data: { nombre: nombre.trim() } })
@@ -158,6 +169,7 @@ export async function createCargo(nombre: string) {
 }
 
 export async function deleteCargo(id: string) {
+    await exigirGestor()
     try {
         await db.cargo.delete({ where: { id } })
         revalidatePath('/configuracion/responsables')
@@ -168,6 +180,7 @@ export async function deleteCargo(id: string) {
 }
 
 export async function seedCargos() {
+    await exigirDesarrollador()
     const defaults = [
         "Administrador", "Mayordomo", "Capataz", "Agrónomo",
         "Veterinario", "Tractorista / Operario", "Jornalero",
@@ -191,6 +204,7 @@ export async function seedCargos() {
 
 // --- Categorias Producto ---
 export async function getCategoriasProducto() {
+    await exigirGestor()
     try {
         const data = await db.categoriaProducto.findMany({ orderBy: { nombre: 'asc' } })
         return { data }
@@ -200,6 +214,7 @@ export async function getCategoriasProducto() {
 }
 
 export async function createCategoriaProducto(nombre: string) {
+    await exigirGestor()
     if (!nombre || !nombre.trim()) return { error: "Nombre requerido" }
     try {
         await db.categoriaProducto.create({ data: { nombre: nombre.trim() } })
@@ -212,6 +227,7 @@ export async function createCategoriaProducto(nombre: string) {
 }
 
 export async function deleteCategoriaProducto(id: string) {
+    await exigirGestor()
     try {
         await db.categoriaProducto.delete({ where: { id } })
         revalidatePath('/configuracion/categorias-producto')
@@ -224,6 +240,7 @@ export async function deleteCategoriaProducto(id: string) {
 
 // --- Unidades Medida ---
 export async function getUnidadesMedida() {
+    await exigirGestor()
     try {
         const data = await db.unidadMedida.findMany({ orderBy: { nombre: 'asc' } })
         return { data }
@@ -233,6 +250,7 @@ export async function getUnidadesMedida() {
 }
 
 export async function createUnidadMedida(nombre: string) {
+    await exigirGestor()
     if (!nombre || !nombre.trim()) return { error: "Nombre requerido" }
     try {
         await db.unidadMedida.create({ data: { nombre: nombre.trim() } })
@@ -245,6 +263,7 @@ export async function createUnidadMedida(nombre: string) {
 }
 
 export async function deleteUnidadMedida(id: string) {
+    await exigirGestor()
     try {
         await db.unidadMedida.delete({ where: { id } })
         revalidatePath('/configuracion/unidades-medida')
@@ -257,6 +276,7 @@ export async function deleteUnidadMedida(id: string) {
 
 // --- Nombres Producto ---
 export async function getNombresProducto() {
+    await exigirGestor()
     try {
         const data = await db.nombreProducto.findMany({
             orderBy: { nombre: 'asc' },
@@ -269,6 +289,7 @@ export async function getNombresProducto() {
 }
 
 export async function createNombreProducto(nombre: string, categoriaId?: string) {
+    await exigirGestor()
     if (!nombre || !nombre.trim()) return { error: "Nombre requerido" }
     try {
         await db.nombreProducto.create({
@@ -286,6 +307,7 @@ export async function createNombreProducto(nombre: string, categoriaId?: string)
 }
 
 export async function deleteNombreProducto(id: string) {
+    await exigirGestor()
     try {
         await db.nombreProducto.delete({ where: { id } })
         revalidatePath('/configuracion/nombres-producto')
@@ -297,6 +319,7 @@ export async function deleteNombreProducto(id: string) {
 }
 
 export async function seedProductoCatalogs() {
+    await exigirDesarrollador()
     const categorias = ["Fertilizante", "Herbicida", "Fungicida", "Insecticida", "Enmienda", "Combustible", "Herramienta", "Repuestos"]
     const unidades = ["Kilogramo (kg)", "Gramo (g)", "Litro (l)", "Mililitro (ml)", "Bulto", "Galón", "Unidad"]
     const nombres = ["Urea 46%", "DAP 18-46-0", "KCL Cloruro de Potasio", "Glifosato", "Cal Dolomita", "Bujía"]
@@ -323,6 +346,7 @@ export async function seedProductoCatalogs() {
 }
 
 export async function getCategoryDetails(id: string) {
+    await exigirGestor()
     try {
         const category = await db.categoriaProducto.findUnique({
             where: { id },

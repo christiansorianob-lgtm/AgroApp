@@ -1,10 +1,12 @@
 'use server'
 
+import { exigirGestor, exigirSesion } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
 export async function getProductos(fincaId?: string) {
+    await exigirSesion()
     try {
         const whereClause = fincaId ? { fincaId } : {}
         const productos = await db.producto.findMany({
@@ -25,6 +27,7 @@ export async function getProductos(fincaId?: string) {
 // export async function getProductos(fincaId: string) { ... } -> Updated below
 
 export async function createProducto(formData: FormData) {
+    await exigirGestor()
     const nombre = formData.get("nombre") as string
     const categoria = formData.get("categoria") as string
     const unidadMedida = formData.get("unidadMedida") as string
@@ -109,6 +112,7 @@ async function createInitialStockMovement(productoId: string, cantidad: number, 
 }
 
 export async function createAjusteInventario(formData: FormData) {
+    await exigirGestor()
     const productoId = formData.get("productoId") as string
     const fincaId = formData.get("fincaId") as string
     const tipoMovimiento = formData.get("tipoMovimiento") as "ENTRADA" | "SALIDA"

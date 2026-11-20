@@ -5,13 +5,19 @@ import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import clsx from 'clsx'
+import type { Rol } from '@/lib/sesion'
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export interface UsuarioActual {
+    nombre: string
+    rol: Rol
+}
+
+export function AppLayout({ children, sesion }: { children: React.ReactNode; sesion: UsuarioActual | null }) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const pathname = usePathname()
 
-    // Los informes imprimibles ocupan toda la pantalla, sin menú
-    if (pathname?.endsWith('/informe')) return <>{children}</>
+    // Los informes imprimibles ocupan toda la pantalla, sin menú; sin sesión solo se ve el ingreso
+    if (pathname?.endsWith('/informe') || !sesion || pathname === '/login') return <>{children}</>
 
     return (
         <div className="min-h-screen bg-background text-foreground">
@@ -24,7 +30,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 onClick={() => setSidebarOpen(false)}
             />
 
-            <Sidebar className={clsx(sidebarOpen ? "translate-x-0" : "-translate-x-full")} onClose={() => setSidebarOpen(false)} />
+            <Sidebar usuario={sesion} className={clsx(sidebarOpen ? "translate-x-0" : "-translate-x-full")} onClose={() => setSidebarOpen(false)} />
 
             <div className="flex min-h-screen flex-col md:pl-64">
                 <Header onMenuClick={() => setSidebarOpen(true)} />

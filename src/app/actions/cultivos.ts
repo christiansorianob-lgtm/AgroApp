@@ -1,8 +1,10 @@
 'use server'
 
+import { exigirGestor } from "@/lib/auth"
 import { db } from "@/lib/db"
 
 export async function getTiposCultivo() {
+    await exigirGestor()
     try {
         const tipos = await db.tipoCultivo.findMany({
             orderBy: { nombre: 'asc' },
@@ -16,6 +18,7 @@ export async function getTiposCultivo() {
 }
 
 export async function createTipoCultivo(nombre: string) {
+    await exigirGestor()
     try {
         const nuevo = await db.tipoCultivo.create({ data: { nombre } })
         return { data: nuevo, success: true }
@@ -27,6 +30,7 @@ export async function createTipoCultivo(nombre: string) {
 }
 
 export async function deleteTipoCultivo(id: string) {
+    await exigirGestor()
     try {
         await db.variedadCultivo.deleteMany({ where: { tipoCultivoId: id } })
         await db.tipoCultivo.delete({ where: { id } })
@@ -38,6 +42,7 @@ export async function deleteTipoCultivo(id: string) {
 }
 
 export async function createEspecie(tipoId: string, nombre: string, nombreComun?: string) {
+    await exigirGestor()
     try {
         const nueva = await db.especieCultivo.create({
             data: { tipoCultivoId: tipoId, nombre: nombre.trim(), nombreComun: nombreComun?.trim() || null }
@@ -50,6 +55,7 @@ export async function createEspecie(tipoId: string, nombre: string, nombreComun?
 }
 
 export async function deleteEspecie(id: string) {
+    await exigirGestor()
     try {
         // Las variedades de la especie quedan sin especie (no se borran)
         await db.especieCultivo.delete({ where: { id } })
@@ -60,6 +66,7 @@ export async function deleteEspecie(id: string) {
 }
 
 export async function createVariedad(tipoId: string, nombre: string, especieId?: string | null, casaGenetica?: string | null) {
+    await exigirGestor()
     try {
         const nueva = await db.variedadCultivo.create({
             data: { tipoCultivoId: tipoId, nombre: nombre.trim(), especieId: especieId || null, casaGenetica: casaGenetica?.trim() || null }
@@ -73,6 +80,7 @@ export async function createVariedad(tipoId: string, nombre: string, especieId?:
 }
 
 export async function deleteVariedad(id: string) {
+    await exigirGestor()
     try {
         await db.variedadCultivo.delete({ where: { id } })
         return { success: true }
@@ -85,6 +93,7 @@ export async function deleteVariedad(id: string) {
 // ── Opciones genéticas (#S, #PC…) ──
 
 export async function getOpcionesGeneticas() {
+    await exigirGestor()
     try {
         const data = await db.opcionGenetica.findMany({ orderBy: [{ casaGenetica: 'asc' }, { grupo: 'asc' }, { codigo: 'asc' }] })
         return { data }
@@ -94,6 +103,7 @@ export async function getOpcionesGeneticas() {
 }
 
 export async function createOpcionGenetica(input: { codigo: string; nombre: string; grupo: string; casaGenetica: string; descripcion?: string }) {
+    await exigirGestor()
     const codigo = input.codigo.trim()
     if (!codigo || !input.nombre.trim() || !input.casaGenetica.trim()) return { error: "Código, nombre y casa genética son obligatorios" }
     try {
@@ -114,6 +124,7 @@ export async function createOpcionGenetica(input: { codigo: string; nombre: stri
 }
 
 export async function deleteOpcionGenetica(id: string) {
+    await exigirGestor()
     try {
         await db.opcionGenetica.delete({ where: { id } })
         return { success: true }

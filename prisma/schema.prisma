@@ -183,7 +183,9 @@ model Tarea {
   fechaEjecucion      DateTime? // Fecha cuando se dio click a "Finalizar"
   tipo                String // Fertilización, Plateo, etc. (Puede ser Enum o String libre)
   descripcion         String?  @db.Text
-  responsable         String
+  responsable         String   // Nombre, se conserva por historia
+  responsableId       String?  // Responsable asignado: con esto ve la tarea en "Mis tareas"
+  responsableRef      Responsable? @relation(fields: [responsableId], references: [id])
   duracionEstimadaHoras Float?
   duracionRealHoras   Float?
   estado              EstadoTarea @default(PROGRAMADA)
@@ -202,6 +204,8 @@ model Tarea {
   usosMaquinaria      UsoMaquinaria[]
   consumos            MovimientoInventario[]
   trazabilidad        Trazabilidad[]
+
+  @@index([responsableId])
 }
 
 model Trazabilidad {
@@ -399,6 +403,33 @@ model Responsable {
   cargoId   String?
   cargoRef  Cargo?   @relation(fields: [cargoId], references: [id])
   activo    Boolean  @default(true)
+
+  usuario   Usuario?
+  tareas    Tarea[]
+}
+
+// -----------------------------------------------------------------------------
+// USUARIOS Y PERFILES
+// -----------------------------------------------------------------------------
+enum RolUsuario {
+  DESARROLLADOR // Todo, incluida Configuración
+  ADMINISTRADOR // Todo menos Configuración
+  RESPONSABLE   // Solo sus tareas
+}
+
+model Usuario {
+  id                  String     @id @default(uuid())
+  nombre              String
+  celular             String     @unique // Con este número se ingresa
+  passwordHash        String
+  rol                 RolUsuario
+  responsableId       String?    @unique // Obligatorio para el perfil Responsable
+  responsable         Responsable? @relation(fields: [responsableId], references: [id])
+  activo              Boolean    @default(true)
+  debeCambiarPassword Boolean    @default(true)
+  ultimoIngreso       DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 }
 
 model Cargo {

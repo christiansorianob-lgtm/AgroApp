@@ -1,5 +1,8 @@
 'use server'
 
+import { exigirAccesoATarea, exigirGestor } from "@/lib/auth"
+import { esGestor } from "@/lib/sesion"
+import { put } from "@vercel/blob"
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
@@ -9,6 +12,7 @@ import { writeFile, mkdir } from "fs/promises"
 import path from "path"
 
 export async function getTareas(filters?: { fincaId?: string, loteId?: string, nivel?: "FINCA" | "LOTE", estado?: string[], delayed?: boolean, sort?: 'asc' | 'desc' }) {
+    await exigirGestor()
     try {
         const where: any = {}
         if (filters?.fincaId) where.fincaId = filters.fincaId
@@ -42,6 +46,7 @@ export async function getTareas(filters?: { fincaId?: string, loteId?: string, n
 }
 
 export async function getTareaById(id: string) {
+    await exigirAccesoATarea(id)
     try {
         const tarea = await db.tarea.findUnique({
             where: { id },
@@ -77,14 +82,25 @@ export async function getTareaById(id: string) {
     }
 }
 
+/** Id del responsable asignado: el que envía el formulario o, si falta, el que tenga ese nombre. */
+async function resolverResponsableId(id: string | null | undefined, nombre: string): Promise<string | null> {
+    if (id) {
+        const r = await db.responsable.findUnique({ where: { id }, select: { id: true } })
+        if (r) return r.id
+    }
+    return (await db.responsable.findFirst({ where: { nombre }, select: { id: true } }))?.id ?? null
+}
+
 /** Código que tomará la próxima tarea (TAR-###). */
 export async function siguienteCodigoTarea(): Promise<string> {
+    await exigirGestor()
     const ultima = await db.tarea.findFirst({ orderBy: { codigo: 'desc' } })
     const seq = ultima ? parseInt(ultima.codigo.split('-')[1] ?? '', 10) : 0
     return `TAR-${((Number.isFinite(seq) ? seq : 0) + 1).toString().padStart(3, '0')}`
 }
 
 export async function createTarea(formData: FormData) {
+    await exigirGestor()
     // const codigo = formData.get("codigo") as string // Removed manual code
     const fincaId = formData.get("fincaId") as string
 
@@ -142,6 +158,7 @@ export async function createTarea(formData: FormData) {
                 fechaProgramada: parseFechaCalendario(fechaProgramada) ?? new Date(),
                 tipo,
                 responsable,
+                responsableId: await resolverResponsableId(formData.get("responsableId") as string | null, responsable),
                 prioridad: prioridad || 'MEDIA',
                 estado: estado || 'PROGRAMADA',
                 descripcion,
@@ -169,6 +186,7 @@ export async function createTareasMasivas(payload: {
     loteId: string | null
     tipo: string
     responsable: string
+    responsableId?: string
     prioridad: string
     fechaInicio: string        // ISO YYYY-MM-DD
     periodicidadDias: number   // cada cuántos días
@@ -179,6 +197,7 @@ export async function createTareasMasivas(payload: {
     requiereTrazabilidad: boolean
     nivel?: 'FINCA' | 'LOTE'
 }) {
+    await exigirGestor()
     const {
         fincaId, loteId, tipo, responsable, prioridad,
         fechaInicio, periodicidadDias, modoFin, repeticiones, fechaFin,
@@ -236,6 +255,7 @@ export async function createTareasMasivas(payload: {
         }
 
         // Crear todas las tareas en una transacción
+        const responsableId = await resolverResponsableId(payload.responsableId, responsable)
         await db.$transaction(
             fechas.map((fecha, idx) => {
                 const codigo = `TAR-${(nextId + idx).toString().padStart(3, '0')}`
@@ -248,6 +268,7 @@ export async function createTareasMasivas(payload: {
                         fechaProgramada: fecha,
                         tipo,
                         responsable,
+                        responsableId,
                         prioridad: prioridad as any || 'MEDIA',
                         estado: 'PROGRAMADA',
                         observaciones: observacionesBase || null,
@@ -272,6 +293,7 @@ export async function createTareasMasivas(payload: {
 // ELIMINAR PLAN MASIVO (todas las tareas del mismo planId)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function deletePlanMasivo(planId: string) {
+    await exigirGestor()
     if (!planId) return { error: 'planId requerido' }
     try {
         const result = await db.tarea.deleteMany({ where: { planId } })
@@ -284,6 +306,7 @@ export async function deletePlanMasivo(planId: string) {
 
 // EXECUTE TASK ACTION
 export async function executeTarea(id: string, formData: FormData) {
+    const sesion = await exigirAccesoATarea(id)
     const estado = formData.get("estado") as any
     const observaciones = formData.get("observaciones") as string
     const fechaEjecucion = formData.get("fechaEjecucion") as string
@@ -293,44 +316,31 @@ export async function executeTarea(id: string, formData: FormData) {
 
     const consumos = consumosStr ? JSON.parse(consumosStr) : []
 
-    // Handle File Uploads
-    const files = formData.getAll("evidencias") as File[]
-    console.log("ExecuteTarea: Received files:", files.length) // DEBUG LOG
-
+    // Fotos de evidencia: en Vercel el disco no es persistente, así que van a Vercel Blob.
+    // Sin token de Blob (desarrollo local) se guardan en public/uploads.
+    const files = (formData.getAll("evidencias") as File[]).filter(f => f && f.size > 0)
     const uploadedUrls: string[] = []
-
-    if (files && files.length > 0) {
-        const uploadDir = path.join(process.cwd(), "public", "uploads", "tareas")
-
+    for (const file of files) {
+        const fileName = `${Date.now()}-${file.name.replace(/[^\w.\-]+/g, '-')}`
         try {
-            await mkdir(uploadDir, { recursive: true })
-        } catch (e) {
-            // Ignore if exists
-        }
-
-        for (const file of files) {
-            console.log("Processing file:", file.name, "Size:", file.size) // DEBUG LOG
-
-            // Basic validation
-            if (file.size === 0) continue;
-
-            const buffer = Buffer.from(await file.arrayBuffer())
-            const fileName = `${Date.now()}-${file.name.replace(/\s/g, '-')}`
-            const filePath = path.join(uploadDir, fileName)
-
-            try {
-                await writeFile(filePath, buffer)
+            if (process.env.BLOB_READ_WRITE_TOKEN) {
+                const blob = await put(`tareas/${id}/${fileName}`, file, { access: 'public' })
+                uploadedUrls.push(blob.url)
+            } else {
+                const uploadDir = path.join(process.cwd(), "public", "uploads", "tareas")
+                await mkdir(uploadDir, { recursive: true })
+                await writeFile(path.join(uploadDir, fileName), Buffer.from(await file.arrayBuffer()))
                 uploadedUrls.push(`/uploads/tareas/${fileName}`)
-                console.log("Saved to:", filePath) // DEBUG LOG
-            } catch (error) {
-                console.error("Error saving file:", error)
             }
+        } catch (error) {
+            console.error("Error guardando evidencia:", error)
+            return { error: `No se pudo guardar la foto ${file.name}. Intente de nuevo.` }
         }
     }
 
-    // Combine with existing evidence if we were editing (not implemented yet, assumed new execution appends)
-    const evidenciasString = uploadedUrls.length > 0 ? uploadedUrls.join('\n') : null
-    console.log("Final evidenciasString:", evidenciasString) // DEBUG LOG
+    // Las fotos nuevas se suman a las que ya tenía la tarea
+    const previas = (await db.tarea.findUnique({ where: { id }, select: { evidencias: true } }))?.evidencias
+    const evidenciasString = [previas, ...uploadedUrls].filter(Boolean).join('\n') || null
 
     const maquinariaStr = formData.get("maquinaria") as string
     const usosMaquinaria = maquinariaStr ? JSON.parse(maquinariaStr) : []
@@ -418,5 +428,8 @@ export async function executeTarea(id: string, formData: FormData) {
     revalidatePath('/tareas')
     revalidatePath('/almacen')
     
+    revalidatePath('/mis-tareas')
+    // El responsable siempre vuelve a su lista; el gestor, a donde venía
+    if (!esGestor(sesion.rol)) redirect('/mis-tareas')
     redirect(rutaSegura(formData.get("returnTo") as string) ?? '/tareas')
 }

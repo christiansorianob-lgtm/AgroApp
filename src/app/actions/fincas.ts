@@ -1,5 +1,6 @@
 'use server'
 
+import { exigirGestor } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { parseFechaCalendario } from "@/lib/utils"
 import { getAllFincas } from "@/services/fincas"
@@ -33,6 +34,7 @@ function ubicacionData(input: FincaInput) {
 }
 
 export async function getFincas() {
+    await exigirGestor()
     try {
         const fincas = await getAllFincas()
         return { data: fincas }
@@ -54,6 +56,7 @@ function validate(input: FincaInput): string | null {
 }
 
 export async function nextFincaCode() {
+    await exigirGestor()
     const codes = await db.finca.findMany({ select: { codigo: true } })
     const max = codes.reduce((n, { codigo }) => {
         const num = parseInt(codigo.replace(/^FIN-/, ""), 10)
@@ -67,6 +70,7 @@ export async function createFinca(input: FincaInput): Promise<{ data?: { id: str
     if (invalid) return { error: invalid }
 
     try {
+    await exigirGestor()
         const { data: geo, levantamiento } = buildLinderoData(input.lindero ?? undefined)
         const areaTotalHa = input.areaTotalHa ?? (geo as any).areaMedidaHa
         if (!areaTotalHa) return { error: "Indique el área total o defina el lindero en el mapa." }
@@ -103,6 +107,7 @@ export async function updateFinca(id: string, input: FincaInput): Promise<{ succ
     if (invalid) return { error: invalid }
 
     try {
+    await exigirGestor()
         const current = await db.finca.findUnique({ where: { id }, select: { geometria: true, areaTotalHa: true } })
         if (!current) return { error: "La finca no existe." }
 

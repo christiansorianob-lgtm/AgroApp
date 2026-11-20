@@ -282,6 +282,7 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                 nivel: nivel as "FINCA" | "LOTE",
                 tipo: tiposActividad.find(t => t.id === selectedTipo)?.nombre || '',
                 responsable: responsables.find(r => r.id === selectedResponsable)?.nombre || '',
+                responsableId: selectedResponsable,
                 prioridad: selectedPrioridad,
                 fechaInicio: fechaProgramada,
                 periodicidadDias: parseInt(periodicidadDias) || 20,
@@ -370,6 +371,7 @@ export function TareaForm({ fincas, lotes, tiposActividad: initialTipos, respons
                         <input type="hidden" name="nivel" value={nivel} />
                         <input type="hidden" name="tipo" value={tiposActividad.find(t => t.id === selectedTipo)?.nombre || ""} />
                         <input type="hidden" name="responsable" value={responsables.find(r => r.id === selectedResponsable)?.nombre || ""} />
+                        <input type="hidden" name="responsableId" value={selectedResponsable} />
                         <input type="hidden" name="prioridad" value={selectedPrioridad} />
                         <input type="hidden" name="estado" value={selectedEstado} />
                         {/* <input type="hidden" name="fechaProgramada" value={fechaProgramada?.toISOString() || ""} /> */} {/* Removed, handled by visible input */}

@@ -1,5 +1,6 @@
 'use server'
 
+import { exigirGestor } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { parseFechaCalendario } from "@/lib/utils"
 import { buildLinderoData, sameGeometry } from "@/services/linderos"
@@ -48,6 +49,7 @@ export interface MaterialViveroInput {
 }
 
 export async function getLotes() {
+    await exigirGestor()
     try {
         const lotes = await db.lote.findMany({
             include: { finca: { select: { id: true, nombre: true, codigo: true } }, materialesVivero: { select: { cantidad: true } } },
@@ -61,6 +63,7 @@ export async function getLotes() {
 }
 
 export async function getLoteById(id: string) {
+    await exigirGestor()
     try {
         const lote = await db.lote.findUnique({
             where: { id },
@@ -162,6 +165,7 @@ export async function createLote(input: LoteInput): Promise<{ data?: { id: strin
     if (invalid) return { error: invalid }
 
     try {
+    await exigirGestor()
         const { data: geo, levantamiento } = buildLinderoData(input.lindero ?? undefined)
         const areaHa = input.areaHa ?? (geo as any).areaMedidaHa
         if (!areaHa) return { error: "Indique el área del lote o defina su lindero en el mapa." }
@@ -195,6 +199,7 @@ export async function updateLote(id: string, input: LoteInput): Promise<{ succes
     if (invalid) return { error: invalid }
 
     try {
+    await exigirGestor()
         const current = await db.lote.findUnique({ where: { id }, select: { geometria: true, areaHa: true, fincaId: true } })
         if (!current) return { error: "El lote no existe." }
 

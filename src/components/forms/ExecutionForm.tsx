@@ -22,6 +22,25 @@ interface ExecutionFormProps {
     productos: any[]
     maquinaria: any[]
     returnTo?: string
+    /** Crear insumos o máquinas desde aquí es solo para el administrador */
+    puedeCrearCatalogos?: boolean
+}
+
+/** Reduce una foto del teléfono a 1600 px y JPEG para que quepa en el envío (Vercel acepta hasta 4,5 MB). */
+async function reducirFoto(file: File, lado = 1600): Promise<File> {
+    if (!file.type.startsWith("image/") || file.size < 400_000) return file
+    try {
+        const img = await createImageBitmap(file)
+        const escala = Math.min(1, lado / Math.max(img.width, img.height))
+        const canvas = document.createElement("canvas")
+        canvas.width = Math.round(img.width * escala)
+        canvas.height = Math.round(img.height * escala)
+        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height)
+        const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, "image/jpeg", 0.8))
+        return blob ? new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file
+    } catch {
+        return file
+    }
 }
 
 const statusColors: Record<string, string> = {
@@ -31,7 +50,7 @@ const statusColors: Record<string, string> = {
     CANCELADA: "bg-red-50 border-red-200 text-red-700 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400",
 }
 
-export function ExecutionForm({ tarea, productos, maquinaria, returnTo }: ExecutionFormProps) {
+export function ExecutionForm({ tarea, productos, maquinaria, returnTo, puedeCrearCatalogos = false }: ExecutionFormProps) {
     const router = useRouter()
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [estado, setEstado] = useState(tarea.estado)
@@ -101,7 +120,7 @@ export function ExecutionForm({ tarea, productos, maquinaria, returnTo }: Execut
 
         if (files) {
             for (let i = 0; i < files.length; i++) {
-                formData.append("evidencias", files[i])
+                formData.append("evidencias", await reducirFoto(files[i]))
             }
         }
 
@@ -176,9 +195,11 @@ export function ExecutionForm({ tarea, productos, maquinaria, returnTo }: Execut
                 <CardHeader className="flex flex-row justify-between items-center">
                     <div className="flex items-center gap-2">
                         <CardTitle>Insumos Utilizados</CardTitle>
-                        <div className="ml-2">
-                            <ProductCreationDialog defaultFincaId={tarea.fincaId} />
-                        </div>
+                        {puedeCrearCatalogos && (
+                            <div className="ml-2">
+                                <ProductCreationDialog defaultFincaId={tarea.fincaId} />
+                            </div>
+                        )}
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={addConsumo}>
                         <Plus className="w-4 h-4 mr-2" /> Agregar Insumo
@@ -234,9 +255,11 @@ export function ExecutionForm({ tarea, productos, maquinaria, returnTo }: Execut
                 <CardHeader className="flex flex-row justify-between items-center">
                     <div className="flex items-center gap-2">
                         <CardTitle>Maquinaria Utilizada</CardTitle>
-                        <div className="ml-2">
-                            <MachineryCreationDialog defaultFincaId={tarea.fincaId} />
-                        </div>
+                        {puedeCrearCatalogos && (
+                            <div className="ml-2">
+                                <MachineryCreationDialog defaultFincaId={tarea.fincaId} />
+                            </div>
+                        )}
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={addUsoMaquinaria}>
                         <Plus className="w-4 h-4 mr-2" /> Agregar Maquinaria

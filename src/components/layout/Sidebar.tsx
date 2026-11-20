@@ -2,10 +2,20 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Tractor, Map, Grid3x3, ClipboardList, Package, Settings, BarChart3, Sprout, X } from 'lucide-react'
+import { LayoutDashboard, Tractor, Map, Grid3x3, ClipboardList, Package, Settings, BarChart3, Sprout, X, LogOut, KeyRound, ListChecks } from 'lucide-react'
 import clsx from 'clsx'
+import { salir } from '@/app/actions/auth'
+import { ROL_LABELS, puedeConfigurar, type Rol } from '@/lib/sesion'
+import type { UsuarioActual } from './AppLayout'
 
-const grupos = [
+type Item = { name: string; href: string; icon: typeof Map }
+
+/** El responsable solo ve sus tareas. */
+const gruposResponsable: { titulo: string; items: Item[] }[] = [
+    { titulo: 'Mi trabajo', items: [{ name: 'Mis tareas', href: '/mis-tareas', icon: ListChecks }] },
+]
+
+const gruposGestor: { titulo: string; items: (Item & { soloConfig?: boolean })[] }[] = [
     {
         titulo: 'Operación',
         items: [
@@ -26,13 +36,19 @@ const grupos = [
         titulo: 'Gestión',
         items: [
             { name: 'Reportes', href: '/reportes', icon: BarChart3 },
-            { name: 'Configuración', href: '/configuracion', icon: Settings },
+            { name: 'Configuración', href: '/configuracion', icon: Settings, soloConfig: true },
         ],
     },
 ]
 
-export function Sidebar({ className, onClose }: { className?: string; onClose?: () => void }) {
+function gruposPara(rol: Rol) {
+    if (rol === 'RESPONSABLE') return gruposResponsable
+    return gruposGestor.map(g => ({ ...g, items: g.items.filter(i => !i.soloConfig || puedeConfigurar(rol)) }))
+}
+
+export function Sidebar({ usuario, className, onClose }: { usuario: UsuarioActual; className?: string; onClose?: () => void }) {
     const pathname = usePathname()
+    const grupos = gruposPara(usuario.rol)
 
     return (
         <aside className={clsx("fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform duration-300 md:translate-x-0", className)}>
@@ -85,11 +101,25 @@ export function Sidebar({ className, onClose }: { className?: string; onClose?: 
 
             <div className="border-t border-sidebar-border p-3">
                 <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-accent text-sm font-semibold text-emerald-300">A</div>
-                    <div className="min-w-0 flex-1 leading-tight">
-                        <p className="truncate text-sm font-medium">Administrador</p>
-                        <p className="text-xs text-sidebar-muted">Sesión local</p>
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sm font-semibold text-emerald-300">
+                        {usuario.nombre.trim().charAt(0).toUpperCase()}
                     </div>
+                    <div className="min-w-0 flex-1 leading-tight">
+                        <p className="truncate text-sm font-medium">{usuario.nombre}</p>
+                        <p className="text-xs text-sidebar-muted">{ROL_LABELS[usuario.rol]}</p>
+                    </div>
+                </div>
+                <div className="mt-1 grid grid-cols-2 gap-1">
+                    <Link href="/cuenta/contrasena" onClick={onClose}
+                        className="flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-sidebar-muted hover:bg-sidebar-accent/60 hover:text-sidebar-foreground">
+                        <KeyRound className="h-3.5 w-3.5" /> Contraseña
+                    </Link>
+                    <form action={salir}>
+                        <button type="submit"
+                            className="flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-sidebar-muted hover:bg-sidebar-accent/60 hover:text-sidebar-foreground">
+                            <LogOut className="h-3.5 w-3.5" /> Cerrar sesión
+                        </button>
+                    </form>
                 </div>
             </div>
         </aside>

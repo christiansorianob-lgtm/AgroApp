@@ -12,6 +12,9 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { TaskExecutionDetails } from "@/components/tareas/TaskExecutionDetails"
 import { formatDate } from "@/lib/utils"
+import { redirect } from "next/navigation"
+import { NoAutorizado, sesionDePagina } from "@/lib/auth"
+import { esGestor } from "@/lib/sesion"
 
 export default async function ExecuteTaskPage(props: { 
     params: Promise<{ id: string }>,
@@ -21,8 +24,14 @@ export default async function ExecuteTaskPage(props: {
     const searchParams = await props.searchParams
     const returnTo = searchParams.returnTo as string | undefined
 
-    // Fetch task first to get fincaId
-    const tareaRes = await getTareaById(id)
+    const sesion = await sesionDePagina()
+    const volverA = esGestor(sesion.rol) ? (returnTo || "/tareas") : "/mis-tareas"
+
+    // Fetch task first to get fincaId. Un responsable que abra una tarea ajena vuelve a su lista.
+    const tareaRes = await getTareaById(id).catch(e => {
+        if (e instanceof NoAutorizado) redirect("/mis-tareas")
+        throw e
+    })
 
     if (tareaRes.error || !tareaRes.data) {
         return <div className="p-8 text-center text-red-500">Error: Tarea no encontrada</div>
@@ -43,7 +52,7 @@ export default async function ExecuteTaskPage(props: {
     return (
         <div className="max-w-4xl mx-auto space-y-6 pb-20">
             <div className="flex items-center gap-4">
-                <BackButton fallback={returnTo || "/tareas"} />
+                <BackButton fallback={volverA} />
                 <div>
                     <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-[1.75rem]">Ejecutar Tarea</h2>
                     <p className="text-muted-foreground">{tarea.codigo}</p>
@@ -100,7 +109,7 @@ export default async function ExecuteTaskPage(props: {
             {(tarea.estado === 'EJECUTADA' || tarea.estado === 'CANCELADA') ? (
                 <TaskExecutionDetails tarea={tarea} />
             ) : (
-                <ExecutionForm tarea={tarea} productos={productos} maquinaria={maquinaria} returnTo={returnTo} />
+                <ExecutionForm tarea={tarea} productos={productos} maquinaria={maquinaria} returnTo={returnTo} puedeCrearCatalogos={esGestor(sesion.rol)} />
             )}
         </div>
     )

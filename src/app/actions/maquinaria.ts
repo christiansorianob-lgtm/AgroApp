@@ -1,5 +1,6 @@
 'use server'
 
+import { exigirDesarrollador, exigirGestor, exigirSesion } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
@@ -7,12 +8,14 @@ import { redirect } from "next/navigation"
 // --- CATALOGOS HELPERS ---
 
 export async function getTiposMaquinaria() {
+    await exigirGestor()
     try {
         return { data: await db.tipoMaquinaria.findMany({ orderBy: { nombre: 'asc' } }) }
     } catch (e) { return { error: "Error al cargar tipos" } }
 }
 
 export async function seedMaquinariaCatalogs() {
+    await exigirDesarrollador()
     try {
         const tipos = ['Tractor', 'Camión', 'Cosechadora', 'Fumigadora', 'Guadaña', 'Motobomba', 'Planta Eléctrica', 'Remolque']
         for (const t of tipos) {
@@ -41,6 +44,7 @@ export async function seedMaquinariaCatalogs() {
 }
 
 export async function createTipoMaquinaria(nombre: string) {
+    await exigirGestor()
     try {
         const existing = await db.tipoMaquinaria.findFirst({ where: { nombre } })
         if (existing) return { error: "Este tipo ya existe." }
@@ -52,6 +56,7 @@ export async function createTipoMaquinaria(nombre: string) {
 }
 
 export async function deleteTipoMaquinaria(id: string) {
+    await exigirGestor()
     try {
         await db.tipoMaquinaria.delete({ where: { id } })
         revalidatePath('/maquinaria/new')
@@ -60,12 +65,14 @@ export async function deleteTipoMaquinaria(id: string) {
 }
 
 export async function getMarcasMaquinaria() {
+    await exigirGestor()
     try {
         return { data: await db.marcaMaquinaria.findMany({ orderBy: { nombre: 'asc' } }) }
     } catch (e) { return { error: "Error al cargar marcas" } }
 }
 
 export async function createMarcaMaquinaria(nombre: string) {
+    await exigirGestor()
     try {
         const existing = await db.marcaMaquinaria.findFirst({ where: { nombre } })
         if (existing) return { error: "Esta marca ya existe." }
@@ -77,6 +84,7 @@ export async function createMarcaMaquinaria(nombre: string) {
 }
 
 export async function deleteMarcaMaquinaria(id: string) {
+    await exigirGestor()
     try {
         await db.marcaMaquinaria.delete({ where: { id } })
         revalidatePath('/maquinaria/new')
@@ -85,12 +93,14 @@ export async function deleteMarcaMaquinaria(id: string) {
 }
 
 export async function getUbicacionesMaquinaria() {
+    await exigirGestor()
     try {
         return { data: await db.ubicacionMaquinaria.findMany({ orderBy: { nombre: 'asc' } }) }
     } catch (e) { return { error: "Error al cargar ubicaciones" } }
 }
 
 export async function createUbicacionMaquinaria(nombre: string) {
+    await exigirGestor()
     try {
         const existing = await db.ubicacionMaquinaria.findFirst({ where: { nombre } })
         if (existing) return { error: "Esta ubicación ya existe." }
@@ -102,6 +112,7 @@ export async function createUbicacionMaquinaria(nombre: string) {
 }
 
 export async function deleteUbicacionMaquinaria(id: string) {
+    await exigirGestor()
     try {
         await db.ubicacionMaquinaria.delete({ where: { id } })
         revalidatePath('/maquinaria/new')
@@ -115,6 +126,7 @@ export async function deleteUbicacionMaquinaria(id: string) {
 // --- MAQUINARIA CRUD ---
 
 export async function getMaquinaria(filters?: { fincaId?: string, estado?: string }) {
+    await exigirSesion()
     try {
         const where: any = {}
         if (filters?.fincaId) where.fincaId = filters.fincaId
@@ -138,6 +150,7 @@ export async function getMaquinaria(filters?: { fincaId?: string, estado?: strin
 }
 
 export async function createMaquinaria(formData: FormData) {
+    await exigirGestor()
     // const codigo = formData.get("codigo") as string // Autogenerado now
     const ubicacionId = formData.get("ubicacionId") as string
     const tipoId = formData.get("tipoId") as string
@@ -195,6 +208,7 @@ export async function createMaquinaria(formData: FormData) {
 // --- USO MAQUINARIA ---
 
 export async function getUsoMaquinaria() {
+    await exigirGestor()
     try {
         const usos = await db.usoMaquinaria.findMany({
             include: {
@@ -216,5 +230,6 @@ export async function getUsoMaquinaria() {
 }
 
 export async function createUsoMaquinaria(formData: FormData) {
+    await exigirGestor()
     return { error: "Not implemented yet" }
 }
