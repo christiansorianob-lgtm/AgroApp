@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Tractor, Map, Grid3x3, ClipboardList, Package, Settings, BarChart3, X, LogOut, KeyRound, ListChecks } from 'lucide-react'
+import { LayoutDashboard, Tractor, Map, Grid3x3, ClipboardList, Package, Settings, BarChart3, Wrench, X, LogOut, KeyRound, ListChecks } from 'lucide-react'
 import clsx from 'clsx'
 import { salir } from '@/app/actions/auth'
 import { ROL_LABELS, puedeConfigurar, type Rol } from '@/lib/sesion'
@@ -36,6 +36,7 @@ const gruposGestor: { titulo: string; items: (Item & { soloConfig?: boolean })[]
         titulo: 'Gestión',
         items: [
             { name: 'Reportes', href: '/reportes', icon: BarChart3 },
+            { name: 'Herramientas', href: '/herramientas', icon: Wrench },
             { name: 'Configuración', href: '/configuracion', icon: Settings, soloConfig: true },
         ],
     },

@@ -15,7 +15,7 @@ import { useGpsSurvey, leerGuardado, type ModoRecorrido } from "./useGpsSurvey"
 import { ajustarALinderos, type LinderoReferencia, type ResultadoAjuste } from "@/lib/linderosCompartidos"
 import {
     computeMetrics, validateBoundary, normalizeGeometry, polygonFromPoints, simplifyGeometry, geometryBounds,
-    traslapesConVecinos, restarGeometrias, puntosDeCruce, colorLote, corregirCruces, parseBoundaryFile, parseTextInput, toGeoJSONString, toKMLString, formatHa, formatMeters, METODO_LABELS,
+    traslapesConVecinos, restarGeometrias, puntosDeCruce, colorLote, corregirCruces, distanceM, parseBoundaryFile, parseTextInput, toGeoJSONString, toKMLString, formatHa, formatMeters, METODO_LABELS,
     type BoundaryGeometry, type BoundaryValue, type CandidatoImportado, type ContextoValidacion, type GpsPoint,
     type MetodoGeorreferenciacion,
 } from "@/lib/geo"
@@ -35,6 +35,11 @@ export interface BoundaryEditorProps {
     storageKey: string
     onCancel: () => void
     onSave: (valor: BoundaryValue | null) => void
+    /**
+     * "herramienta": solo para medir (Herramientas → Medir lindero). No guarda en la base: en lugar de
+     * «Guardar lindero» ofrece descargar KML o GeoJSON, y los linderos existentes son solo referencia.
+     */
+    modo?: "lindero" | "herramienta"
 }
 
 type Pestana = "dibujar" | "importar" | "gps"
@@ -183,7 +188,9 @@ function GpsLayer({ puntos, actual, seguir, cerrado, trazado }: {
 // Editor
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contexto, storageKey, onCancel, onSave }: BoundaryEditorProps) {
+export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contexto, storageKey, onCancel, onSave, modo = "lindero" }: BoundaryEditorProps) {
+    const herramienta = modo === "herramienta"
+    const [nombreMedicion, setNombreMedicion] = useState(() => `Medición ${new Date().toLocaleDateString("es-CO").replace(/\//g, "-")}`)
     const [geometry, setGeometry] = useState<BoundaryGeometry | null>(() => normalizeGeometry(valorInicial?.geometria))
     const [metodo, setMetodo] = useState<MetodoGeorreferenciacion>(valorInicial?.metodo || "DIBUJO_MAPA")
     const [precisionM, setPrecisionM] = useState<number | null>(valorInicial?.precisionM ?? null)
@@ -230,7 +237,7 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
     }
 
     const metricas = useMemo(() => (geometry ? computeMetrics(geometry) : null), [geometry])
-    const advertencias = useMemo(() => (geometry ? validateBoundary(geometry, contexto) : []), [geometry, contexto])
+    const advertencias = useMemo(() => (geometry ? validateBoundary(geometry, herramienta ? {} : contexto) : []), [geometry, contexto, herramienta])
     const hayErrores = advertencias.some(a => a.nivel === "error")
     const cruces = useMemo(() => (geometry && metricas?.autointersecciones ? puntosDeCruce(geometry) : []), [geometry, metricas])
 
@@ -302,12 +309,13 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
 
     const descargar = (tipo: "geojson" | "kml") => {
         if (!geometry) return
-        const nombre = titulo.replace(/^Lindero (de la |del )?/i, "")
+        const nombre = herramienta ? (nombreMedicion.trim() || "Medición") : titulo.replace(/^Lindero (de la |del )?/i, "")
         const contenido = tipo === "geojson" ? toGeoJSONString(geometry, nombre) : toKMLString(geometry, nombre)
         const blob = new Blob([contenido], { type: tipo === "geojson" ? "application/geo+json" : "application/vnd.google-earth.kml+xml" })
         const a = document.createElement("a")
         a.href = URL.createObjectURL(blob)
-        a.download = `${nombre.replace(/[^\w\-]+/g, "_")}.${tipo}`
+        // Sin tildes en el nombre del archivo: "Medición" → "Medicion"
+        a.download = `${nombre.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w\-]+/g, "_")}.${tipo}`
         a.click()
         URL.revokeObjectURL(a.href)
     }
@@ -365,16 +373,23 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
         ...(contexto?.padre?.geometria ? [{ nombre: contexto.padre.nombre.replace(/^la finca /, "Finca "), geometria: contexto.padre.geometria }] : []),
         ...(contexto?.vecinos || []),
     ], [contexto])
+    // Al cerrar, los últimos puntos pegados al inicio se quitan: si no, forman un rizo diminuto o un cruce
+    const puntosCierre = useMemo(() => {
+        const pts = gps.puntos
+        let fin = pts.length
+        while (fin > 3 && distanceM(pts[fin - 1], pts[0]) < 3) fin--
+        return fin === pts.length ? pts : pts.slice(0, fin)
+    }, [gps.puntos])
     const ajusteGps = useMemo<ResultadoAjuste | null>(() =>
         seguirLinderos && referencias.length && gps.puntos.length >= 2
-            ? ajustarALinderos(gps.puntos, referencias, toleranciaPegado) : null,
+            ? ajustarALinderos(puntosCierre, referencias, toleranciaPegado) : null,
         [seguirLinderos, referencias, gps.puntos, toleranciaPegado])
     const poligonoRecorrido = useMemo(() => {
-        if (gps.puntos.length < 3) return null
+        if (puntosCierre.length < 3) return null
         return ajusteGps && ajusteGps.coords.length >= 3
             ? normalizeGeometry({ type: "Polygon", coordinates: [[...ajusteGps.coords, ajusteGps.coords[0]]] })
-            : polygonFromPoints(gps.puntos)
-    }, [gps.puntos, ajusteGps])
+            : polygonFromPoints(puntosCierre)
+    }, [puntosCierre, ajusteGps])
 
     /** Aplica el mismo ajuste a un polígono dibujado a mano (sus vértices ya vienen pegados por Geoman). */
     const ajustarDibujo = (g: BoundaryGeometry): BoundaryGeometry => {
@@ -407,7 +422,9 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
 
     const cerrar = () => {
         if (recorridoAbierto && !confirm("Hay un recorrido GPS sin cerrar. Quedará guardado en este teléfono para continuarlo después. ¿Salir del editor?")) return
-        if (!recorridoAbierto && hayCambios && !confirm("El lindero tiene cambios que no se han guardado. ¿Salir y descartarlos?")) return
+        if (herramienta) {
+            if (!recorridoAbierto && geometry && !confirm("La medición no se guarda en la plataforma. Si no la descargó, se perderá. ¿Salir?")) return
+        } else if (!recorridoAbierto && hayCambios && !confirm("El lindero tiene cambios que no se han guardado. ¿Salir y descartarlos?")) return
         onCancel()
     }
 
@@ -429,11 +446,23 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                     <h2 className="truncate text-sm font-semibold md:text-base">{titulo}</h2>
                     {subtitulo && <p className="truncate text-xs text-muted-foreground">{subtitulo}</p>}
                 </div>
+                {herramienta ? (
+                    <>
+                        <Button type="button" size="sm" variant="outline" onClick={() => descargar("geojson")} disabled={!geometry} className="hidden sm:inline-flex">
+                            <Download className="mr-1.5 h-4 w-4" /> GeoJSON
+                        </Button>
+                        <Button type="button" size="sm" onClick={() => descargar("kml")} disabled={!geometry}
+                            className={cn(geometry && !hayErrores && "bg-emerald-600 hover:bg-emerald-700")}>
+                            <Download className="mr-1.5 h-4 w-4" /> KML
+                        </Button>
+                    </>
+                ) : (<>
                 <Button type="button" variant="outline" size="sm" onClick={cerrar} className="hidden sm:inline-flex">Cancelar</Button>
                 <Button type="button" size="sm" onClick={guardar} disabled={hayErrores}
                     className={cn((hayCambios || recorridoAbierto) && !hayErrores && "animate-pulse bg-emerald-600 shadow-lg shadow-emerald-600/40 ring-2 ring-emerald-400 hover:bg-emerald-700")}>
                     <Save className="mr-1.5 h-4 w-4" /> Guardar lindero
                 </Button>
+                </>)}
             </header>
 
             <div className="flex min-h-0 flex-1 flex-col-reverse md:flex-row">
@@ -457,7 +486,28 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                     </nav>
 
                     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-                        {hayCambios && metricas && !recorridoAbierto && (
+                        {herramienta && metricas && !recorridoAbierto && (
+                            <div className="space-y-2 rounded-xl border-2 border-emerald-500 bg-emerald-50 p-3 shadow-sm">
+                                <div className="flex items-center gap-2 text-sm font-semibold text-emerald-800">
+                                    <CheckCircle2 className="h-5 w-5" /> Medición: {formatHa(metricas.areaHa)}
+                                </div>
+                                <p className="text-xs text-emerald-900/80 tabular-nums">
+                                    {Math.round(metricas.areaM2).toLocaleString("es-CO")} m² · perímetro {formatMeters(metricas.perimetroM)} · {metricas.vertices} vértices
+                                </p>
+                                <input value={nombreMedicion} onChange={e => setNombreMedicion(e.target.value)} maxLength={60}
+                                    className="h-9 w-full rounded-md border border-emerald-300 bg-white px-2 text-sm" aria-label="Nombre de la medición" placeholder="Nombre de la medición" />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button type="button" className="h-11 bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => descargar("kml")} disabled={hayErrores}>
+                                        <Download className="mr-1.5 h-4 w-4" /> KML
+                                    </Button>
+                                    <Button type="button" variant="outline" className="h-11" onClick={() => descargar("geojson")} disabled={hayErrores}>
+                                        <Download className="mr-1.5 h-4 w-4" /> GeoJSON
+                                    </Button>
+                                </div>
+                                <p className="text-[11px] text-emerald-900/70">KML abre en Google Earth y Google Maps. La medición no se guarda en la plataforma.</p>
+                            </div>
+                        )}
+                        {!herramienta && hayCambios && metricas && !recorridoAbierto && (
                             <div className="rounded-xl border-2 border-emerald-500 bg-emerald-50 p-3 shadow-sm">
                                 <div className="flex items-center gap-2 text-sm font-semibold text-emerald-800">
                                     <CheckCircle2 className="h-5 w-5" /> Polígono cerrado: {formatHa(metricas.areaHa)}
@@ -503,6 +553,7 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
 
                         {pestana === "gps" && (
                             <PanelGps
+                                herramienta={herramienta}
                                 gps={gps}
                                 ahora={ahora}
                                 areaParcial={areaParcial}
@@ -529,6 +580,7 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                             areaDeclaradaHa={contexto?.areaDeclaradaHa ?? null}
                             advertencias={advertencias}
                             onDescargar={descargar}
+                            calidadGps={metodo === "RECORRIDO_GPS" && gps.cerrado ? { errorCierreM: gps.errorCierre, descartados: gps.descartados } : null}
                         />
                     </div>
                 </aside>
@@ -577,9 +629,13 @@ export default function BoundaryEditor({ titulo, subtitulo, valorInicial, contex
                                 : "Arrastre los vértices para ajustar. Arrastre un punto intermedio para crear un vértice. Clic derecho sobre un vértice para quitarlo."}
                         </div>
                     )}
-                    {pestana === "gps" && recorridoAbierto && gps.puntos.length >= 3 && (
+                    {pestana === "gps" && recorridoAbierto && gps.cercaDelInicio ? (
+                        <div className="absolute left-1/2 top-3 z-[500] w-[min(92%,520px)] -translate-x-1/2 rounded-lg bg-emerald-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-lg">
+                            📍 Está llegando al punto de inicio ({formatMeters(gps.distanciaAlInicio ?? 0)}). Pulse «Cerrar polígono».
+                        </div>
+                    ) : pestana === "gps" && recorridoAbierto && gps.puntos.length >= 3 && (
                         <div className="pointer-events-none absolute left-1/2 top-3 z-[500] w-[min(92%,520px)] -translate-x-1/2 rounded-lg bg-orange-600/90 px-3 py-2 text-center text-xs font-medium text-white shadow-lg backdrop-blur">
-                            La línea punteada une el último punto con el inicio. Al terminar pulse «Cerrar polígono».
+                            La línea punteada une el último punto con el inicio{gps.distanciaAlInicio != null ? ` (a ${formatMeters(gps.distanciaAlInicio)})` : ""}. Al terminar pulse «Cerrar polígono».
                         </div>
                     )}
                     {cruces.length > 0 && (
@@ -794,13 +850,20 @@ function calidadSenal(acc: number | null | undefined) {
     return { texto: "Débil", color: "bg-red-500", barras: 1 }
 }
 
+function textoMuestreo(m: { restante: number; muestras: number; extra?: boolean; precision?: number }) {
+    return m.extra
+        ? `Quieto… afinando la precisión${m.precision != null ? ` (±${m.precision.toFixed(1)} m)` : ""}`
+        : `Quieto… ${m.restante} s (${m.muestras} lecturas)`
+}
+
 function formatDuracion(ms: number) {
     const s = Math.floor(ms / 1000)
     const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60
     return h ? `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}` : `${m}:${String(r).padStart(2, "0")}`
 }
 
-function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar, linderos }: {
+function PanelGps({ herramienta = false, gps, ahora, areaParcial, seguir, setSeguir, onTerminar, linderos }: {
+    herramienta?: boolean
     gps: ReturnType<typeof useGpsSurvey>; ahora: number; areaParcial: number | null
     seguir: boolean; setSeguir: (v: boolean) => void; onTerminar: () => void
     linderos: null | {
@@ -827,10 +890,18 @@ function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar, lind
                     <div className="text-sm font-medium">Señal GPS: {senal.texto}</div>
                     <div className="text-xs text-muted-foreground tabular-nums">
                         {gps.actual?.acc != null ? `Precisión ±${gps.actual.acc.toFixed(1)} m` : "Esperando ubicación…"}
+                        {gps.actual?.acc != null && (gps.senal.estable ? " · estable" : " · afinando…")}
                     </div>
                 </div>
                 <Satellite className={cn("h-5 w-5", aceptable ? "text-emerald-600" : "text-muted-foreground")} />
             </div>
+            {gps.estado !== "grabando" && !gps.cerrado && (
+                <p className={cn("rounded-md px-3 py-2 text-xs", gps.senal.estable ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900")}>
+                    {gps.senal.estable
+                        ? "✓ Señal lista. Puede iniciar: el primer punto se toma quieto durante unos segundos para que el cierre quede exacto."
+                        : "Espere a que la señal se estabilice (indicador «estable»). Al aire libre y lejos de techos y palmas grandes afina más rápido."}
+                </p>
+            )}
 
             {gps.error && (
                 <div className="flex gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
@@ -848,7 +919,7 @@ function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar, lind
                     <p className="mt-0.5 text-xs">
                         {gps.recuperado
                             ? "Este recorrido se cerró pero la finca o el lote no se llegó a guardar. Úselo y luego guarde."
-                            : "Ya es el lindero. Pulse «Guardar lindero» para aplicarlo."}
+                            : herramienta ? "Medición lista. Descárguela en KML o GeoJSON." : "Ya es el lindero. Pulse «Guardar lindero» para aplicarlo."}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                         {gps.recuperado && <Button type="button" size="sm" className="bg-emerald-600 text-white hover:bg-emerald-700" onClick={onTerminar}>Usar este recorrido</Button>}
@@ -904,7 +975,8 @@ function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar, lind
             {/* Controles */}
             {!gps.cerrado && <div className="space-y-2">
                 {gps.estado !== "grabando" ? (
-                    <Button type="button" className="h-11 w-full" onClick={gps.iniciar}>
+                    <Button type="button" className="h-11 w-full"
+                        onClick={() => { if (gps.senal.estable || gps.puntos.length || confirm("La señal GPS todavía no está estable y la medición puede quedar imprecisa. ¿Iniciar de todos modos?")) gps.iniciar() }}>
                         <Play className="mr-2 h-4 w-4" /> {gps.puntos.length ? "Continuar recorrido" : "Iniciar recorrido"}
                     </Button>
                 ) : (
@@ -913,9 +985,14 @@ function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar, lind
                             <Button type="button" className="h-14 w-full bg-orange-600 text-base text-white hover:bg-orange-700"
                                 onClick={gps.marcarVertice} disabled={!!gps.muestreo}>
                                 {gps.muestreo
-                                    ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Quieto… {gps.muestreo.restante} s ({gps.muestreo.muestras} lecturas)</>
-                                    : <><Flag className="mr-2 h-5 w-5" /> Marcar esquina {gps.puntos.length + 1}</>}
+                                    ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {textoMuestreo(gps.muestreo)}</>
+                                    : <><Flag className="mr-2 h-5 w-5" /> {gps.puntos.length === 0 ? "Marcar punto de inicio" : `Marcar esquina ${gps.puntos.length + 1}`}</>}
                             </Button>
+                        )}
+                        {gps.modo === "continuo" && gps.muestreo && (
+                            <div className="flex items-center justify-center gap-2 rounded-lg bg-orange-600 px-3 py-3 text-sm font-medium text-white">
+                                <Loader2 className="h-4 w-4 animate-spin" /> Fijando el punto de inicio: {textoMuestreo(gps.muestreo)}
+                            </div>
                         )}
                         <Button type="button" variant="outline" className="w-full" onClick={gps.pausar}>
                             <Pause className="mr-2 h-4 w-4" /> Pausar
@@ -950,6 +1027,8 @@ function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar, lind
                     ["Recorrido", formatMeters(gps.distanciaRecorrida)],
                     ["Tiempo", gps.inicio ? formatDuracion(Math.max(0, ahora - gps.inicio)) : "0:00"],
                     ["Área parcial", areaParcial != null ? formatHa(areaParcial) : "—"],
+                    ["Precisión media", gps.precisionPromedio != null ? `±${gps.precisionPromedio.toFixed(1)} m` : "—"],
+                    ["Al inicio", gps.distanciaAlInicio != null ? formatMeters(gps.distanciaAlInicio) : gps.errorCierre != null ? `${formatMeters(gps.errorCierre)} (cierre)` : "—"],
                 ].map(([k, v]) => (
                     <div key={k} className="rounded-md bg-muted/60 px-2 py-2">
                         <dt className="text-[11px] text-muted-foreground">{k}</dt>
@@ -957,6 +1036,10 @@ function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar, lind
                     </div>
                 ))}
             </dl>
+
+            {gps.descartados > 0 && (
+                <p className="text-center text-xs text-muted-foreground">Se descartaron {gps.descartados} lectura(s) con saltos del GPS.</p>
+            )}
 
             {linderos && (
                 <div className={cn("space-y-2 rounded-lg border p-3", linderos.activo ? "border-cyan-300 bg-cyan-50/60" : "border-border")}>
@@ -1001,7 +1084,8 @@ function PanelGps({ gps, ahora, areaParcial, seguir, setSeguir, onTerminar, lind
             <div className="rounded-md bg-muted/60 p-3 text-xs leading-relaxed text-muted-foreground">
                 <p className="mb-1 font-medium text-foreground">Recomendaciones en campo</p>
                 <ul className="list-disc space-y-0.5 pl-4">
-                    <li>Camine el lindero en un solo sentido y vuelva al punto de inicio.</li>
+                    <li>Camine el lindero en un solo sentido y vuelva al punto de inicio: el celular vibra al llegar.</li>
+                    <li>Lleve el celular en la mano, a la altura del pecho, no en el bolsillo.</li>
                     <li>Mantenga la pantalla encendida y la app abierta mientras graba.</li>
                     <li>Bajo palma adulta la señal se degrada: en esquinas espere a que la precisión mejore.</li>
                     <li>El recorrido se guarda en el teléfono; si se cierra, puede continuarlo.</li>
@@ -1040,7 +1124,7 @@ function PanelTraslapes({ traslapes, areaHa, onRestar }: {
     )
 }
 
-function PanelMetricas({ metricas, metodo, precisionM, archivoOrigen, areaDeclaradaHa, advertencias, onDescargar }: {
+function PanelMetricas({ metricas, metodo, precisionM, archivoOrigen, areaDeclaradaHa, advertencias, onDescargar, calidadGps }: {
     metricas: ReturnType<typeof computeMetrics> | null
     metodo: MetodoGeorreferenciacion | null
     precisionM: number | null
@@ -1048,6 +1132,8 @@ function PanelMetricas({ metricas, metodo, precisionM, archivoOrigen, areaDeclar
     areaDeclaradaHa: number | null
     advertencias: ReturnType<typeof validateBoundary>
     onDescargar: (t: "geojson" | "kml") => void
+    /** Calidad del recorrido GPS recién cerrado en esta sesión */
+    calidadGps?: { errorCierreM: number | null; descartados: number } | null
 }) {
     if (!metricas) {
         return (
@@ -1074,6 +1160,10 @@ function PanelMetricas({ metricas, metodo, precisionM, archivoOrigen, areaDeclar
                 <dl className="space-y-1 border-t border-border p-3 text-xs">
                     {metodo && <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Método</dt><dd className="text-right font-medium">{METODO_LABELS[metodo]}</dd></div>}
                     {precisionM != null && <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Precisión GPS promedio</dt><dd className="font-medium tabular-nums">±{precisionM.toFixed(1)} m</dd></div>}
+                    {/* Margen del área: el error de posición a lo largo del perímetro (estimación conservadora) */}
+                    {precisionM != null && <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Margen aproximado del área</dt><dd className="font-medium tabular-nums">±{formatHa((metricas.perimetroM * precisionM) / 10000)}</dd></div>}
+                    {calidadGps?.errorCierreM != null && <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Error de cierre</dt><dd className={cn("font-medium tabular-nums", calidadGps.errorCierreM > 10 && "text-amber-700")}>{formatMeters(calidadGps.errorCierreM)}</dd></div>}
+                    {calidadGps && calidadGps.descartados > 0 && <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Lecturas descartadas</dt><dd className="font-medium tabular-nums">{calidadGps.descartados}</dd></div>}
                     {archivoOrigen && <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Origen</dt><dd className="truncate text-right font-medium">{archivoOrigen}</dd></div>}
                     {areaDeclaradaHa ? <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Área registrada</dt><dd className="font-medium tabular-nums">{formatHa(areaDeclaradaHa)}</dd></div> : null}
                     <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Centroide</dt><dd className="font-mono tabular-nums">{metricas.centroide.lat.toFixed(6)}, {metricas.centroide.lng.toFixed(6)}</dd></div>
